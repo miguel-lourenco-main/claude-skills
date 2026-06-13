@@ -329,7 +329,10 @@ async function captureOne(browser, cand, category) {
     await context.close();
   }
 
-  writeNote(dir, note);
+  // Never clobber an existing good note on a transient failure — only write on
+  // success, or to create a first record when no note exists yet.
+  if (note.status === 'ok' || !fs.existsSync(path.join(dir, `${note.slug}.md`))) writeNote(dir, note);
+  else console.log(`    (kept existing note; capture failed — not overwriting)`);
   return note;
 }
 

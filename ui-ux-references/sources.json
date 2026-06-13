@@ -1,0 +1,22 @@
+{
+  "_comment": "Discovery sources per category. OnePageLove genre pages expose live-site URLs directly and are the reliable auto-source. Galleries with JS-only filters (Godly, Land-book) are best fed via `seeds` (paste a URL you liked). Add categories freely.",
+  "maxPerCategory": 16,
+  "captureViewport": { "width": 1440, "height": 900 },
+  "capture": {
+    "viewport": { "width": 1440, "height": 900 },
+    "maxFullHeight": 6000,
+    "htmlTruncateBytes": 3000000,
+    "images": { "maxCount": 60, "maxBytesEach": 5000000, "maxTotalBytes": 60000000, "minBytes": 1024, "minDim": 32 },
+    "css": { "maxBytesEach": 2000000, "maxCount": 40 },
+    "js": { "maxBytesEach": 8000000, "maxCount": 80, "captureThirdParty": true },
+    "perSiteSafetyCapBytes": 250000000,
+    "trackerDenylist": ["google-analytics", "googletagmanager", "doubleclick", "facebook.net", "hotjar", "segment"]
+  },
+  "categories": {
+    "restaurant": {
+      "label": "Restaurant / Food / Hospitality",
+      "onePageLoveGenres": ["restaurant", "cafe", "food", "bar", "bakery"],
+      "seeds": []
+    }
+  }
+}

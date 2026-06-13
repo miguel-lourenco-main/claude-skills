@@ -1,0 +1,9 @@
+# Git LFS — store heavy reference binaries (images + captured JS bundles) out of line.
+# Scoped to the ui-ux-references vault so skill code stays normal git (diffable).
+ui-ux-references/vault/**/*.jpg   filter=lfs diff=lfs merge=lfs -text
+ui-ux-references/vault/**/*.jpeg  filter=lfs diff=lfs merge=lfs -text
+ui-ux-references/vault/**/*.png   filter=lfs diff=lfs merge=lfs -text
+ui-ux-references/vault/**/*.webp  filter=lfs diff=lfs merge=lfs -text
+ui-ux-references/vault/**/*.gif   filter=lfs diff=lfs merge=lfs -text
+ui-ux-references/vault/**/*.avif  filter=lfs diff=lfs merge=lfs -text
+ui-ux-references/vault/**/assets/js/**  filter=lfs diff=lfs merge=lfs -text

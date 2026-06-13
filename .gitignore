@@ -1,0 +1,22 @@
+# claude-skills monorepo — gitignore
+
+# Externally version-managed skills (updated by their own installers; not ours to track)
+graphify/
+
+# Node
+node_modules/
+**/node_modules/
+
+# Pipeline scratch
+**/research/candidates.*.json
+
+# Obsidian per-machine / volatile state (the vault content itself IS committed)
+ui-ux-references/vault/.obsidian/workspace.json
+ui-ux-references/vault/.obsidian/workspace-mobile.json
+ui-ux-references/vault/.obsidian/cache
+ui-ux-references/vault/.obsidian/plugins/
+ui-ux-references/vault/.trash/
+
+# Misc
+*.log
+.DS_Store

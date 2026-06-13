@@ -73,10 +73,25 @@ node scripts/build-index.cjs     # regenerates vault/_index.json + Indexes/*.md 
 
 ## Sources / categories
 
-Edit `sources.json`: each category has `onePageLoveGenres` (reliable auto-source) + `seeds`
-(paste any URL — e.g. a Godly/Awwwards find — galleries with JS-only filters aren't URL-scrapable).
-Add new categories freely (then discover → extract → teardown → build-index). Capture caps
-(`capture` block) are generous (sync-everything) with a per-site safety ceiling.
+Edit `sources.json` per category:
+- `onePageLoveGenres` — `https://onepagelove.com/genre/<g>` (category-specific).
+- `awwwardsCategories` — `https://www.awwwards.com/websites/<c>/` (e.g. `food-beverage`; category-specific, design-forward). Discovery harvests the live-site URLs these galleries link to.
+- `godlyHome: true` — Godly's home (broad mix; Godly has no URL-addressable category filter, so it's opt-in).
+- `seeds[]` — paste any URL (e.g. a specific Godly/Awwwards find).
+Add categories freely (then discover → extract → teardown → build-index). Capture caps (`capture`
+block) are generous with a per-site safety ceiling.
+
+## Restricted networks (egress allowlists)
+
+`extract.cjs` is a real headless-browser scraper; the only thing that stops it is the **network**.
+Some sandboxes/CI allow outbound to only a few hosts — discovery (galleries) may work while most
+live sites are unreachable. Two ways through:
+- **Run on a normal network** (your own machine) — everything works, no flags.
+- **Route through a proxy / scraping endpoint**: `node research/extract.cjs <cat> --proxy http://host:port`
+  (or env `EXTRACT_PROXY` / `HTTPS_PROXY`, plus `EXTRACT_PROXY_USERNAME` / `EXTRACT_PROXY_PASSWORD`).
+  Same flag works on `discover.cjs`. This moves the browser's traffic to an allowed channel so it can
+  reach sites the local network blocks.
+A different scraper won't beat an egress allowlist — only a proxy or a permitted network will.
 
 ## Sync (free — no paid Obsidian Sync)
 

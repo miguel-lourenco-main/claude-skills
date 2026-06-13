@@ -339,6 +339,24 @@ async function captureOne(browser, cand, category) {
 function hostBase(url) { try { const u = new URL(url); return registrable(u.host) + '-' + (path.basename(u.pathname) || 'asset').replace(/\.[a-z0-9]+$/i, ''); } catch { return 'asset'; } }
 function originOf(url, pageUrl) { try { return registrable(new URL(url).host) === registrable(new URL(pageUrl).host) ? 'first' : 'third'; } catch { return 'third'; } }
 
+/**
+ * Optional proxy for restricted networks (egress allowlists). Set via `--proxy <url>`
+ * or EXTRACT_PROXY / HTTPS_PROXY / HTTP_PROXY (+ EXTRACT_PROXY_USERNAME/PASSWORD).
+ * Routes the headless browser's traffic through a proxy or scraping endpoint so it
+ * can reach sites the local network blocks. Returns Playwright launch options.
+ */
+function buildLaunchOptions() {
+  const a = process.argv.indexOf('--proxy');
+  const server = a > -1 ? process.argv[a + 1]
+    : (process.env.EXTRACT_PROXY || process.env.HTTPS_PROXY || process.env.HTTP_PROXY || null);
+  if (!server) return {};
+  const proxy = { server };
+  if (process.env.EXTRACT_PROXY_USERNAME) proxy.username = process.env.EXTRACT_PROXY_USERNAME;
+  if (process.env.EXTRACT_PROXY_PASSWORD) proxy.password = process.env.EXTRACT_PROXY_PASSWORD;
+  console.log(`(routing through proxy: ${server})`);
+  return { proxy };
+}
+
 const FM_ORDER = ['title', 'url', 'category', 'source', 'captured', 'quality', 'status', 'slug', 'tags', 'palette', 'heading_font', 'body_font', 'images_count', 'css_count', 'js_count'];
 
 function captureBlock(note) {
@@ -404,7 +422,7 @@ async function main() {
   }
   if (limitArg > -1) candidates = candidates.slice(0, parseInt(process.argv[limitArg + 1], 10));
 
-  const browser = await chromium.launch();
+  const browser = await chromium.launch(buildLaunchOptions());
   let ok = 0, fail = 0;
   for (let i = 0; i < candidates.length; i++) {
     process.stdout.write(`[${i + 1}/${candidates.length}] ${candidates[i].url} ... `);

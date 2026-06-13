@@ -2,9 +2,12 @@
 /**
  * discover.cjs — find candidate live-site URLs for a category.
  *
- * Primary source: OnePageLove genre pages (e.g. /genre/restaurant) which link
- * directly to live sites. Galleries with JS-only filters (Godly, Land-book) are
- * not reliably URL-scrapable, so feed those via `seeds` in sources.json.
+ * Sources (per-category, configured in sources.json):
+ *   - OnePageLove genres  -> https://onepagelove.com/genre/<g>     (category-specific)
+ *   - Awwwards categories -> https://www.awwwards.com/websites/<c>/ (e.g. food-beverage; category-specific)
+ *   - Godly home (opt-in `godlyHome:true`) -> broad mix, no URL category filter
+ *   - seeds[]             -> any URL you paste (e.g. a Godly/Awwwards find)
+ * Each gallery links straight to the showcased live sites; we collect those domains.
  *
  * Usage: node research/discover.cjs [category] [--limit N]
  * Output: research/candidates.<category>.json  -> [{ url, source, category }]
@@ -68,6 +71,35 @@ async function collectExternal(page) {
   }, host);
 }
 
+/**
+ * Load a gallery/listing page, scroll it, and add its outbound live-site domains
+ * (minus JUNK) to `found`. Works for any gallery whose listing links straight to
+ * the showcased sites (OnePageLove genres, Awwwards category pages, Godly home).
+ */
+async function harvest(page, url, label, found, category) {
+  try {
+    const resp = await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
+    if (!resp || resp.status() >= 400) {
+      console.log(`  skip ${label} [${resp ? resp.status() : 'no-resp'}]`);
+      return;
+    }
+    await autoScroll(page);
+    await page.waitForTimeout(600);
+    let added = 0;
+    for (const e of await collectExternal(page)) {
+      const host = registrable(new URL(e).host);
+      if (JUNK.test(host) || host.split('.').length < 2) continue;
+      if (!found.has(host)) {
+        found.set(host, { url: e, source: label, category });
+        added++;
+      }
+    }
+    console.log(`  ${label}: +${added} (total ${found.size})`);
+  } catch (e) {
+    console.log(`  fail ${label}: ${e.message.split('\n')[0]}`);
+  }
+}
+
 async function main() {
   const category = process.argv[2] && !process.argv[2].startsWith('--') ? process.argv[2] : 'restaurant';
   const limitArg = process.argv.indexOf('--limit');
@@ -88,35 +120,27 @@ async function main() {
     } catch {}
   }
 
-  // 2) OnePageLove genres
-  const browser = await chromium.launch();
+  // 2) Galleries (each links straight to the showcased live sites)
+  const proxyArg = process.argv.indexOf('--proxy');
+  const proxyServer = proxyArg > -1 ? process.argv[proxyArg + 1]
+    : (process.env.EXTRACT_PROXY || process.env.HTTPS_PROXY || process.env.HTTP_PROXY || null);
+  if (proxyServer) console.log(`(routing through proxy: ${proxyServer})`);
+  const browser = await chromium.launch(proxyServer ? { proxy: { server: proxyServer } } : {});
   const page = await browser.newPage({ viewport: { width: 1366, height: 1000 }, userAgent: UA });
+
+  // OnePageLove genres — /genre/<g>
   for (const genre of cfg.onePageLoveGenres || []) {
-    const url = `https://onepagelove.com/genre/${genre}`;
-    try {
-      const resp = await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
-      if (!resp || resp.status() >= 400) {
-        console.log(`  skip onepagelove/${genre} [${resp ? resp.status() : 'no-resp'}]`);
-        continue;
-      }
-      await autoScroll(page);
-      await page.waitForTimeout(600);
-      const ext = await collectExternal(page);
-      let added = 0;
-      for (const e of ext) {
-        const host = registrable(new URL(e).host);
-        if (JUNK.test(host)) continue;
-        if (host.split('.').length < 2) continue;
-        if (!found.has(host)) {
-          found.set(host, { url: e, source: `onepagelove/${genre}`, category });
-          added++;
-        }
-      }
-      console.log(`  onepagelove/${genre}: +${added} (total ${found.size})`);
-    } catch (e) {
-      console.log(`  fail onepagelove/${genre}: ${e.message.split('\n')[0]}`);
-    }
+    await harvest(page, `https://onepagelove.com/genre/${genre}`, `onepagelove/${genre}`, found, category);
   }
+  // Awwwards categories — /websites/<cat>/ (URL-addressable; e.g. food-beverage)
+  for (const cat of cfg.awwwardsCategories || []) {
+    await harvest(page, `https://www.awwwards.com/websites/${cat}/`, `awwwards/${cat}`, found, category);
+  }
+  // Godly — home only (no URL-addressable category filter; broad mix, opt-in per category)
+  if (cfg.godlyHome) {
+    await harvest(page, 'https://godly.website/', 'godly/home', found, category);
+  }
+
   await browser.close();
 
   const candidates = Array.from(found.values()).slice(0, limit);

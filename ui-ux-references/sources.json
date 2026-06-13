@@ -16,6 +16,8 @@
     "restaurant": {
       "label": "Restaurant / Food / Hospitality",
       "onePageLoveGenres": ["restaurant", "cafe", "food", "bar", "bakery"],
+      "awwwardsCategories": ["food-beverage"],
+      "godlyHome": false,
       "seeds": []
     }
   }

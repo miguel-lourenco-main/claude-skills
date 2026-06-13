@@ -1,0 +1,225 @@
+[
+  {
+    "sourceUrl": "https://pumpandrye.com/wp-content/themes/pumprye/images/facebook.svg",
+    "bytes": 800,
+    "skipped": "too-small"
+  },
+  {
+    "file": "01-instagram.svg",
+    "sourceUrl": "https://pumpandrye.com/wp-content/themes/pumprye/images/instagram.svg",
+    "contentType": "image/svg+xml",
+    "bytes": 2979,
+    "w": null,
+    "h": null,
+    "whereUsed": "img",
+    "hash": "a0d6bef6e95b52406235f7cea618d00d5a18f208",
+    "origin": "first"
+  },
+  {
+    "file": "02-logo-pumprye2.webp",
+    "sourceUrl": "https://pumpandrye.com/wp-content/themes/pumprye/images/logo-pumprye2.png",
+    "contentType": "image/webp",
+    "bytes": 14756,
+    "w": 430,
+    "h": 200,
+    "whereUsed": "img",
+    "hash": "7add98bb4e6c917972e6513030e292ced08cecc6",
+    "origin": "first"
+  },
+  {
+    "sourceUrl": "https://pumpandrye.com/wp-content/themes/pumprye/images/img-scroll.png",
+    "bytes": 550,
+    "skipped": "too-small"
+  },
+  {
+    "sourceUrl": "https://pumprye.wpengine.com/wp-content/uploads/2018/07/img-pig@2x.png",
+    "skipped": "fetch-failed"
+  },
+  {
+    "sourceUrl": "https://pumprye.wpengine.com/wp-content/uploads/2018/07/ma-signature.png",
+    "skipped": "fetch-failed"
+  },
+  {
+    "sourceUrl": "https://pumprye.wpengine.com/wp-content/uploads/2018/07/img-bread@2x.png",
+    "skipped": "fetch-failed"
+  },
+  {
+    "file": "03-img-goat-2x-150x150.webp",
+    "sourceUrl": "https://pumpandrye.com/wp-content/uploads/2018/07/img-goat@2x-150x150.png",
+    "contentType": "image/webp",
+    "bytes": 19180,
+    "w": 150,
+    "h": 150,
+    "whereUsed": "img",
+    "hash": "532eadf469ac159b827b79519815ee2eada35d01",
+    "origin": "first"
+  },
+  {
+    "file": "04-img-goat-2x.png",
+    "sourceUrl": "https://pumpandrye.com/wp-content/uploads/2018/07/img-goat@2x.png",
+    "contentType": "image/png",
+    "bytes": 41312,
+    "w": 200,
+    "h": 200,
+    "whereUsed": "img-srcset",
+    "hash": "899645bd1599d59c36f76855ab0f0945820c079f",
+    "origin": "first"
+  },
+  {
+    "sourceUrl": "https://pumprye.wpengine.com/wp-content/uploads/2018/07/img-forkspoon@2x.png",
+    "skipped": "fetch-failed"
+  },
+  {
+    "file": "05-img-onion-2x-150x150.webp",
+    "sourceUrl": "https://pumpandrye.com/wp-content/uploads/2018/07/img-onion@2x-150x150.png",
+    "contentType": "image/webp",
+    "bytes": 18008,
+    "w": 150,
+    "h": 150,
+    "whereUsed": "img",
+    "hash": "7d0d3df63cb768278d6af64f066cf7d65073d1fd",
+    "origin": "first"
+  },
+  {
+    "file": "06-img-onion-2x.png",
+    "sourceUrl": "https://pumpandrye.com/wp-content/uploads/2018/07/img-onion@2x.png",
+    "contentType": "image/png",
+    "bytes": 36398,
+    "w": 200,
+    "h": 200,
+    "whereUsed": "img-srcset",
+    "hash": "7abd34b03e00d147990a92fde535a61ae83c4f0e",
+    "origin": "first"
+  },
+  {
+    "file": "07-download-300x50.webp",
+    "sourceUrl": "https://pumpandrye.com/wp-content/uploads/2020/06/download-300x50.png",
+    "contentType": "image/webp",
+    "bytes": 2966,
+    "w": 300,
+    "h": 50,
+    "whereUsed": "img",
+    "hash": "967a20f0ae572f14a9c613c5d2ecdc83ea232128",
+    "origin": "first"
+  },
+  {
+    "file": "08-download.png",
+    "sourceUrl": "https://pumpandrye.com/wp-content/uploads/2020/06/download.png",
+    "contentType": "image/png",
+    "bytes": 1260,
+    "w": 360,
+    "h": 60,
+    "whereUsed": "img-srcset",
+    "hash": "0cab384225538f55a9a181a55649bbaca0f82813",
+    "origin": "first"
+  },
+  {
+    "file": "09-logo-footer.webp",
+    "sourceUrl": "https://pumpandrye.com/wp-content/themes/pumprye/images/logo-footer.png",
+    "contentType": "image/webp",
+    "bytes": 1140,
+    "w": 84,
+    "h": 84,
+    "whereUsed": "img",
+    "hash": "0653192cb173c512d1ee660b824cb0aecf9ca4c8",
+    "origin": "first"
+  },
+  {
+    "file": "10-bg-intro.jpg",
+    "sourceUrl": "https://pumpandrye.com/wp-content/themes/pumprye/images/bg-intro.jpg",
+    "contentType": "image/jpeg",
+    "bytes": 219168,
+    "w": 1400,
+    "h": 840,
+    "whereUsed": "background",
+    "hash": "4616b2dba7141a8298018ba947a16ddc03963eea",
+    "origin": "first"
+  },
+  {
+    "file": "11-homepage-2-2_02.jpg",
+    "sourceUrl": "https://pumpandrye.com/wp-content/themes/pumprye/images/homepage-2-2_02.jpg",
+    "contentType": "image/jpeg",
+    "bytes": 531205,
+    "w": 1400,
+    "h": 712,
+    "whereUsed": "background",
+    "hash": "eed663e753e073beb0dd4e5317fc6b62b8abffcc",
+    "origin": "first"
+  },
+  {
+    "file": "12-bg-four.jpg",
+    "sourceUrl": "https://pumpandrye.com/wp-content/themes/pumprye/images/bg-four.jpg",
+    "contentType": "image/jpeg",
+    "bytes": 77874,
+    "w": 1400,
+    "h": 953,
+    "whereUsed": "background",
+    "hash": "ecfe8b627b708e59aa7a263ef76d162788c60e32",
+    "origin": "first"
+  },
+  {
+    "file": "13-bg-five.jpg",
+    "sourceUrl": "https://pumpandrye.com/wp-content/themes/pumprye/images/bg-five.jpg",
+    "contentType": "image/jpeg",
+    "bytes": 282135,
+    "w": 1400,
+    "h": 921,
+    "whereUsed": "background",
+    "hash": "cab584eb37d00c127a8937fe6a92f48e67e3ba8e",
+    "origin": "first"
+  },
+  {
+    "file": "14-bg-body.jpg",
+    "sourceUrl": "https://pumpandrye.com/wp-content/themes/pumprye/images/bg-body.jpg",
+    "contentType": "image/jpeg",
+    "bytes": 27340,
+    "w": 1400,
+    "h": 304,
+    "whereUsed": "background",
+    "hash": "e96548dc3aa5ac27c6fade4a79254106bb17412e",
+    "origin": "first"
+  },
+  {
+    "sourceUrl": "https://pumpandrye.com/wp-content/themes/pumprye/images/img-diagLine.png",
+    "bytes": 254,
+    "skipped": "too-small"
+  },
+  {
+    "file": "15-favicon.ico",
+    "sourceUrl": "https://pumpandrye.com/wp-content/themes/pumprye/favicon.ico",
+    "contentType": "image/x-icon",
+    "bytes": 1828,
+    "w": 32,
+    "h": 32,
+    "whereUsed": "favicon",
+    "hash": "cc9568bdffe79090fff7718c944f04dd5af6133f",
+    "origin": "first"
+  },
+  {
+    "sourceUrl": "https://pumpandrye.com/favicon.ico",
+    "bytes": 0,
+    "skipped": "too-small"
+  },
+  {
+    "file": "16-logo-footer-2x-150x150.png",
+    "sourceUrl": "https://pumpandrye.com/wp-content/uploads/2019/01/logo-footer@2x-150x150.png",
+    "contentType": "image/png",
+    "bytes": 4132,
+    "w": 150,
+    "h": 150,
+    "whereUsed": "favicon",
+    "hash": "80132c82ae6ddd79adb1c4552a8b0a517adff79a",
+    "origin": "first"
+  },
+  {
+    "file": "17-logo-footer-2x.png",
+    "sourceUrl": "https://pumpandrye.com/wp-content/uploads/2019/01/logo-footer@2x.png",
+    "contentType": "image/png",
+    "bytes": 2953,
+    "w": 168,
+    "h": 168,
+    "whereUsed": "favicon",
+    "hash": "53881ccc9fa01891f09a4586ae886e97631e4d0a",
+    "origin": "first"
+  }
+]

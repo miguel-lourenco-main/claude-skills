@@ -1,0 +1,83 @@
+
+			@import url('https://fonts.googleapis.com/css?family=Merriweather');
+#sb_instagram .sbi_follow_btn a {
+    background: #c59a6a;
+}
+#sb_instagram .sbi_follow_btn a:hover {
+    background: #b0895d;
+}
+.ten.offset-by-one.columns{
+width: 100%;
+margin-lefT: 0px;
+}
+.home .bg-four{
+	background-position-y: 70%;
+}
+.home .bg-four{
+	padding-bottom: 20em;
+}
+.home .section.bg-two .six{
+	width: 60%;
+	margin-left: 20%;
+}
+blockquote p {
+    font-size: 1.1em;
+    line-height: 2em;
+}
+.section.bg-four .four.columns > p{
+	height: 100px;
+}
+.section.bg-four .four.columns > p img{	
+transform: scale(.8);
+}
+
+
+@media (max-width: 1475px){
+	.home .bg-four {
+		background-position-y: 50%;
+	}
+}
+@media (max-width: 1400px){
+	.home .bg-four {
+		background-position-y: 30%;
+	}
+}
+@media (max-width: 1300px){
+	.home .bg-four {
+		background-position-y: 10%;
+	}
+}
+@media (max-width: 1250px){
+	.home .bg-four {
+		background-position-y: 5% !important;
+    background-size: auto;
+	}
+}
+@media (max-width: 1050px){
+	    .home .bg-four {
+				background-position-y: 0% !important;
+    background-size: auto;
+}
+}
+@media (max-width: 767px){
+	.home .bg-four{
+		background-size: cover;
+		padding-bottom: 30em;
+	}
+	.section.bg-four .four.columns > p {
+    height: auto;
+}
+}
+a.insta-button{
+    border: solid #de4a26 1px;
+    background-color: #de4a26;
+    color: #fff;
+    font-weight: bold;
+    font-family: "merriweather, serif";
+    text-decoration: none;
+    text-transform: uppercase;
+    border-radius: 0px;
+    padding: 9px 16px;
+    display: inline;
+    font-size: 14px;
+}		

@@ -1,0 +1,20 @@
+/*
+Avenir
+*/
+            @font-face {
+                font-family: 'avenir-bold';
+                    src: 
+                        url('AvenirNextLTPro-Bold.woff') format('woff');
+                }
+
+            @font-face {
+                font-family: 'avenir-med';
+                    src: 
+                        url('AvenirNextLTPro-Demi.woff') format('woff');
+                }
+
+            @font-face {
+                font-family: 'avenir-reg';
+                    src: 
+                        url('AvenirNextLTPro-Regular.woff') format('woff');
+                }

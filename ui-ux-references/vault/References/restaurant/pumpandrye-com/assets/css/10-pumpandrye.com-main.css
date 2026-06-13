@@ -1,0 +1,1565 @@
+/*
+	font-family: "myriad-pro",sans-serif;
+	font-style: normal;
+	font-weight: 400;
+
+	font-family: "myriad-pro",sans-serif;
+	font-style: normal;
+	font-weight: 700;
+
+	font-family: "myriad-pro-condensed",sans-serif;
+	font-style: normal;
+	font-weight: 700;
+
+	font-family: "merriweather",serif;
+	font-style: normal;
+	font-weight: 400;
+
+	font-family: "merriweather",serif;
+	font-style: normal;
+	font-weight: 700;
+	
+	Colors: #c79c6e gold;
+			#ab865c light gold;
+			#dccbb4 tan;
+			#040707 black;
+
+*/
+
+body{
+	font-family: 'merriweather',serif;
+	font-weight: 400;
+}
+body p{
+	font-family: mr-eaves-modern, sans-serif;
+	font-weight: 400;
+	font-style: normal;
+	font-size: 22px;
+	line-height: 24px;
+}
+img{
+	max-width: 100%;
+	height: auto;
+}
+
+h2{
+	font-size: 3rem;
+	text-transform: uppercase;
+}
+
+h3{
+	font-size: 2rem;
+	text-transform: uppercase;
+	font-weight: 400;
+	letter-spacing: 0;
+}
+
+h4{
+	font-size: 2rem;
+}
+
+h5{
+	font-size: 2rem;
+}
+
+.sm{
+	font-size: 1.5rem;
+}
+
+.lead{
+    font-size: 1.3em;
+    color: #666666;
+}
+
+.muted{
+    opacity: .5;
+}
+
+blockquote{
+	border: 2px solid #ffffff;
+	padding: 6em;
+}
+
+blockquote p{
+	font-family: "merriweather",serif;
+	font-weight: 400;
+	font-size:  1.3em;
+	font-style: italic;
+}
+
+@media (max-width: 780px) {
+	blockquote {
+		padding: 2em;
+	}
+}
+
+/* ==========================================================================
+   Header
+   ========================================================================== */
+
+header{
+	background-image: url(images/bg-intro.jpg);
+	background-size:cover;
+	background-position: center;
+	height: 100vh;
+	box-sizing:border-box;
+	padding: 2em 0;
+	position: relative;
+}    
+
+.intro-info {
+	position: absolute;
+	top: 1.3em;
+	right: 1em;
+}
+
+
+.intro-info-right {
+	position: absolute;
+	top: 1em;
+	left: 1em;
+}
+.intro-info-right a.button {
+    border: solid #de4a26 1px;
+    background-color: #de4a26;
+    color: #fff;
+    font-weight: bold;
+    font-family: "merriweather, serif";
+    text-decoration: none;
+    text-transform: uppercase;
+    border-radius: 0px;
+    padding: 9px 16px;
+    display: inline;
+    font-size: 12px !important;
+    font-size: 14px;
+    /* min-width: 1000px !important; */
+}
+
+.intro-info-right a.hover {
+     border: solid #be9a71 1px; 
+     color: #fff;
+	background-color: transparent;
+}
+
+.intro-info ul {
+	list-style: none;
+}
+.intro-info ul li {
+    display: inline-block;
+    padding: 2px 8px !important;
+}
+.intro-info ul li a {
+	font-family: "myriad-pro-condensed",sans-serif;
+	font-style: normal;
+	font-weight: 700;
+	color: #ffffff;
+	text-decoration: none;
+	text-transform: uppercase;
+	font-size: .75em;
+}
+.logo {
+	position: absolute;
+	top: 47%;
+	left: 47%;
+	margin: -70px 0 0 -170px;
+}
+/* ==========================================================================
+   Mobile Menu
+   ========================================================================== */
+
+.mobile-menu ul.menu{
+    border-top: 1px solid #CCCCCC;
+    margin-bottom: 20px;
+}
+.mobile-menu ul.menu li{
+    display: block;
+    border-bottom: 1px solid #cccccc;
+}
+a.mobile-menu-btn{
+    width: 100%;
+    background-color: #000000;
+    text-align:center;
+    color: #FFFFFF;
+    padding:  .75em 0;
+	text-transform:uppercase;
+	text-decoration:none;
+	text-shadow: 1px 1px 1px #000000;
+}
+
+nav.nav-mobile{
+	margin: 40px 0;
+}
+
+nav.nav-mobile ul.menu{
+	text-align:center;
+	border-top: 2px solid #333333;
+	margin: 0;
+}
+
+nav.nav-mobile ul.menu li{
+	display: block;
+	margin: 0;
+	border-bottom: 2px solid #333333;
+}
+
+nav.nav-mobile ul.menu a{
+	padding: 1em;
+	margin: 0;
+    display: block;
+	
+}
+
+nav.nav-mobile .menu-secondary-navigation-container ul,
+nav.nav-mobile .menu-toolbar-container ul{
+	border-top: none;
+}
+
+nav.nav-mobile ul.sub-menu{
+	display: none;
+}
+ 
+nav.nav-mobile .menu-toolbar-container{
+	width: 100%;
+	float: none;
+	display: block;
+}
+
+
+
+/* ==========================================================================
+   Main Menu
+   ========================================================================== */
+   
+   
+/* Giving a background-color to the nav.main-menu container. */
+nav.main-menu { 
+	/*background-color: #E64A19;*/
+	z-index:9999999999;
+}
+
+/* Since we'll have the "ul li" "float:left"
+ * we need to add a clear after the container. */
+
+nav.main-menu:after {
+	content:"";
+	display:table;
+	clear:both;
+}
+
+/* Removing padding, margin and "list-style" from the "ul",
+ * and adding "position:reltive" */
+nav.main-menu ul {
+	padding:0;
+	margin:0;
+	list-style: none;
+	position: relative;
+	text-align:center;
+	}
+	
+/* Positioning the nav.main-menuigation items inline */
+nav.main-menu ul li {
+	margin: 0px;
+	display:inline-block;
+	}
+
+/* Styling the links */
+nav.main-menu a {
+	display:block;
+	padding:1em;	
+	text-decoration:none;
+	color: #FFFFFF;
+	text-transform:uppercase;
+	text-shadow: 1px 1px 1px #000000;
+}
+
+/* Background color change on Hover */
+nav.main-menu a:hover { 
+}
+
+/* Hide Dropdowns by Default
+ * and giving it a position of absolute */
+nav.main-menu ul ul {
+	display: none;
+	position: absolute; 
+	/* has to be the same number as the "line-height" of "nav.main-menu a" */
+	top: 60px; 
+	z-index: 9999999;
+	text-align:left;
+}
+
+nav.main-menu ul ul ul{
+	top: 60px;
+}
+
+nav.main-menu ul ul a{
+	padding: 1em;
+	background-color:#333333;
+	background-color: rgba(0,0,0,.75);
+	text-shadow:none;
+}
+nav.main-menu ul ul a:hover{
+	padding: 1em;
+	background-color:#333333;
+	background-color: rgba(0,0,0, 1);
+}
+		
+/* Display Dropdowns on Hover */
+nav.main-menu ul li:hover > ul {
+	display:block;
+}
+	
+/* Fisrt Tier Dropdown */
+nav.main-menu ul ul li {
+	width:170px;
+	float:none;
+	display:list-item;
+	position: relative;
+}
+
+/* Second, Third and more Tiers	
+ * We move the 2nd and 3rd etc tier dropdowns to the left
+ * by the amount of the width of the first tier.
+*/
+
+nav.main-menu ul ul ul li {
+	position: relative;
+	top:-60px;
+	/* has to be the same number as the "width" of "nav.main-menu ul ul li" */ 
+	left:170px; 
+}
+
+	
+/* Change ' +' in order to change the Dropdown symbol */
+nav.main-menu li > a:after { content:  ' +'; }
+nav.main-menu li > a:only-child:after { content: ''; }
+
+
+
+/* ==========================================================================
+   Wordpress styles
+   ========================================================================== */
+.alignleft { 
+	float: left; 
+	margin-right: 30px; 
+	}
+.alignright { 
+	float: right; 
+	margin-left: 30px; 
+	}
+.aligncenter { 
+	text-align: center; 
+	display: block; 
+	margin-left: auto; 
+	margin-right: auto; 
+	}
+.wp-caption { 
+	text-align: center; 
+	margin-bottom: 40px; 
+	max-width: 100%; 
+	background-color:#ffffff; 
+	padding: 20px; 
+	cursor: pointer; 
+	-webkit-border-radius: 5px; 
+	-moz-border-radius: 5px; 
+	border-radius: 5px; 
+	/*margin-top: 40px; */
+	}
+.wp-caption-text { 
+	font-style: italic; 
+	font-size: 11px; 
+	line-height: 120%; 
+	margin: 15px 0 0; 
+	color: #999999; 
+	}
+	
+/* ==========================================================================
+   Comments
+   ========================================================================== */
+p.comments-logged-in-as{
+	text-align:center;
+}
+ol.commentlist{
+	margin: 0px;
+	border-bottom: 1px dashed #cccccc;
+    padding: 0px;
+}
+.commentlist li {
+    position: relative;
+    clear: both;
+    overflow: hidden;
+    list-style-type: none;
+    padding: 20px 0 ;
+}
+.commentlist li ul.children {
+    margin: 20px 0 0 40px;
+}
+.commentlist li[class*=depth-] {
+    margin-top: 1.1em;
+}
+.commentlist li.depth-1 {
+    margin-left: 0;
+    margin-top: 0;
+}
+.commentlist li:not(.depth-1) {
+    margin-right: 0px;
+    margin-left: 0px;
+    margin-top: 10px;
+    padding-bottom: 0;
+	margin-bottom: 10px;
+	background-color: #ffffff;
+}
+.commentlist .odd {
+	border-top: 1px dashed #cccccc;
+}
+.commentlist .even {
+	border-top: 1px dashed #cccccc;
+}
+.commentlist .vcard {
+    margin-left: 100px;
+}
+.commentlist .vcard cite.fn {
+   
+}
+.commentlist .vcard time {
+    float: right;
+}
+.commentlist .vcard time a {
+    text-decoration: none;
+    margin-right: 10px;
+}
+.commentlist .vcard time a:hover {
+    text-decoration: underline;
+}
+.commentlist .vcard img.avatar {
+    position: absolute;
+    left: 10px;
+    background: #fff;
+}
+.commentlist .comment_content {
+    margin-left: 100px;
+}
+.commentlist .comment_content p {
+    margin: 0.7335em 0 1.5em;
+    font-size: 1em;
+    line-height: 1.5em;
+}
+.commentlist .comment-reply-link {
+    text-decoration: none;
+    float: right;
+    background: #cd7f9e;
+    padding: 3px 5px;
+    color: #fff;
+    margin-bottom: 10px;
+    font-size: 0.9em;
+}
+.commentlist .comment-reply-link:hover,.commentlist .comment-reply-link:focus {
+    opacity: 1;
+}
+.respond-form {
+    padding-bottom: 2.2em;
+}
+.respond-form form {
+    margin: 0.75em 0;
+}
+.respond-form form li {
+    list-style-type: none;
+    clear: both;
+    margin-bottom: 0.7335em;
+}
+.respond-form form li label,.respond-form form li small {
+    display: none;
+}
+.respond-form form input[type=text],.respond-form form input[type=email],.respond-form form input[type=url],.respond-form form textarea {
+    padding: 3px 6px;
+    background: #ffffff;
+    border: 1px solid #cecece;
+    line-height: 1.5em;
+}
+.respond-form form input[type=text]:focus,.respond-form form input[type=email]:focus,.respond-form form input[type=url]:focus,.respond-form form textarea:focus {
+    background: #fff;
+}
+.respond-form form input[type=text]:invalid,.respond-form form input[type=email]:invalid,.respond-form form input[type=url]:invalid,.respond-form form textarea:invalid {
+    outline: none;
+    border-color: #fbc2c4;
+    background-color: #f6e7eb;
+    -webkit-box-shadow: none;
+    -moz-box-shadow: none;
+    -ms-box-shadow: none;
+    box-shadow: none;
+}
+.respond-form form input[type=text],.respond-form form input[type=email],.respond-form form input[type=url] {
+    width: 96%;
+}
+.respond-form form textarea {
+    resize: none;
+    width: 97.3%;
+    height: 150px;
+}
+#allowed_tags {
+    margin: 10px;
+}
+.nocomments {
+    margin: 0 20px 1.1em;
+}
+h3#comments{
+	border-top: 10px solid #eee;
+	padding-top: 20px;
+	margin-top: 50px;
+}
+ol.commentlist img.photo{
+	width: 75px;
+	height: 75px;
+	float: inherit;
+	margin: 0px;
+}
+h2#comments,
+h3#comment-form-title{
+	text-align:center;
+	margin-top: 50px;
+}
+.respond-form form textarea{
+	border: 1px solid #cccccc;
+	width: 96%;
+	padding: 2%;
+}
+ol.commentlist .alert{
+	margin: 0.7335em 0 10px 100px;
+}
+ol.commentlist .alert p{
+	margin: 0;
+}
+ul#comment-form-elements{
+	margin: 0;
+	padding: 0;
+}
+
+/* ==========================================================================
+   Pagination
+   ========================================================================== */
+
+.navigation{
+    margin-bottom: 3em;
+}
+
+.navigation ul{
+    text-align:center;
+    width: 100%;
+}
+
+.navigation li a,
+.navigation li a:hover,
+.navigation li.active a,
+.navigation li.disabled {
+	color: #555555;
+	text-decoration:none;
+}
+
+.navigation li {
+	display: inline;
+}
+
+.navigation li a,
+.navigation li a:hover,
+.navigation li.active a,
+.navigation li.disabled {
+	background-color: #ffffff;
+    cursor: pointer;
+    width: 33px;
+    padding: 0.75rem 0;
+    display: inline-block;
+}
+
+.navigation li a:hover,
+.navigation li.active a {
+	color: #FFFFFF;
+    background-color: #000000;
+}
+
+/* ==========================================================================
+   Sitemap
+   ========================================================================== */
+
+ul.sitemap{
+    list-style-type:none;
+    padding: 0;
+    margin: 0;
+}
+ul.sitemap ul{
+    margin: 0;
+    padding: 0;
+}
+ul.sitemap li{
+    border-bottom: 1px solid #eeeeee;
+    display: block;
+}
+ul.sitemap ul.children a{
+    padding-left: 30px;
+}
+ul.sitemap ul.children li{
+    border-top: 1px solid #EEEEEE;
+    border-bottom: none;
+}
+ul.sitemap a{
+    text-decoration:none;
+    display: block;
+    padding: 6px;
+}
+
+
+/* ==========================================================================
+   Contact Form & Search
+   ========================================================================== */
+
+div.wpcf7{
+    width: 100%;
+    float: left;
+}
+
+.wpcf7 p{
+    margin-bottom: 0px;
+    width: 100%;
+    float: left;
+}
+
+input, textarea{
+    width: 100%;
+    box-sizing:border-box;
+    border: 1px solid #CCCCCC;
+    padding: 0 6px;
+}
+
+input{
+    height: 50px;
+}
+
+.wpcf7 p input[type="submit"],
+input[type="submit"]{
+    width:auto;
+    background-color: #33C3F0;
+    border: none;
+    padding: 4px 20px;
+    height:auto;   
+	color: #FFFFFF;
+}
+
+input[type="submit"]:hover{
+    
+}
+
+input[type="checkbox"], input[type="radio"]{
+    height: auto;
+    width: auto;
+    margin-bottom: 0px;
+}
+
+span.wpcf7-list-item{
+    box-sizing:border-box;
+    float: left;
+    margin-right: 20px;
+    margin-left: 0;
+}
+
+textarea{
+    padding: 6px 6px 0;
+    height: 200px;
+    margin-top: 10px;
+}
+
+body.search .widget form.search-form,
+body.page-id-129 .widget form.search-form{
+	display: none;
+}
+
+/* ==========================================================================
+   Sections
+   ========================================================================== */
+
+.section{
+	padding: 6em 0;
+}
+
+.s-group{
+	padding: 0;
+}
+
+.s-group.top{
+	padding: 6em 0 0;
+}
+
+.s-group.bottom{
+	padding: 0 0 6em;
+}
+
+/* ==========================================================================
+   Background Styles
+   ========================================================================== */
+
+.bg-one {
+	background-color: #ab865c;
+	background-image: url(images/bg-body.jpg);
+	background-position: center top;
+	background-repeat: repeat-y;
+	background-size: cover;
+	color: #040707;
+}
+
+
+.bg-two{
+	background-color: #ab865c ;
+	background-image:url(images/home-intro-bg_02.jpg);
+	background-image: url(images/homepage-2-2_02.jpg);
+	color: #040707;
+	background-repeat: none;
+	background-position: top center;
+	background-size: cover;
+}
+
+	.bg-two h2{
+		color: #040707;
+	}
+	
+	.bg-two p{
+		color: #040707;
+	}
+	
+	.bg-two p.lead,
+	.bg-two span.lead{
+		color: #999999;
+	}
+ 
+.bg-three{
+	background-color: #040707;
+	background-image:url(images/bg-four.jpg);
+	background-repeat: none;
+	background-position: center;
+	background-size: cover;
+	color: #FFFFFF;
+}
+
+	.bg-three h3,
+	.bg-three h4,
+	.bg-three h5,
+	.bg-three h6,
+	.bg-three li,
+	.bg-three hr,
+	.bg-three span.btn a,
+	.bg-three p.lead,
+	.bg-three span.lead{
+	}
+
+.bg-four {
+	background-color: #040707;
+	background-image:url(images/bg-five.jpg);
+	color: #040707;
+	background-repeat: none;
+	background-position: bottom center;
+	background-size: cover;
+	padding-bottom: 12em;
+}
+
+/* ==========================================================================
+   Footer
+   ========================================================================== */
+
+footer {
+    background-color: #040707;
+	color: #ffffff;
+	text-align: center;
+}
+
+footer h3 {
+	color: #dccbb4;
+	font-family: "myriad-pro",sans-serif;
+	font-style: normal;
+	font-weight: 300;
+	letter-spacing: .1em;
+	font-size: 1.75rem;
+	text-transform: uppercase;
+	margin-top: 1em;
+}
+
+.line {
+	background-image: url(images/img-diagLine.png);
+	background-repeat: repeat-x;
+	height: 12px;
+	width: 100%;
+} 
+
+ul.social{
+	list-style-type:none;
+	margin: 0 auto;
+	padding: 0;
+	text-align:center;
+}
+
+ul.social li{
+	display:inline-block;
+	margin: 0 6px 20px;
+}
+
+.site-info{
+	box-sizing:border-box;
+	padding: 2em 0;
+}
+.site-info p{
+	text-align:center;
+	margin: 0;
+	font-size: .75em;
+	color: #ffffff;
+	font-size: 17px;
+}
+.site-info a{
+	color: #FFFFFF;
+	text-decoration:none;
+}
+
+/* ==========================================================================
+   Homepage
+   ========================================================================== */
+
+html{
+    height: 100%;
+    position: relative;
+}
+
+body.home{
+    margin: 0;
+    height: 100%;
+    position: relative;    
+}
+
+
+
+a.scroll-arrow{
+	display: block;
+    width: 43px;
+    height: 43px;
+    position: absolute;
+    bottom: 50px;
+    left: 50%;
+    margin-left: -21px;
+    z-index: 9999;
+}
+
+
+
+/* ==========================================================================
+   Buttons
+   ========================================================================== */
+
+.button-primary{
+    font-size: 18px;
+    text-transform:uppercase;
+    padding: 5px 18px;
+    height: auto;
+	font-family: 'Open Sans', sans-serif;
+	font-weight: 700;
+}
+
+
+/* ==========================================================================
+   Slider
+   ========================================================================== */
+
+/* Slider */
+.slick-slider
+{
+    position: relative;
+
+    display: block;
+
+    -moz-box-sizing: border-box;
+         box-sizing: border-box;
+
+    -webkit-user-select: none;
+       -moz-user-select: none;
+        -ms-user-select: none;
+            user-select: none;
+
+    -webkit-touch-callout: none;
+    -khtml-user-select: none;
+    -ms-touch-action: pan-y;
+        touch-action: pan-y;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.slick-list
+{
+    position: relative;
+
+    display: block;
+    overflow: hidden;
+
+    margin: 0;
+    padding: 0;
+}
+.slick-list:focus
+{
+    outline: none;
+}
+.slick-list.dragging
+{
+    cursor: pointer;
+    cursor: hand;
+}
+
+.slick-slider .slick-track,
+.slick-slider .slick-list
+{
+    -webkit-transform: translate3d(0, 0, 0);
+       -moz-transform: translate3d(0, 0, 0);
+        -ms-transform: translate3d(0, 0, 0);
+         -o-transform: translate3d(0, 0, 0);
+            transform: translate3d(0, 0, 0);
+}
+
+.slick-track
+{
+    position: relative;
+    top: 0;
+    left: 0;
+
+    display: block;
+}
+.slick-track:before,
+.slick-track:after
+{
+    display: table;
+
+    content: '';
+}
+.slick-track:after
+{
+    clear: both;
+}
+.slick-loading .slick-track
+{
+    visibility: hidden;
+}
+
+.slick-slide
+{
+    display: none;
+    float: left;
+
+    height: 100%;
+    min-height: 1px;
+}
+[dir='rtl'] .slick-slide
+{
+    float: right;
+}
+.slick-slide img
+{
+    display: block;
+	width: 100%;
+}
+.slick-slide.slick-loading img
+{
+    display: none;
+}
+.slick-slide.dragging img
+{
+    pointer-events: none;
+}
+.slick-initialized .slick-slide
+{
+    display: block;
+}
+.slick-loading .slick-slide
+{
+    visibility: hidden;
+}
+.slick-vertical .slick-slide
+{
+    display: block;
+
+    height: auto;
+
+    border: 1px solid transparent;
+}
+.slick-arrow.slick-hidden {
+    display: none;
+}
+
+/* Slider */
+.slick-loading .slick-list
+{
+    background: #fff url('./ajax-loader.gif') center center no-repeat;
+}
+
+/* Icons */
+@font-face
+{
+    font-family: 'slick';
+    font-weight: normal;
+    font-style: normal;
+    src: url('./fonts/slick.eot');
+    src: url('./fonts/slick.eot?#iefix') format('embedded-opentype'), url('./fonts/slick.woff') format('woff'), url('./fonts/slick.ttf') format('truetype'), url('./fonts/slick.svg#slick') format('svg');
+}
+/* Arrows */
+.slick-prev,
+.slick-next
+{
+    font-size: 0;
+    line-height: 0;
+
+    position: absolute;
+    top: 50%;
+
+    display: block;
+
+    width: 20px;
+    height: 20px;
+    margin-top: -10px;
+    padding: 0;
+
+    cursor: pointer;
+
+    color: transparent;
+    border: none;
+    outline: none;
+    background: transparent;
+	
+	z-index: 999999;
+}
+.slick-prev:hover,
+.slick-prev:focus,
+.slick-next:hover,
+.slick-next:focus
+{
+    color: transparent;
+    outline: none;
+    background: transparent;
+}
+.slick-prev:hover:before,
+.slick-prev:focus:before,
+.slick-next:hover:before,
+.slick-next:focus:before
+{
+    opacity: 1;
+}
+.slick-prev.slick-disabled:before,
+.slick-next.slick-disabled:before
+{
+    opacity: .25;
+}
+
+.slick-prev:before,
+.slick-next:before
+{
+    font-family: 'slick';
+    font-size: 40px;
+    line-height: 1;
+
+    opacity: .75;
+    color: white;
+
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+.slick-prev
+{
+    left: 20px;
+}
+[dir='rtl'] .slick-prev
+{
+    right: 20px;
+    left: auto;
+}
+.slick-prev:before
+{
+    content: '←';
+}
+[dir='rtl'] .slick-prev:before
+{
+    content: '→';
+}
+
+.slick-next
+{
+    right: 40px;
+}
+[dir='rtl'] .slick-next
+{
+    right: auto;
+    left: 40px;
+}
+.slick-next:before
+{
+    content: '→';
+}
+[dir='rtl'] .slick-next:before
+{
+    content: '←';
+}
+
+/* Dots */
+.slick-slider
+{
+    /*margin-bottom: 30px;*/
+}
+
+.slick-dots
+{
+    position: absolute;
+    bottom: 0;
+
+    display: block;
+
+    width: 100%;
+    padding: 0;
+
+    list-style: none;
+
+    text-align: center;
+	z-index: 99999999;
+}
+.slick-dots li
+{
+    position: relative;
+
+    display: inline-block;
+
+    width: 20px;
+    height: 20px;
+    margin: 0 5px;
+    padding: 0;
+
+    cursor: pointer;
+}
+.slick-dots li button
+{
+    font-size: 0;
+    line-height: 0;
+
+    display: block;
+
+    width: 20px;
+    height: 20px;
+    padding: 5px;
+
+    cursor: pointer;
+
+    color: transparent;
+    border: 0;
+    outline: none;
+    background: transparent;
+}
+.slick-dots li button:hover,
+.slick-dots li button:focus
+{
+    outline: none;
+}
+.slick-dots li button:hover:before,
+.slick-dots li button:focus:before
+{
+    opacity: 1;
+}
+.slick-dots li button:before
+{
+    font-family: 'slick';
+    font-size: 12px;
+    line-height: 20px;
+
+    position: absolute;
+    top: 0;
+    left: 0;
+
+    width: 20px;
+    height: 20px;
+
+    content: '•';
+    text-align: center;
+
+    opacity: .25;
+    color: #ffffff;
+
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+.slick-dots li.slick-active button:before
+{
+    opacity: .75;
+    color: #ffffff;
+}
+
+/* ==========================================================================
+   Custom Slider
+   ========================================================================== */
+   
+.8vo-slider{
+	background-color: #FFFFFF;
+}
+
+.slide{
+	position:relative;
+	background-color: #FFFFFF;
+}
+
+.slide-content{
+	width: 100%;
+	background-color: #000000;
+	background-color: rgba(0,0,0,.75);
+	box-sizing: border-box;
+	padding: 2em 0 3em;
+}
+
+.slide-content h2{
+	text-align:center;
+	color: #FFFFFF;
+	margin-bottom: 10px;
+}
+
+.slide-content p{
+	color: #FFFFFF;
+	text-align:center;
+	margin-bottom: 10px;
+}
+
+@media (min-width: 992px) {
+	.slide-content{
+		position: absolute;
+		bottom: 0;
+	}
+}
+
+/* ==========================================================================
+   Gallery
+   ========================================================================== */
+
+.gallery{
+	margin-bottom: 30px;
+}
+
+dl.gallery-item{
+	width: 30%;
+	float: left;
+	margin:0.5% 1%;
+}
+
+div.gallery-columns-3 dl.gallery-item{
+	width: 30%;
+}
+
+div.gallery-columns-4 dl.gallery-item{
+	width: 23%;
+}
+
+/* ==========================================================================
+    Calendar
+   ========================================================================== */
+
+#tribe-events .tribe-events-content p, .tribe-events-after-html p, .tribe-events-before-html p{
+	margin-bottom: 20px;
+}
+
+ol.vcalendar{
+	list-style-type:none;
+}
+
+ol.vcalendar li{
+	margin-bottom: 20px;
+}
+
+ol.vcalendar h4{
+	margin-bottom: 0px;
+}
+
+/* ==========================================================================
+   Woo
+   ========================================================================== */
+
+body.woocommerce{
+	width: 100%;
+	margin: 0;
+}
+
+.widget_shopping_cart{
+	/*margin-right: 30px;*/
+	margin-bottom: 30px;
+}
+
+.woocommerce #respond input#submit, .woocommerce a.button, .woocommerce button.button, .woocommerce input.button{
+	font-size: 13px;
+}
+
+.widget_shopping_cart .product_list_widget li a.remove {
+    position: absolute;
+    top: 1em;
+    left: 0;
+    opacity: 1;
+}
+
+.widget_shopping_cart span.quantity{
+	font-size: 13px;
+}
+
+td.product-remove,
+th.product-remove,
+td.product-price,
+th.product-price{
+	display: none;
+}
+
+.woocommerce ul.products li.product .button,
+.woocommerce .woocommerce-ordering, .woocommerce .woocommerce-result-count{
+	display: none;
+}
+
+.woocommerce ul.products li.product h3,
+.woocommerce ul.products li.product .price{
+	text-align:center;
+}
+
+.woocommerce ul.products li.product h3{
+	font-size: 1.8rem;
+}
+
+.woocommerce ul.products li.product .price,
+.woocommerce div.product p.price, .woocommerce div.product span.price{
+	color: #333333;
+}
+
+h1.page-title{
+	text-align:center;
+}
+
+.woocommerce #respond input#submit.alt, .woocommerce a.button.alt, .woocommerce button.button.alt, .woocommerce input.button.alt{
+	background-color: #000000;
+}
+
+.woocommerce #respond input#submit.alt:hover, .woocommerce a.button.alt:hover, .woocommerce button.button.alt:hover, .woocommerce input.button.alt:hover{
+	background-color: #666666;
+}
+
+.woocommerce div.product form.cart .button{
+	height: 37px;
+}
+
+.woocommerce-cart .cart-collaterals .cart_totals table{
+	width: 100%;
+}
+
+header.title,
+div.woocommerce header{
+	background: none;
+	padding: inherit;
+}
+
+.vo-cart,
+.menu-toolbar-container{
+	display:inline-block;
+	float: right;
+}
+
+.vo-cart{
+	font-size: 1.2rem;
+	color: #666666;
+	text-transform:uppercase;
+	padding: .5em;
+	
+}
+
+.toolbar .vo-cart a{
+	color: #1EAEDB;
+}
+
+.toolbar .vo-cart a:hover{
+	color: #ffffff;
+}
+
+.woocommerce a.remove{
+	color: #666666 !important;
+}
+
+.woocommerce a.remove:hover{
+	background: #666666 !important;
+}
+
+.woocommerce #content div.product div.thumbnails a, .woocommerce div.product div.thumbnails a, .woocommerce-page #content div.product div.thumbnails a, .woocommerce-page div.product div.thumbnails a{
+	float: left !important;
+	width: 20%;
+	margin: 0;
+	clear: none;
+	box-sizing:border-box;
+	padding: 1rem;
+}
+
+@media (min-width: 500px) {
+
+td.product-remove,
+th.product-remove,
+td.product-price,
+th.product-price{
+	display:table-cell;
+}
+
+
+
+}
+
+
+@media (min-width: 780px){
+
+.woocommerce .columns.u-pull-left{
+	margin-left: 0;
+}
+
+.woocommerce ul.products li.product, .woocommerce-page ul.products li.product {
+	margin: 0;
+    width: 33%;
+    box-sizing: border-box;
+    padding: 2rem 4rem;
+}
+
+}
+
+/* ==========================================================================
+   Blog
+   ========================================================================== */
+
+article{
+	border-bottom: 1px solid #CCCCCC;
+	padding-bottom: 1em;
+	margin-bottom: 2em;
+}
+
+/* ==========================================================================
+   Toolbar
+   ========================================================================== */
+
+.toolbar{
+	background-color: #000000;
+	box-sizing:border-box;
+	border-bottom: 1px solid #333333;
+}
+
+.toolbar ul{
+	margin: 0;
+	padding: 0;
+	text-align:right;
+}
+
+.toolbar li{
+	display:inline-block;
+	margin: 0;
+}
+
+.toolbar a{
+	font-size: 1.2rem;
+    color: #FFFFFF;
+    padding: .5em;
+	text-transform:uppercase; 
+}
+
+/* ==========================================================================
+   Cart Tab
+   ========================================================================== */
+#main{
+	position:relative;
+}
+
+.cart-tab{
+	position: absolute;
+	background-color: #000000;
+	display:inline-block;
+	top: 20px;
+	right: 20px;
+	
+}
+
+/* ==========================================================================
+   Sample Pages (DELETE)
+   ========================================================================== */
+
+body.page-id-429 header,
+body.page-id-425 header,
+body.page-id-427 header{
+	display: none;
+}
+
+body.page-id-429 header.sample,
+body.page-id-425 header.sample,
+body.page-id-427 header.sample{
+	display: block;
+}
+
+a.zoomLink{
+	display: block;
+}
+
+
+
+/* Media Queries
+–––––––––––––––––––––––––––––––––––––––––––––––––– */
+/*
+Note: The best way to structure the use of media queries is to create the queries
+near the relevant code. For example, if you wanted to change the styles for buttons
+on small devices, paste the mobile query code up in the buttons section and style it
+there.
+*/
+
+
+@media (max-width: 1000px) {
+.intro-info {
+	width: 100%;
+    text-align: center;
+    position: relative;
+    float: left;
+	right: 0em;
+}
+
+
+.intro-info-right {
+	width: 100%;
+    background-color: #000;
+    text-align: center;
+    float: right;
+    position: relative;
+	left: 0em;
+	top: 0px;
+}
+.intro-info-right ul {
+	margin: 2rem 0;
+}
+	
+header {
+    padding: 0em 0;
+}
+	
+}
+
+/* Larger than mobile */
+@media (min-width: 300px) {
+	.hidden-desktop{
+		display:block;
+	}
+	.hidden-mobile{
+		display: none;
+	}
+}
+
+/* Larger than phablet (also point when grid becomes active) */
+@media (min-width: 550px) {
+	
+}
+
+/* Larger than tablet */
+@media (min-width: 780px) {
+	.hidden-desktop{
+		display:none;
+	}
+	.hidden-mobile{
+		display:block;
+	}
+}
+
+/* Larger than desktop */
+@media (min-width: 1000px) {
+
+}
+
+/* Larger than Desktop HD */
+@media (min-width: 1200px) {}

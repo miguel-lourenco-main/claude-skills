@@ -1,0 +1,80 @@
+{
+  "url": "https://puzzle-inn.fr",
+  "finalUrl": "https://www.puzzle-inn.fr/",
+  "title": "Puzzle Inn, le bar le plus retro gaming de Lyon !",
+  "captured": "2026-06-13",
+  "status": "ok",
+  "counts": {
+    "images": 38,
+    "css": 6,
+    "js": 17
+  },
+  "bytes": {
+    "images": 5192785
+  },
+  "redirectChain": [
+    {
+      "url": "https://puzzle-inn.fr/",
+      "status": 301
+    },
+    {
+      "url": "https://www.puzzle-inn.fr/",
+      "status": 200
+    }
+  ],
+  "caps": {
+    "viewport": {
+      "width": 1440,
+      "height": 900
+    },
+    "maxFullHeight": 6000,
+    "htmlTruncateBytes": 3000000,
+    "images": {
+      "maxCount": 60,
+      "maxBytesEach": 5000000,
+      "maxTotalBytes": 60000000,
+      "minBytes": 1024,
+      "minDim": 32
+    },
+    "css": {
+      "maxBytesEach": 2000000,
+      "maxCount": 40
+    },
+    "js": {
+      "maxBytesEach": 8000000,
+      "maxCount": 80,
+      "captureThirdParty": true
+    },
+    "perSiteSafetyCapBytes": 250000000,
+    "trackerDenylist": [
+      "google-analytics",
+      "googletagmanager",
+      "doubleclick",
+      "facebook.net",
+      "hotjar",
+      "segment"
+    ]
+  },
+  "skippedImages": [
+    {
+      "sourceUrl": "data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%201%201'%3E%3C/svg%3E",
+      "bytes": 64,
+      "skipped": "too-small"
+    },
+    {
+      "sourceUrl": "data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%200%200'%3E%3C/svg%3E",
+      "bytes": 64,
+      "skipped": "too-small"
+    },
+    {
+      "sourceUrl": "https://www.puzzle-inn.fr/wp-content/themes/puzzle/assets/img/consoles/logo-playstation2.svg",
+      "bytes": 789,
+      "skipped": "too-small"
+    },
+    {
+      "sourceUrl": "https://www.puzzle-inn.fr/wp-content/themes/puzzle/assets/img/consoles/logo-wii.svg",
+      "bytes": 712,
+      "skipped": "too-small"
+    }
+  ]
+}

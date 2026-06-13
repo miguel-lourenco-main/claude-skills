@@ -1,0 +1,258 @@
+[
+  {
+    "file": "01-thedevonshire.png",
+    "sourceUrl": "https://www.devonshiresoho.co.uk/src/img/thedevonshire.png",
+    "contentType": "image/png",
+    "bytes": 116892,
+    "w": 4197,
+    "h": 762,
+    "whereUsed": "img",
+    "hash": "41a02f26ea1c99db8db90db0b56841d2da95c141",
+    "origin": "first"
+  },
+  {
+    "file": "02-devonshire-pub-bar-soho.jpg",
+    "sourceUrl": "https://www.devonshiresoho.co.uk/src/img/devonshire-pub-bar-soho.jpg",
+    "contentType": "image/jpeg",
+    "bytes": 341635,
+    "w": 900,
+    "h": 938,
+    "whereUsed": "img",
+    "hash": "cfa7941f761d6b1e0894ba492358086317125c7a",
+    "origin": "first"
+  },
+  {
+    "file": "03-devonshire-pub-restaurant-soho.jpg",
+    "sourceUrl": "https://www.devonshiresoho.co.uk/src/img/devonshire-pub-restaurant-soho.jpg",
+    "contentType": "image/jpeg",
+    "bytes": 284604,
+    "w": 900,
+    "h": 938,
+    "whereUsed": "img",
+    "hash": "a08c935c18bf75b22a42f3bf4f80ab6be08590e2",
+    "origin": "first"
+  },
+  {
+    "file": "04-the-devonshire-guinness.jpg",
+    "sourceUrl": "https://www.devonshiresoho.co.uk/src/img/the-devonshire-guinness.jpg",
+    "contentType": "image/jpeg",
+    "bytes": 215207,
+    "w": 900,
+    "h": 1600,
+    "whereUsed": "img",
+    "hash": "e92f9423aa3e193ad09eede0da94ca6f6c457451",
+    "origin": "first"
+  },
+  {
+    "file": "05-the-devonshire-pub-dining-room.jpg",
+    "sourceUrl": "https://www.devonshiresoho.co.uk/src/img/the-devonshire-pub-dining-room.jpg",
+    "contentType": "image/jpeg",
+    "bytes": 313331,
+    "w": 1200,
+    "h": 800,
+    "whereUsed": "img",
+    "hash": "112cd58743c11084d92eca2248d03d3f5405e12f",
+    "origin": "first"
+  },
+  {
+    "file": "06-the-devonshire-pub-blue-room.jpg",
+    "sourceUrl": "https://www.devonshiresoho.co.uk/src/img/the-devonshire-pub-blue-room.jpg",
+    "contentType": "image/jpeg",
+    "bytes": 357180,
+    "w": 1200,
+    "h": 800,
+    "whereUsed": "img",
+    "hash": "a71410b2ff8ca3dafae8fe1dc3558521aeda20a9",
+    "origin": "first"
+  },
+  {
+    "file": "07-the-devonshire-pub-grill-room.jpg",
+    "sourceUrl": "https://www.devonshiresoho.co.uk/src/img/the-devonshire-pub-grill-room.jpg",
+    "contentType": "image/jpeg",
+    "bytes": 266674,
+    "w": 1200,
+    "h": 800,
+    "whereUsed": "img",
+    "hash": "59d0af1a5b6c8682a70e481359699b5b0353af8f",
+    "origin": "first"
+  },
+  {
+    "file": "08-the-devonshire-pub-red-room.jpg",
+    "sourceUrl": "https://www.devonshiresoho.co.uk/src/img/the-devonshire-pub-red-room.jpg",
+    "contentType": "image/jpeg",
+    "bytes": 125356,
+    "w": 1600,
+    "h": 653,
+    "whereUsed": "img",
+    "hash": "655eae6e48db6d3e7219309b9b1ccf23901bbee6",
+    "origin": "first"
+  },
+  {
+    "file": "09-the-devonshire-pub-red-room-mob.jpg",
+    "sourceUrl": "https://www.devonshiresoho.co.uk/src/img/the-devonshire-pub-red-room-mob.jpg",
+    "contentType": "image/jpeg",
+    "bytes": 103023,
+    "w": 653,
+    "h": 653,
+    "whereUsed": "img",
+    "hash": "7ee60cc42ab30467dd90ddae27f242b58697734a",
+    "origin": "first"
+  },
+  {
+    "file": "10-stag.png",
+    "sourceUrl": "https://www.devonshiresoho.co.uk/src/img/stag.png",
+    "contentType": "image/png",
+    "bytes": 13166,
+    "w": 500,
+    "h": 660,
+    "whereUsed": "img",
+    "hash": "ce2869c55cef9cbb2ceede924abac57eb72db1ad",
+    "origin": "first"
+  },
+  {
+    "sourceUrl": "https://www.devonshiresoho.co.uk/src/img/grad.png",
+    "bytes": 4612,
+    "w": 10,
+    "h": 462,
+    "skipped": "too-small-dim"
+  },
+  {
+    "file": "11-apple-icon-57x57.png",
+    "sourceUrl": "https://www.devonshiresoho.co.uk/src/img/fav/apple-icon-57x57.png",
+    "contentType": "image/png",
+    "bytes": 4000,
+    "w": 57,
+    "h": 57,
+    "whereUsed": "favicon",
+    "hash": "db17df4f6418867309fd30a368a0d9929bb9901e",
+    "origin": "first"
+  },
+  {
+    "file": "12-apple-icon-60x60.png",
+    "sourceUrl": "https://www.devonshiresoho.co.uk/src/img/fav/apple-icon-60x60.png",
+    "contentType": "image/png",
+    "bytes": 4218,
+    "w": 60,
+    "h": 60,
+    "whereUsed": "favicon",
+    "hash": "2a10ccb2ab3e734470f7947f99307b1d431d1f05",
+    "origin": "first"
+  },
+  {
+    "file": "13-apple-icon-72x72.png",
+    "sourceUrl": "https://www.devonshiresoho.co.uk/src/img/fav/apple-icon-72x72.png",
+    "contentType": "image/png",
+    "bytes": 5228,
+    "w": 72,
+    "h": 72,
+    "whereUsed": "favicon",
+    "hash": "35ae8a98e54a354850d79ffb41a5eb12e3905742",
+    "origin": "first"
+  },
+  {
+    "file": "14-apple-icon-76x76.png",
+    "sourceUrl": "https://www.devonshiresoho.co.uk/src/img/fav/apple-icon-76x76.png",
+    "contentType": "image/png",
+    "bytes": 5520,
+    "w": 76,
+    "h": 76,
+    "whereUsed": "favicon",
+    "hash": "463e40f2907eb5de16eb6a2faab2f158f69e95bc",
+    "origin": "first"
+  },
+  {
+    "file": "15-apple-icon-114x114.png",
+    "sourceUrl": "https://www.devonshiresoho.co.uk/src/img/fav/apple-icon-114x114.png",
+    "contentType": "image/png",
+    "bytes": 9001,
+    "w": 114,
+    "h": 114,
+    "whereUsed": "favicon",
+    "hash": "a29fc637cfb29b9dc21086955cd8de3c9eef3d84",
+    "origin": "first"
+  },
+  {
+    "file": "16-apple-icon-120x120.png",
+    "sourceUrl": "https://www.devonshiresoho.co.uk/src/img/fav/apple-icon-120x120.png",
+    "contentType": "image/png",
+    "bytes": 9618,
+    "w": 120,
+    "h": 120,
+    "whereUsed": "favicon",
+    "hash": "d356a1cb1d167f2484d40be866e1368a1d671d47",
+    "origin": "first"
+  },
+  {
+    "file": "17-apple-icon-144x144.png",
+    "sourceUrl": "https://www.devonshiresoho.co.uk/src/img/fav/apple-icon-144x144.png",
+    "contentType": "image/png",
+    "bytes": 12558,
+    "w": 144,
+    "h": 144,
+    "whereUsed": "favicon",
+    "hash": "13dccc25a96d07a25f023aba4092d048ab32f8ec",
+    "origin": "first"
+  },
+  {
+    "file": "18-apple-icon-152x152.png",
+    "sourceUrl": "https://www.devonshiresoho.co.uk/src/img/fav/apple-icon-152x152.png",
+    "contentType": "image/png",
+    "bytes": 13668,
+    "w": 152,
+    "h": 152,
+    "whereUsed": "favicon",
+    "hash": "275db2a015bf12040a9844a5852d059ed6f7b8d4",
+    "origin": "first"
+  },
+  {
+    "file": "19-apple-icon-180x180.png",
+    "sourceUrl": "https://www.devonshiresoho.co.uk/src/img/fav/apple-icon-180x180.png",
+    "contentType": "image/png",
+    "bytes": 17845,
+    "w": 180,
+    "h": 180,
+    "whereUsed": "favicon",
+    "hash": "5d7d369b617d900410596e383b3d9833b7ebe6f4",
+    "origin": "first"
+  },
+  {
+    "file": "20-android-icon-192x192.png",
+    "sourceUrl": "https://www.devonshiresoho.co.uk/src/img/fav/android-icon-192x192.png",
+    "contentType": "image/png",
+    "bytes": 18774,
+    "w": 192,
+    "h": 192,
+    "whereUsed": "favicon",
+    "hash": "6d44aaa6be9bd43d98e101614f650de7481f3c89",
+    "origin": "first"
+  },
+  {
+    "file": "21-favicon-32x32.png",
+    "sourceUrl": "https://www.devonshiresoho.co.uk/src/img/fav/favicon-32x32.png",
+    "contentType": "image/png",
+    "bytes": 1855,
+    "w": 32,
+    "h": 32,
+    "whereUsed": "favicon",
+    "hash": "0295840e4320d157a2f59681a87197fea25329df",
+    "origin": "first"
+  },
+  {
+    "file": "22-favicon-96x96.png",
+    "sourceUrl": "https://www.devonshiresoho.co.uk/src/img/fav/favicon-96x96.png",
+    "contentType": "image/png",
+    "bytes": 7337,
+    "w": 96,
+    "h": 96,
+    "whereUsed": "favicon",
+    "hash": "bcf085e7f551ed4ebebb16c2b5fcc2177cc7c3fe",
+    "origin": "first"
+  },
+  {
+    "sourceUrl": "https://www.devonshiresoho.co.uk/src/img/fav/favicon-16x16.png",
+    "bytes": 1093,
+    "w": 16,
+    "h": 16,
+    "skipped": "too-small-dim"
+  }
+]

@@ -1,0 +1,6 @@
+# Runtime state and backups produced by git-steward when operating on repos.
+# These live inside target repos, but ignore them here too in case the plugin
+# is ever run against its own tree during development.
+.git-steward-backups/
+.git-steward/
+*.tmp

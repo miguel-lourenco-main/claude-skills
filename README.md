@@ -1,8 +1,10 @@
 # claude-skills
 
 A single git monorepo for my personal Claude Code skills (cross-project, git-synced — the remote
-is the single source of truth). Each skill is a self-contained folder under
-`~/.claude/skills/<name>/` where Claude Code discovers it.
+is the single source of truth). Personal **skills** are self-contained folders under
+`~/.claude/skills/<name>/` (where Claude Code discovers them); larger multi-skill **plugins** live
+under `plugins/<name>/` and are installed via this repo's marketplace manifest
+(`.claude-plugin/marketplace.json`).
 
 ## Skills here
 
@@ -11,6 +13,30 @@ is the single source of truth). Each skill is a self-contained folder under
 
 > `graphify/` is also present in `~/.claude/skills/` but is **externally version-managed** (its own
 > installer/updater) and is intentionally **gitignored** here — not part of this repo.
+
+## Plugins here
+
+- **plugins/git-steward/** — stackable multi-repo git cleanup plugin (14 skills + 3 commands):
+  branch/commit/history hygiene, repo health, work-item triage, CI pipeline health, plus an
+  optimize tier, composed by `repo-steward` (one repo) and `fleet-steward` (the whole fleet). See
+  `plugins/git-steward/README.md`.
+
+Plugins are **not** loaded via the `~/.claude/skills/` clone — they are registered as a marketplace.
+This repo's `.claude-plugin/marketplace.json` lists them. Register the marketplace once (per machine):
+
+```jsonc
+// ~/.claude/settings.json
+{
+  "extraKnownMarketplaces": {
+    "claude-skills": { "source": { "source": "git", "url": "<REMOTE_URL>" } }
+  },
+  "enabledPlugins": { "git-steward@claude-skills": true }
+}
+```
+
+Claude then clones the marketplace into `~/.claude/plugins/marketplaces/claude-skills/` and loads the
+plugin (so `${CLAUDE_PLUGIN_ROOT}` resolves correctly). Update with `git pull` here + the plugin
+marketplace refresh.
 
 ## Git LFS
 

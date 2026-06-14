@@ -11,12 +11,13 @@
 # With no --confirm, prints the plan and exits without changing anything.
 set -u
 
-repo="."; categories="merged,gone"; stale_days=90
+repo="."; categories="merged,gone"; stale_days=90; only_branches=""
 confirm=false; prune=false; delete_remote=false
 while [ $# -gt 0 ]; do
   case "$1" in
     --repo) repo="$2"; shift 2 ;;
     --categories) categories="$2"; shift 2 ;;
+    --branches) only_branches="$2"; shift 2 ;;   # explicit allow-list (overrides categories)
     --stale-days) stale_days="$2"; shift 2 ;;
     --confirm) confirm=true; shift ;;
     --prune) prune=true; shift ;;
@@ -35,14 +36,22 @@ cd "$repo" || exit 1
 remote="$(jq -r '.remote' <<<"$analysis")"
 default="$(jq -r '.default_branch' <<<"$analysis")"
 
-# selected = candidates whose category is in the requested set
-cat_filter="$(printf '%s' "$categories" | jq -R 'split(",")')"
-selected="$(jq -c --argjson cats "$cat_filter" '[.candidates[]|select(.category as $c|$cats|index($c))]' <<<"$analysis")"
+# selection: an explicit --branches allow-list wins; otherwise by category.
+# Either way, never select a branch the analyzer marked "keep" (default/current/active).
+if [ -n "$only_branches" ]; then
+  br_filter="$(printf '%s' "$only_branches" | jq -R 'split(",")|map(select(length>0))')"
+  selected="$(jq -c --argjson br "$br_filter" '[.candidates[]|select((.branch as $b|$br|index($b)) and .category!="keep")]' <<<"$analysis")"
+  sel_desc="branches: $only_branches"
+else
+  cat_filter="$(printf '%s' "$categories" | jq -R 'split(",")')"
+  selected="$(jq -c --argjson cats "$cat_filter" '[.candidates[]|select(.category as $c|$cats|index($c))]' <<<"$analysis")"
+  sel_desc="categories: $categories"
+fi
 count="$(jq 'length' <<<"$selected")"
 
 echo "== git-branch-cleanup plan =="
 echo "repo: $repo   default: $default   remote: ${remote:-none}"
-echo "categories: $categories   selected: $count branch(es)"
+echo "$sel_desc   selected: $count branch(es)"
 jq -r '.[] | "  - \(.branch)  [\(.category)]  \(.reason)"' <<<"$selected"
 $prune && echo "  + prune stale remote-tracking refs (git remote prune $remote)"
 $delete_remote && echo "  + DELETE matching branches on remote '$remote' (Tier 2, irreversible on server)"

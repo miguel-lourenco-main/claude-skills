@@ -132,20 +132,66 @@ if [ "$optimize" = "true" ]; then
   echo "- Dormancy: $(g '.skills["stale-repo-triage"].tier' || echo "n/a") — $(g '.skills["stale-repo-triage"].recommendation' || echo "")"
 fi
 
-# ---- Decision aid ----
-echo; echo "## Recommended next steps (prioritized)"
-echo "Each step is gated — it shows a plan and waits for your confirmation before changing anything."
-echo
-{
-  s_sec="$(g "$hs.summary.secret_findings")"; [ "${s_sec:-0}" -gt 0 ] 2>/dev/null && echo "1. 🔴 **Secrets in the repo** — rotate/revoke the credentials, then \`git-history-surgery\` (apply) to purge them. Rewrite tool ready: $(g "$hs.tools.rewrite_ready")."
-  s_ci="$(g "$ph.overall")"; [ "$s_ci" = "failed" ] && echo "2. 🟠 **CI failing** ($(g "$ph.likely_cause")) — \`pipeline-health\` (fix) to diagnose, fix, push, and monitor."
-  s_pr="$(g '.attention.prunable_branches')"; [ "${s_pr:-0}" -gt 0 ] 2>/dev/null && echo "3. 🟡 **$s_pr prunable branch(es)** — \`git-branch-cleanup\` (apply) to remove merged/gone/stale branches."
-  s_cm="$(g '.attention.non_conventional_commits')"; [ "${s_cm:-0}" -gt 0 ] 2>/dev/null && echo "4. 🟡 **$s_cm non-conventional commit(s)** — \`commit-hygiene\` (apply) to reword un-pushed commits."
-  s_bb="$(g "$hs.summary.big_blobs")"; [ "${s_bb:-0}" -gt 0 ] 2>/dev/null && echo "5. 🟡 **$s_bb large blob(s)** — \`git-history-surgery\` to strip them, \`gitignore-guard\` to stop re-committing."
-  s_wi="$(g '.attention.open_work_items')"; [ "${s_wi:-0}" -gt 0 ] 2>/dev/null && echo "6. 🔵 **$s_wi open work item(s)** — \`work-items\` to start the top of the ranked plan."
-  echo
-  echo "Run everything gated in one pass: \`/git-cleanup $name\` (core) or \`/git-optimize $name\` (core + optimize)."
-}
+# ---- Actions checklist (editable decision aid) ----
+echo; echo "## Actions — edit this list, then tell me to execute it"
+cat <<'HOWTO'
+Check the boxes for what you want done (`- [x]` = do it, `- [ ]` = skip; delete a line to skip too).
+For rewords, edit the message after the `→`. Then say: **"execute the checked actions in this report"**.
+Tier-1 items (local, recoverable) run once selected; Tier-2 items (🔴 irreversible/outward) are still
+confirmed individually before running. The `<!--gs ...-->` tags are how I map a checkbox to an action —
+leave them intact.
+HOWTO
+
+# Branches (Tier 1, local)
+br_items="$(lines "$bc"'.candidates[]? | select(.category!="keep") | "- [ ] Delete branch `\(.branch)` (\(.category): \(.reason)) <!--gs op=branch-delete-local repo=REPO branch=\(.branch)-->"')"
+[ -n "$br_items" ] && { echo; echo "### Branches — delete (local, recoverable via reflog)"; echo "${br_items//REPO/$repo}"; }
+
+# Commit rewords (Tier 1, un-pushed only)
+cm_items="$(lines "$ch"'.unpushed[]? | "- [ ] Reword `\(.sha)` \(.subject) → EDIT-MESSAGE-HERE <!--gs op=commit-reword repo=REPO sha=\(.sha)-->"')"
+[ -n "$cm_items" ] && { echo; echo "### Commit messages — reword (un-pushed only; edit text after →)"; echo "${cm_items//REPO/$repo}"; }
+
+# .gitignore (Tier 1)
+gg_missing="$(g '.skills["gitignore-guard"].summary.missing_entries' || echo 0)"
+gg_un="$(lines '.skills["gitignore-guard"].tracked_should_ignore[]? | "- [ ] Untrack `\(.)` (keep on disk) <!--gs op=gitignore-untrack repo=REPO file=\(.)-->"')"
+if { [ "${gg_missing:-0}" -gt 0 ] 2>/dev/null; } || [ -n "$gg_un" ]; then
+  echo; echo "### .gitignore (Tier 1)"
+  [ "${gg_missing:-0}" -gt 0 ] 2>/dev/null && echo "- [ ] Add $gg_missing recommended .gitignore entries <!--gs op=gitignore-add repo=$repo-->"
+  [ -n "$gg_un" ] && echo "${gg_un//REPO/$repo}"
+fi
+
+# Worktrees / deps (optimize, Tier 1)
+if [ "$optimize" = "true" ]; then
+  wt_prune="$(g '.skills["worktree-manager"].summary.prunable' || echo 0)"
+  [ "${wt_prune:-0}" -gt 0 ] 2>/dev/null && { echo; echo "### Worktrees (Tier 1)"; echo "- [ ] Prune $wt_prune stale worktree(s) <!--gs op=worktree-prune repo=$repo-->"; }
+  dep_out="$(g '.skills["dependency-health"].summary.total_outdated' || echo 0)"
+  [ "${dep_out:-0}" -gt 0 ] 2>/dev/null && { echo; echo "### Dependencies (Tier 1)"; echo "- [ ] Bump $dep_out outdated dep(s) (minor/patch) <!--gs op=deps-bump repo=$repo-->"; }
+fi
+
+# History / secrets (Tier 2, irreversible)
+# files to offer for removal = sensitive tracked files + files containing detected secrets (deduped)
+hs_files="$(jq -r "($hs.secret_scan.sensitive_tracked_files // []) + ([$hs.secret_scan.findings[]?.file]) | unique[]?" <<<"$json" 2>/dev/null)"
+hs_items=""
+[ -n "$hs_files" ] && hs_items="$(while IFS= read -r f; do [ -n "$f" ] && echo "- [ ] 🔴 Remove \`$f\` from ALL history (then rotate the secret) <!--gs op=history-remove-path repo=$repo path=$f-->"; done <<<"$hs_files")"
+hs_blobs="$(lines "$hs"'.large_blobs.items[]? | "- [ ] 🔴 Strip `\(.path)` (\(.mb) MB) from ALL history <!--gs op=history-remove-path repo=REPO path=\(.path)-->"')"
+if [ -n "$hs_items$hs_blobs" ]; then
+  echo; echo "### Secrets & history (🔴 Tier 2 — irreversible; also rotate any leaked credential)"
+  echo "_Rewrite tool ready: $(g "$hs.tools.rewrite_ready"). Removing a file purges it from every commit._"
+  [ -n "$hs_items" ] && echo "$hs_items"
+  [ -n "$hs_blobs" ] && echo "${hs_blobs//REPO/$repo}"
+fi
+
+# Work items (Tier 2, outward)
+wi_items="$(lines "$wi"'.items[:8][]? | "- [ ] Start #\(.number) [\(.importance)/\(.scope)] \(.title) <!--gs op=work-item-start repo=REPO number=\(.number)-->"')"
+[ -n "$wi_items" ] && { echo; echo "### Work items — start (Tier 2, opens a branch + draft MR/PR)"; echo "${wi_items//REPO/$repo}"; }
+
+# CI (Tier 2, outward)
+if [ "$(g "$ph.overall")" = "failed" ]; then
+  echo; echo "### CI — fix & monitor (Tier 2, pushes)"
+  echo "- [ ] Fix & monitor CI on \`$(g "$ph.branch")\` (cause: $(g "$ph.likely_cause")) <!--gs op=pipeline-fix repo=$repo branch=$(g "$ph.branch")-->"
+fi
+
+echo; echo "> After editing, run everything checked with: \`bash \${CLAUDE_PLUGIN_ROOT}/shared/run-plan.sh --report <this-file>\`"
+echo "> or just tell me \"execute the checked actions\". One-shot gated pass instead: \`/git-cleanup $name\` / \`/git-optimize $name\`."
 
 echo; echo "---"; echo "_Generated by git-steward · schema $(g '.schema')_"
 }

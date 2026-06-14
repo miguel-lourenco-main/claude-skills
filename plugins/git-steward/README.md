@@ -32,14 +32,25 @@ first, tiered confirmations, backups before history rewrites, never the default/
 access (GitLab `glab` / GitHub `gh`) with SSH-alias normalization and pure-git fallback is in
 `shared/FORGE.md`.
 
-## Findings reports
+## Findings reports — editable & executable
 
 Every analyze pass at the repo/fleet level writes a detailed Markdown **findings document** under
 `<repo|root>/.git-steward/reports/` (built by `shared/report.sh`): an at-a-glance table, per-dimension
-detail, and a prioritized "Recommended next steps" decision aid with the exact gated command for each
-finding. Fleet runs also produce a severity-sorted index linking every per-repo report. The path is
-returned as `report_path` (repo) / `fleet_report` (fleet). These artifacts live under `.git-steward/`,
-which `gitignore-guard` recommends ignoring.
+detail, and an **Actions checklist**. Fleet runs also produce a severity-sorted index linking every
+per-repo report. Paths are returned as `report_path` (repo) / `fleet_report` (fleet).
+
+The Actions section is an **editable checklist** — one machine-tagged checkbox per specific item (each
+branch, file, commit, work item). Edit it to choose exactly what to run (`- [x]` = do, `- [ ]` = skip;
+edit reword messages after `→`), then execute only your selection:
+
+```bash
+bash shared/run-plan.sh --report <report.md>     # --dry-run to preview
+```
+
+`shared/parse-actions.sh` turns your edits into an `execution-plan/v1`; `run-plan.sh` applies **Tier-1**
+items (local/recoverable) with confirmation-by-checkbox and **defers Tier-2** items (🔴 irreversible /
+outward) by printing their exact gated commands. Reports/backups live under `.git-steward/`, which
+`gitignore-guard` recommends ignoring.
 
 ## Commands
 

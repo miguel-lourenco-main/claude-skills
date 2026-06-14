@@ -36,6 +36,30 @@ recommended steps so they can make an informed decision before anything is appli
 Core skills always run: `git-repo-health`, `git-branch-cleanup`, `commit-hygiene`, `git-history-surgery`,
 `work-items`, `pipeline-health`. With `--optimize`, the optimize-tier skills (if present) also run.
 
+## Execute from an edited report (the decision aid)
+
+The findings document ends with an **Actions** checklist of machine-tagged checkboxes — one per specific
+item (each branch, each file, each commit, each work item). This is the primary, precise way to apply:
+the user edits the document to choose exactly what to do.
+
+1. After analyze, tell the user the `report_path` and that they can **check the boxes** for what they
+   want (`- [x]` = do, `- [ ]` = skip), edit reword messages after the `→`, and leave the `<!--gs ...-->`
+   tags intact.
+2. When the user says "execute the checked actions", run:
+   ```bash
+   bash ${CLAUDE_PLUGIN_ROOT}/shared/run-plan.sh --report <report.md>      # add --dry-run to preview
+   ```
+   It parses the checked items (`${CLAUDE_PLUGIN_ROOT}/shared/parse-actions.sh` → `execution-plan/v1`),
+   then runs **Tier-1** actions (local/recoverable — branch deletes, rewords, `.gitignore`, untrack,
+   worktree prune, dep bumps) with `--confirm` (the checkbox is the confirmation). **Tier-2** actions
+   (🔴 history rewrite, remote deletes, work-item starts, CI pushes, release tags) are **not** auto-run —
+   it prints the exact gated command for each so they're executed deliberately.
+3. Carry out the listed Tier-2 commands only on explicit user confirmation (history rewrite still needs
+   `--i-understand <repo-name>` and takes a backup first).
+
+This per-item path is preferred when the user wants control. The whole-pass apply below is the
+"just clean it all up" alternative.
+
 ## Apply (orchestrated, gated)
 
 Apply mode is driven here in the model layer — call each atomic skill's `apply.sh` in this **safe

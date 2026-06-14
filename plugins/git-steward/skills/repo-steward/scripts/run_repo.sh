@@ -7,18 +7,21 @@
 # Usage: run_repo.sh --repo <path> [--optimize] [--only a,b,c]
 set -u
 
-repo="."; optimize=false; only=""
+repo="."; optimize=false; only=""; report=true; report_out=""
 while [ $# -gt 0 ]; do
   case "$1" in
     --repo) repo="$2"; shift 2 ;;
     --optimize) optimize=true; shift ;;
     --only) only="$2"; shift 2 ;;
+    --no-report) report=false; shift ;;
+    --report-out) report_out="$2"; shift 2 ;;
     --mode) shift 2 ;;
     *) shift ;;
   esac
 done
 
-skills_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+skills_dir="$(cd "$here/../.." && pwd)"
 core=(git-repo-health git-branch-cleanup commit-hygiene git-history-surgery work-items pipeline-health)
 opt=(worktree-manager gitignore-guard repo-consistency dependency-health release-changelog stale-repo-triage)
 
@@ -37,7 +40,7 @@ done
 
 name="$(basename "$(cd "$repo" && git rev-parse --show-toplevel 2>/dev/null || echo "$repo")")"
 # roll up cross-skill attention signals
-jq -n --arg repo "$repo" --arg name "$name" --argjson opt "$optimize" --argjson r "$results" '
+aggregate="$(jq -n --arg repo "$repo" --arg name "$name" --argjson opt "$optimize" --argjson r "$results" '
   {schema:"repo-steward/v1", repo:$repo, name:$name, optimize:$opt, skills:$r,
    attention:{
      health_flags: ($r["git-repo-health"].flags // []),
@@ -47,4 +50,11 @@ jq -n --arg repo "$repo" --arg name "$name" --argjson opt "$optimize" --argjson 
      big_blobs: ($r["git-history-surgery"].summary.big_blobs // 0),
      open_work_items: ($r["work-items"].counts.total // 0),
      ci_status: ($r["pipeline-health"].overall // "n/a")
-   }}'
+   }}')"
+
+# generate the detailed findings document (the decision aid)
+report_path=""
+if $report; then
+  report_path="$(printf '%s' "$aggregate" | bash "$here/../../../shared/report.sh" ${report_out:+--out "$report_out"} 2>/dev/null || true)"
+fi
+jq --arg rp "$report_path" '. + (if $rp != "" then {report_path:$rp} else {} end)' <<<"$aggregate"

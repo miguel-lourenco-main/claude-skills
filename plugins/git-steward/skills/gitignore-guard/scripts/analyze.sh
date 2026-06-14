@@ -20,6 +20,8 @@ recs=()
 { [ -f Cargo.toml ] && recs+=("target/"); }
 { ls *.py >/dev/null 2>&1 || [ -f pyproject.toml ] || [ -f requirements.txt ]; } && recs+=("__pycache__/" "*.pyc" ".venv/")
 recs+=(".env" ".DS_Store")
+# git-steward's own runtime artifacts (findings reports + history-rewrite backups)
+recs+=(".git-steward/" ".git-steward-backups/")
 missing="[]"
 for e in "${recs[@]}"; do
   if ! $has_gitignore || ! grep -qxF "$e" .gitignore 2>/dev/null; then

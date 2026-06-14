@@ -32,6 +32,15 @@ first, tiered confirmations, backups before history rewrites, never the default/
 access (GitLab `glab` / GitHub `gh`) with SSH-alias normalization and pure-git fallback is in
 `shared/FORGE.md`.
 
+## Findings reports
+
+Every analyze pass at the repo/fleet level writes a detailed Markdown **findings document** under
+`<repo|root>/.git-steward/reports/` (built by `shared/report.sh`): an at-a-glance table, per-dimension
+detail, and a prioritized "Recommended next steps" decision aid with the exact gated command for each
+finding. Fleet runs also produce a severity-sorted index linking every per-repo report. The path is
+returned as `report_path` (repo) / `fleet_report` (fleet). These artifacts live under `.git-steward/`,
+which `gitignore-guard` recommends ignoring.
+
 ## Commands
 
 - `/git-audit [target] [--optimize]` — read-only audit (analyze) of a repo or the fleet.

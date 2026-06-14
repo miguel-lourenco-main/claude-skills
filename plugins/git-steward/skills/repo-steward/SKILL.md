@@ -23,7 +23,15 @@ bash ${CLAUDE_PLUGIN_ROOT}/skills/repo-steward/scripts/run_repo.sh --repo <path>
 ```
 Runs each in-scope atomic `analyze.sh` and emits `repo-steward/v1`: the full per-skill output under
 `skills`, plus an `attention` roll-up (health flags, prunable branches, non-conventional commits, secret
-findings, big blobs, open work items, CI status). Present the attention summary first, then offer to act.
+findings, big blobs, open work items, CI status).
+
+**A detailed findings document is generated automatically** (unless `--no-report`) and its path is
+returned as `report_path`. The document (built by `${CLAUDE_PLUGIN_ROOT}/shared/report.sh`, saved under
+`<repo>/.git-steward/reports/`) has an at-a-glance table, per-dimension detail (every prunable branch,
+each secret with file/line, non-conventional subjects, ranked work items, failing CI jobs), and a
+**prioritized "Recommended next steps"** decision aid giving the exact gated command for each finding.
+After analyzing, present the attention summary, give the user the `report_path`, and surface the top
+recommended steps so they can make an informed decision before anything is applied.
 
 Core skills always run: `git-repo-health`, `git-branch-cleanup`, `commit-hygiene`, `git-history-surgery`,
 `work-items`, `pipeline-health`. With `--optimize`, the optimize-tier skills (if present) also run.

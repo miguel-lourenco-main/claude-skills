@@ -42,7 +42,12 @@ bash ${CLAUDE_PLUGIN_ROOT}/skills/fleet-steward/scripts/run_across.sh [--optimiz
 ```
 Loops `repo-steward` analyze over the saved fleet (falls back to workspace discovery) and emits
 `fleet-steward/v1`: per-repo `attention` rows plus `totals` (repos with secrets, prunable branches,
-failing CI, open work items). Present a repo × attention table sorted by most-flagged first.
+failing CI, open work items).
+
+**Findings documents are generated automatically:** a detailed per-repo document for each repo plus a
+**fleet index** (`fleet_report` path) — a severity-sorted summary table linking every per-repo report —
+all saved under `<root>/.git-steward/reports/`. Present the fleet totals, then point the user at the
+`fleet_report` so they can drill into any repo and make an informed decision before applying.
 
 ### Mutating (apply) — one sub-agent per repo
 For a cleanup pass across the fleet, **dispatch one sub-agent per included repo**, each instructed to run

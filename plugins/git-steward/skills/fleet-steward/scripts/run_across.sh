@@ -34,11 +34,11 @@ agg="[]"
 while IFS= read -r r; do
   path="$(jq -r '.path' <<<"$r")"; name="$(jq -r '.name' <<<"$r")"
   [ -n "$path" ] && [ "$path" != "null" ] || { agg="$(jq -c --arg n "$name" '. += [{name:$n, skipped:"not cloned locally"}]' <<<"$agg")"; continue; }
-  # each repo writes its own detailed findings document into the fleet reports dir
-  rep="$(bash "$repo_steward" --repo "$path" $opt_flag --report-out "$reports_dir/${stamp}-${name}.md" 2>/dev/null || echo '{}')"
-  att="$(jq -c '.attention // {}' <<<"$rep")"
-  rpath="$(jq -r '.report_path // ""' <<<"$rep")"
-  agg="$(jq -c --arg n "$name" --arg p "$path" --arg rp "$rpath" --argjson a "$att" '. += [{name:$n, path:$p, attention:$a, report:$rp}]' <<<"$agg")"
+  # capture each repo's FULL repo-steward/v1 JSON (skills + attention); no per-repo
+  # files are written — report.sh --fleet renders everything into one document.
+  rep="$(bash "$repo_steward" --repo "$path" $opt_flag --no-report 2>/dev/null || echo '{}')"
+  jq -e .schema >/dev/null 2>&1 <<<"$rep" || rep="$(jq -n --arg n "$name" --arg p "$path" '{name:$n, repo:$p, skipped:"analyze failed"}')"
+  agg="$(jq -c --argjson o "$rep" '. += [$o]' <<<"$agg")"
 done < <(jq -c '.[]' <<<"$repos")
 
 result="$(jq -n --arg root "$root" --argjson opt "$optimize" --argjson rows "$agg" '
@@ -51,34 +51,7 @@ result="$(jq -n --arg root "$root" --argjson opt "$optimize" --argjson rows "$ag
    },
    repos:$rows}')"
 
-# fleet index document: summary table + links to each per-repo report
-index="$reports_dir/${stamp}-fleet.md"
-{
-  echo "# git-steward fleet findings"
-  echo
-  echo "- **Root:** \`$root\` · **Repos:** $(jq -r '.repo_count' <<<"$result") · **optimize tier:** $optimize"
-  echo "- **Generated:** $(date '+%Y-%m-%d %H:%M:%S %Z') · mode: analyze (read-only)"
-  echo
-  echo "## Fleet totals"
-  echo "- Repos with secrets: **$(jq -r '.totals.repos_with_secrets' <<<"$result")**"
-  echo "- Repos with prunable branches: $(jq -r '.totals.repos_with_prunable_branches' <<<"$result")"
-  echo "- Repos with failing CI: $(jq -r '.totals.repos_ci_failing' <<<"$result")"
-  echo "- Total open work items: $(jq -r '.totals.total_open_work_items' <<<"$result")"
-  echo
-  echo "## Repos (most-flagged first)"
-  echo
-  echo "| Repo | Secrets | Branches | Commits | Blobs | CI | Work items | Detail |"
-  echo "|---|---|---|---|---|---|---|---|"
-  jq -r '.repos
-    | sort_by( -( ((.attention.secret_findings // 0) * 1000)
-                + ((if .attention.ci_status=="failed" then 1 else 0 end) * 500)
-                + ((.attention.prunable_branches // 0) * 10)
-                + (.attention.non_conventional_commits // 0)
-                + (.attention.big_blobs // 0) ) )
-    | .[]
-    | "| \(.name) | \(.attention.secret_findings // (if .skipped then "—" else 0 end)) | \(.attention.prunable_branches // 0) | \(.attention.non_conventional_commits // 0) | \(.attention.big_blobs // 0) | \(.attention.ci_status // "n/a") | \(.attention.open_work_items // 0) | \(if .report != "" and .report != null then "[report](\(.report))" else (.skipped // "—") end) |"' <<<"$result"
-  echo
-  echo "Per-repo documents are linked above. Apply gated cleanup with \`/git-cleanup fleet\` or \`/git-optimize fleet\`."
-} > "$index"
+# one consolidated findings document for the whole fleet
+report="$(printf '%s' "$result" | bash "$here/../../../shared/report.sh" --fleet --out "$reports_dir/${stamp}-fleet.md" 2>/dev/null || true)"
 
-jq --arg idx "$index" '. + {fleet_report:$idx}' <<<"$result"
+jq --arg idx "$report" '. + {fleet_report:$idx}' <<<"$result"

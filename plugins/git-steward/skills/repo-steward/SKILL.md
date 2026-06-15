@@ -57,6 +57,14 @@ the user edits the document to choose exactly what to do.
 3. Carry out the listed Tier-2 commands only on explicit user confirmation (history rewrite still needs
    `--i-understand <repo-name>` and takes a backup first).
 
+**Work items.** For this single repo you may still group/dedupe its open work items into a few
+well-scoped tasks before listing them (per-repo layer only — there are no cross-repo themes for one
+repo). A task tagged `<!--gs op=work-item-implement repo=<name> numbers=<n,m> slug=<kebab>-->` is an
+**agent task**, not a script action: `run-plan.sh` surfaces it under Tier-2 and you implement it
+yourself — create the `slug` branch, write the change, commit, push, and open the MR via `glab` —
+behind the Tier-2 gate. (`op=work-item-start` remains the lightweight "just open a branch + draft"
+alternative.)
+
 This per-item path is preferred when the user wants control. The whole-pass apply below is the
 "just clean it all up" alternative.
 
@@ -69,7 +77,8 @@ that refuses.
 1. `git-repo-health` — read-only; use its flags to decide what to do.
 2. `git-branch-cleanup` — prune merged/gone (offer stale); local first, remote = 2nd gate.
 3. `commit-hygiene` — reword un-pushed commits only.
-4. `work-items` — optionally start the top item (branch + draft MR/PR).
+4. `work-items` — optionally start the top item (branch + draft MR/PR), or **implement** a selected
+   item/task end-to-end (branch → change → commit → push → open MR) on explicit request.
 5. `pipeline-health` — if CI is failing, run the fix→monitor loop.
 6. `git-history-surgery` — **last**, most dangerous; only on explicit request, with backup + Tier-2 gate.
 7. (optimize-tier, only if `--optimize`) — after core, in the same gated manner.

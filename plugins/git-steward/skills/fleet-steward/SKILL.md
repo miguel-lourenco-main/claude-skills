@@ -41,13 +41,42 @@ bash ${CLAUDE_PLUGIN_ROOT}/skills/fleet-steward/scripts/resolve_fleet.sh \
 bash ${CLAUDE_PLUGIN_ROOT}/skills/fleet-steward/scripts/run_across.sh [--optimize]
 ```
 Loops `repo-steward` analyze over the saved fleet (falls back to workspace discovery) and emits
-`fleet-steward/v1`: per-repo `attention` rows plus `totals` (repos with secrets, prunable branches,
-failing CI, open work items).
+`fleet-steward/v1`: each repo's full `repo-steward/v1` object (skills + `attention`) plus `totals`
+(repos with secrets, prunable branches, failing CI, open work items).
 
-**Findings documents are generated automatically:** a detailed per-repo document for each repo plus a
-**fleet index** (`fleet_report` path) — a severity-sorted summary table linking every per-repo report —
-all saved under `<root>/.git-steward/reports/`. Present the fleet totals, then point the user at the
-`fleet_report` so they can drill into any repo and make an informed decision before applying.
+**One consolidated findings document is generated** (no per-repo files, no separate index): the
+`fleet_report` path under `<root>/.git-steward/reports/<stamp>-fleet.md`. It holds the fleet totals, a
+severity-sorted table, a **Work Items — Task Plan** region (for Step 2.5), then a full findings +
+Actions section per repo (every prunable branch, each secret, ranked items, failing CI) with intact
+`<!--gs ...-->` tags. Present the fleet totals, then point the user at the single `fleet_report`.
+
+## Step 2.5 — Synthesize the work-item task plan into the report
+
+After `run_across.sh`, take **all** work items across the fleet as a whole and turn them into a grouped,
+deduped task plan — then **edit the single report**, replacing the region between
+`<!-- gs:task-plan-start -->` and `<!-- gs:task-plan-end -->` with it. Source data: each repo's
+`skills["work-items"].items` in the `fleet-steward/v1` JSON (also listed raw inside that region).
+
+Produce two layers:
+- **`### Cross-repo themes`** — groups of related items spanning more than one repo; call out overlap and
+  duplicates so the same work isn't done twice.
+- **`### Per-repo task groups`** — within each repo, merge related items into a single task and collapse
+  duplicates. Make each actionable task a checkbox carrying a tag:
+  `- [ ] <task> <!--gs op=work-item-implement repo=<name> numbers=<n,m> slug=<kebab>-->`
+  where `numbers` lists every work-item number the task subsumes (comma-joined, no spaces) and `slug` is
+  a kebab branch name. Group, don't just transcribe — the value is fewer, better-scoped tasks.
+
+## Step 3 — Execute the checked items
+
+When the user has checked boxes (Actions and/or task-plan tasks) and says to execute:
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/shared/run-plan.sh --report <fleet_report>   # add --dry-run to preview
+```
+Tier-1 mechanical git ops auto-run (their checkbox is the confirmation). Tier-2 items are printed, not
+auto-run. For each surfaced **`work-item-implement`** directive, **perform it yourself** behind the
+Tier-2 gate: confirm that repo, create the `slug` branch, implement the change, commit, push, and open
+the merge request via `glab` (this account is GitLab). Do one repo at a time; stop and surface anything
+that refuses or looks wrong before moving on.
 
 ### Mutating (apply) — one sub-agent per repo
 For a cleanup pass across the fleet, **dispatch one sub-agent per included repo**, each instructed to run

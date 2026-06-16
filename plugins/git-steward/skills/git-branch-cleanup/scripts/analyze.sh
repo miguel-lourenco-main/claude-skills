@@ -38,6 +38,8 @@ while IFS='|' read -r br track cdate; do
   [ -n "$br" ] || continue
   reason=""; category="keep"; recoverable=true
   sha="$(git rev-parse --short "$br" 2>/dev/null)"
+  ahead="$(git rev-list --count "$default..$br" 2>/dev/null || echo 0)"
+  behind="$(git rev-list --count "$br..$default" 2>/dev/null || echo 0)"
   if [ "$br" = "$default" ] || [ "$br" = "$current" ]; then
     category="keep"; reason="protected (default/current)"
   elif case "$merged_set" in *" $br "*) true;; *) false;; esac; then
@@ -50,8 +52,8 @@ while IFS='|' read -r br track cdate; do
     category="keep"; reason="active, unmerged"
   fi
   cands="$(jq -c --arg br "$br" --arg sha "$sha" --arg cat "$category" --arg reason "$reason" \
-    --arg track "$track" --argjson rec "$recoverable" \
-    '. += [{branch:$br, sha:$sha, category:$cat, reason:$reason, upstream_track:$track, recoverable:$rec}]' <<<"$cands")"
+    --arg track "$track" --argjson rec "$recoverable" --argjson ahead "${ahead:-0}" --argjson behind "${behind:-0}" \
+    '. += [{branch:$br, sha:$sha, category:$cat, reason:$reason, upstream_track:$track, recoverable:$rec, ahead:$ahead, behind:$behind}]' <<<"$cands")"
 done < <(git for-each-ref --format='%(refname:short)|%(upstream:track)|%(committerdate:unix)' refs/heads 2>/dev/null)
 
 # stale remote-tracking refs (server branches already gone) — informational, pruned via `git remote prune`

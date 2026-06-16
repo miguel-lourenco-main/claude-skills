@@ -57,18 +57,26 @@ the user edits the document to choose exactly what to do.
 3. Carry out the listed Tier-2 commands only on explicit user confirmation (history rewrite still needs
    `--i-understand <repo-name>` and takes a backup first).
 
-**Annotate the report's `<!-- gs:repo:<name>-start/end -->` region** before handing it over. Explain the
-repo's notable findings with sources (deep): trace each working-tree secret with `git log -S`/`git blame`
-to judge real-vs-false-positive, assess each over-threshold blob's cleanability (`in_worktree` +
-artifact → removable; real asset → keep), and summarize any failing CI cause — cite file:line/commit/
-branch. Then group/dedupe this repo's open work items into a few well-scoped tasks. Write each **across multiple
-lines** — a short checkbox **title** line carrying the tag, then indented `*Items:*` / `*Why:*` / `*How:*`
-sub-bullets:
+**Annotate the report's `<!-- gs:repo:<name>-start/end -->` region** before handing it over. **Markdown
+rule: always put a blank line before a bulleted list** or it won't render. Explain the repo's notable
+findings with sources (deep): trace each working-tree secret with `git log -S`/`git blame` to judge
+real-vs-false-positive — but **don't enumerate false positives**, mention them in one casual aggregate
+line; only a **real** secret gets detail + an action. Assess each over-threshold blob's cleanability
+(`in_worktree` + artifact → removable; real asset → keep) and summarize any failing CI cause. For each
+**active/unmerged branch** (`ahead>0`), check `git log <default>..<branch>` + the name: propose a merge
+task `<!--gs op=branch-merge repo=<name> branch=<branch>-->` if it's finished sensible work, or flag it as
+a deliberate variant and don't. Then **validate** each open work item against branches/recent commits/the
+relevant code (`git log --all --grep`, `git log -S`, read where it'd live) — if already implemented, mark
+it done with evidence; otherwise group/dedupe into a few well-scoped tasks, each written **across multiple
+lines** (blank line before the list): a checkbox **title** line carrying the tag, then `*Items:*` /
+`*Why:*` / `*How:*` sub-bullets where **How is concrete and grounded in the code you read** (files,
+components, steps):
 ```
+
 - [ ] **<task title>** <!--gs op=work-item-implement repo=<name> numbers=<n,m> slug=<kebab>-->
   - *Items:* #<n>, #<m>
-  - *Why:* <why these belong together / the goal>
-  - *How:* <how you'll implement it>
+  - *Why:* <why grouped / validity note>
+  - *How:* <concrete steps — which files/components, the approach>
 ```
 (per-repo layer only; no cross-repo themes for a single repo). Such a task
 is an **agent task**, not a script action: `run-plan.sh` surfaces it under Tier-2 and you implement it

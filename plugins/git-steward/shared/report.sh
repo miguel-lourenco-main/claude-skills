@@ -103,17 +103,17 @@ render_repo_body() {
   cifail="$(lines '[.skills["pipeline-health"].branches[]?|select(.status=="failed" or .status=="failure")]|length')"; [ -z "$cifail" ] && cifail=0
   echo; echo "${hb}## Analysis & tasks"
   echo "<!-- gs:repo:${name}-start -->"
-  echo "_Agent fills this in: explain the notable findings (with sources/provenance), judge blob cleanability, and group this repo's open work items into tagged tasks. Raw material below._"
+  echo "_Agent fills this in: explain notable findings (mention false-positive secrets only in aggregate), judge blob cleanability, assess active branches for merge-vs-variant, and turn this repo's open work items into validated tasks. Put a blank line before every bullet list so it renders. Raw material below._"
   echo
   echo "**Notable findings to explain:** ${secn} secret match(es) · ${blobn} blob(s) over the size guideline · ${cifail} branch(es) with failing CI."
   echo
-  echo "**Open work items** — group/dedupe into tasks. Write each as a short checkbox line carrying the tag, with \`*Items:*\`, \`*Why:*\`, \`*How:*\` on their own indented sub-bullets:"
+  echo "**Open work items** — first **validate** each against branches / recent commits / the relevant code (already implemented? still valid?), then group/dedupe into tasks. Write each as a short checkbox line carrying the tag, with \`*Items:*\`, \`*Why:*\`, \`*How:*\` sub-bullets (blank line before the list):"
   echo
   echo '```'
   echo "- [ ] **<task title>** <!--gs op=work-item-implement repo=${name} numbers=<n,m> slug=<kebab>-->"
   echo "  - *Items:* #<n>, #<m>"
   echo "  - *Why:* <why these belong together / the goal>"
-  echo "  - *How:* <how you'll implement it>"
+  echo "  - *How:* <concrete steps grounded in the code you read — which files/components, the approach>"
   echo '```'
   echo
   wi_raw="$(lines '.skills["work-items"].items[]? | "- #\(.number) [\(.importance)/\(.scope)] \(.title) — \(.web_url)"')"
@@ -147,9 +147,11 @@ render_repo_body() {
   local bc='.skills["git-branch-cleanup"]'
   if [ "$(g "$bc.schema")" = "branch-cleanup/v1" ]; then
     echo "Merged: $(g "$bc.summary.merged") · gone: $(g "$bc.summary.gone") · stale: $(g "$bc.summary.stale") · keep: $(g "$bc.summary.keep")"
-    local cand
+    local cand active
     cand="$(lines "$bc"'.candidates[]? | select(.category!="keep") | "- `\(.branch)` — **\(.category)** — \(.reason)"')"
-    if [ -n "$cand" ]; then echo; echo "Prunable candidates:"; echo "$cand"; else echo; echo "_No prunable branches._"; fi
+    if [ -n "$cand" ]; then echo; echo "Prunable candidates:"; echo; echo "$cand"; else echo; echo "_No prunable branches._"; fi
+    active="$(lines "$bc"'.candidates[]? | select(.category=="keep" and .reason=="active, unmerged" and (.ahead//0)>0) | "- `\(.branch)` — \(.ahead) ahead / \(.behind) behind default — assess for merge vs variant (see Analysis & tasks)"')"
+    [ -n "$active" ] && { echo; echo "Active / unmerged branches (merge candidates):"; echo; echo "$active"; }
   else echo "_branch data unavailable_"; fi
 
   # ---- Commit hygiene ----
@@ -159,7 +161,7 @@ render_repo_body() {
     echo "Non-conventional in last $(g "$ch.lint.checked"): **$(g "$ch.lint.non_conventional")** · un-pushed (rewordable): $(g "$ch.unpushed | length")"
     local bad
     bad="$(lines "$ch"'.lint.commits[]? | select(.conventional==false) | "- `\(.sha)` \(.subject)"')"
-    [ -n "$bad" ] && { echo; echo "Non-conventional subjects:"; echo "$bad"; }
+    [ -n "$bad" ] && { echo; echo "Non-conventional subjects:"; echo; echo "$bad"; }
   else echo "_commit data unavailable_"; fi
 
   # ---- History surgery / secrets ----
@@ -167,16 +169,15 @@ render_repo_body() {
   local hs='.skills["git-history-surgery"]'
   if [ "$(g "$hs.schema")" = "history-surgery/v1" ]; then
     echo "Secret findings: **$(g "$hs.summary.secret_findings")** · sensitive tracked files: $(g "$hs.summary.sensitive_files") · large blobs: $(g "$hs.summary.big_blobs") · rewrite tool ready: $(g "$hs.tools.rewrite_ready")"
-    echo "_Scan method: **$(g "$hs.secret_scan.method")** — $(g "$hs.secret_scan.note")_"
-    local sec
-    sec="$(lines "$hs"'.secret_scan.findings[]? | "- **\(.rule)** in `\(.file)`" + (if .line then " (line \(.line))" else "" end) + " — commit: " + (if .commit then "`\(.commit)`" else "unknown (working-tree scan; trace provenance in Analysis)" end)')"
-    if [ -n "$sec" ]; then
-      echo; echo "⚠️ Potential secrets:"; echo "$sec"
-      echo; echo "> These are matches in the **current working tree**, not confirmed history leaks. A match may be a false positive (e.g. a value read from env). Rewriting history does **not** un-leak a real secret — rotate/revoke it."
+    local secn
+    secn="$(g "$hs.summary.secret_findings")"; [ -z "$secn" ] && secn=0
+    if [ "${secn:-0}" -gt 0 ] 2>/dev/null; then
+      echo
+      echo "_$secn working-tree regex match(es) (scan method **$(g "$hs.secret_scan.method")**, no history). The verdict is in **Analysis & tasks** — most such matches are false positives (env interpolation, i18n strings, test fixtures); only real secrets are listed there with an action._"
     fi
     local bb
     bb="$(lines "$hs"'.large_blobs.items[]? | "- `\(.path)` — \(.mb) MB"')"
-    [ -n "$bb" ] && { echo; echo "Large blobs in history:"; echo "$bb"; }
+    [ -n "$bb" ] && { echo; echo "Large blobs in history:"; echo; echo "$bb"; }
   else echo "_history scan unavailable_"; fi
 
   # ---- Pipeline (all branches) ----
@@ -192,7 +193,7 @@ render_repo_body() {
     mrn="$(g "$ph.mr_pipelines | length")"
     [ "${mrn:-0}" != "0" ] && echo && echo "_+ $mrn merge-request pipeline(s) (not shown above)._"
     fjobs="$(lines "$ph"'.branches[]? | select((.failing_jobs|length)>0) | "- `\(.branch)` (cause: \(.likely_cause // "?")): " + ([.failing_jobs[].name]|join(", "))')"
-    [ -n "$fjobs" ] && { echo; echo "Failing jobs:"; echo "$fjobs"; }
+    [ -n "$fjobs" ] && { echo; echo "Failing jobs:"; echo; echo "$fjobs"; }
   else
     echo "_CI unavailable: $(g "$ph.reason" || echo "pipeline data unavailable")._"
     local host hauth

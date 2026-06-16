@@ -56,34 +56,48 @@ the user at the single `fleet_report`.
 
 The script leaves judgement that needs investigation to you. **Edit the single report**, filling each
 delimited region. Scope the deep work to **notable** findings (secrets, over-threshold blobs, failing
-CI, work items); mechanical actions already explain themselves, so don't re-explain them.
+CI, active branches, work items); mechanical actions already explain themselves, so don't re-explain them.
+
+**Markdown rule (applies everywhere you write):** always put a **blank line before a bulleted list**, or
+it won't render as bullets. Keep every list as real `-` bullets; nest sub-bullets with two spaces.
 
 1. **Per-repo `<!-- gs:repo:<name>-start/end -->` regions** — for each repo:
-   - **Explain notable findings with sources (deep).** For each secret, the scan is working-tree-only
-     (`commit` unknown), so investigate: `git -C <repo> log -S '<snippet>' --oneline` and/or
-     `git blame`/inspect the `file:line` to find when/where it was introduced, and state plainly whether
-     it's a **real secret or a false positive** (e.g. a value read from env) — cite the file:line/commit.
-     For each over-threshold blob, judge **cleanability**: `in_worktree` + build-artifact/gitignored →
-     removable (untrack now, or history rewrite if history-only); a real committed asset → keep. For
-     failing CI, summarize the cause from the job detail. If a deeper tool is needed (e.g. gitleaks for
-     full-history secrets), say so rather than guessing.
-   - **Group this repo's work items into tasks.** Merge related items, collapse duplicates. Write each
-     task **across multiple lines**: a short checkbox **title** line carrying the tag (keep the tag on
-     that line so it parses), then indented `*Items:*`, `*Why:*`, `*How:*` sub-bullets:
+   - **Explain notable findings with sources (deep).**
+     - *Secrets:* investigate (`git -C <repo> log -S '<snippet>' --oneline`, `git blame`, read the
+       `file:line`) to decide real-vs-false-positive. **Don't enumerate false positives** — mention them
+       in **one casual aggregate line** (e.g. *"the N matches are all false positives — env interpolation /
+       i18n / test fixtures"*). Only a **real** secret gets a detailed finding + an action (rotate +
+       history-remove).
+     - *Blobs:* judge cleanability — `in_worktree` + build-artifact/gitignored → removable (untrack now,
+       or history rewrite if history-only); a real committed asset → keep.
+     - *CI:* summarize the cause from the job detail. If a deeper tool is needed (e.g. gitleaks), say so.
+   - **Assess active / unmerged branches (merge-vs-variant).** For each branch listed as active/unmerged
+     (`ahead>0`): look at `git -C <repo> log <default>..<branch> --oneline`, the branch name, and any open
+     MR. If it holds finished, sensible work, propose a merge task
+     `- [ ] **Merge `<branch>` into `<default>`** <!--gs op=branch-merge repo=<name> branch=<branch>-->`
+     with *Why/How*. If it's a deliberate **variant** (`variant/`, `experiment/`, a permanent alt-version,
+     or large intentional divergence) or stale/abandoned, **say so and do not propose a merge**.
+   - **Validate, then group work items into tasks.** Before writing a task, **check whether each item is
+     already implemented or no longer valid**: search branches and recent commits
+     (`git -C <repo> log --oneline --all --grep '<keyword>'`, `git log -S`), locate where it would live in
+     the code, and read that code. If already done, mark it **done/likely-done with evidence** instead of
+     proposing it; if partially done, scope the task to the remainder. Then merge related items and write
+     each task **across multiple lines** (blank line before the list):
      ```
+
      - [ ] **<task title>** <!--gs op=work-item-implement repo=<name> numbers=<n,m> slug=<kebab>-->
        - *Items:* #<n>, #<m>
-       - *Why:* <why these belong together / the goal>
-       - *How:* <how you'll implement it>
+       - *Why:* <why these belong together / the goal / validity note>
+       - *How:* <concrete steps grounded in the code you read — name the files/components and the approach, not a vague restatement>
      ```
-     where `numbers` lists every item number the task subsumes (comma-joined, no spaces) and `slug` is a
-     kebab branch name. Group, don't transcribe — the value is fewer, better-scoped tasks.
+     `numbers` lists every item the task subsumes (comma-joined, no spaces); `slug` is a kebab branch name.
+     Group, don't transcribe — fewer, better-scoped, validated tasks.
 2. **Top `<!-- gs:themes-start/end -->` region** — groups of related items spanning more than one repo;
    call out overlap/duplication so the same work isn't done twice. Per-repo tasks stay in their repo's
    region (linked by theme).
 
-Base every explanation on evidence (file:line, commit, branch, CI cause, blob size + in-worktree). When
-you cap deep investigation, say what you skipped.
+Base every explanation on evidence (file:line, commit, branch, CI cause, blob size + in-worktree,
+work-item already-done check). When you cap deep investigation, say what you skipped.
 
 ## Step 3 — Execute the checked items
 

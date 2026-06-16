@@ -77,6 +77,7 @@ if [ "$n2" -gt 0 ]; then
     elif .op=="branch-delete-remote" then "🔴 branch-delete-remote \(.repo) — \(.branch):\n    bash $CLAUDE_PLUGIN_ROOT/skills/git-branch-cleanup/scripts/apply.sh --repo \(.repo) --branches \(.branch) --delete-remote --confirm"
     elif .op=="work-item-start" then "🔵 work-item-start \(.repo) — #\(.number):\n    bash $CLAUDE_PLUGIN_ROOT/skills/work-items/scripts/apply.sh --repo \(.repo) --start \(.number) --type <type> --slug <kebab> --confirm"
     elif .op=="work-item-implement" then "🟣 work-item-implement \(.repo) — #\(.numbers // .number) (slug: \(.slug // "?")): agent task — implement on a branch, commit, push, open the MR (Tier-2; confirm this repo before pushing). Not auto-run."
+    elif .op=="branch-merge" then "🟢 branch-merge \(.repo) — `\(.branch)` → default: agent task — open a merge request for the branch into the default branch (Tier-2; review before merge, never a direct push to default). Not auto-run."
     elif .op=="pipeline-fix" then "🟠 pipeline-fix \(.repo) — \(.branch): author a fix, then\n    bash $CLAUDE_PLUGIN_ROOT/skills/pipeline-health/scripts/apply.sh --repo \(.repo) --push-and-monitor --confirm"
     elif .op=="release-tag" then "🟡 release-tag \(.repo):\n    bash $CLAUDE_PLUGIN_ROOT/skills/release-changelog/scripts/apply.sh --repo \(.repo) --tag --confirm"
     else "• \(.op) \(.repo)" end' <<<"$plan_json"

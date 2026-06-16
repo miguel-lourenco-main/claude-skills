@@ -44,31 +44,44 @@ Loops `repo-steward` analyze over the saved fleet (falls back to workspace disco
 `fleet-steward/v1`: each repo's full `repo-steward/v1` object (skills + `attention`) plus `totals`
 (repos with secrets, prunable branches, failing CI, open work items).
 
-**One consolidated findings document is generated** (no per-repo files, no separate index): the
-`fleet_report` path under `<root>/.git-steward/reports/<stamp>-fleet.md`. It holds the fleet totals, a
-severity-sorted table, a **Work Items — Task Plan** region (for Step 2.5), then a full findings +
-Actions section per repo (every prunable branch, each secret, ranked items, failing CI) with intact
-`<!--gs ...-->` tags. Present the fleet totals, then point the user at the single `fleet_report`.
+**One consolidated, self-explaining document is generated** (no per-repo files, no separate index): the
+`fleet_report` path under `<root>/.git-steward/reports/<stamp>-fleet.md`. The script writes the structure
+and raw data: a one-time **How to use this report**, fleet totals, a severity table, a top **Cross-repo
+themes** region, then per repo a findings section (health/blobs, branches, commits, secrets, per-branch
+CI) with an **Actions** list where every item already carries *Why / Risk / Source*, plus a per-repo
+**Analysis & tasks** agent region — and a **Glossary** at the end. Present the fleet totals, then point
+the user at the single `fleet_report`.
 
-## Step 2.5 — Synthesize the work-item task plan into the report
+## Step 2.5 — Annotate the report (fill the agent regions)
 
-After `run_across.sh`, take **all** work items across the fleet as a whole and turn them into a grouped,
-deduped task plan — then **edit the single report**, replacing the region between
-`<!-- gs:task-plan-start -->` and `<!-- gs:task-plan-end -->` with it. Source data: each repo's
-`skills["work-items"].items` in the `fleet-steward/v1` JSON (also listed raw inside that region).
+The script leaves judgement that needs investigation to you. **Edit the single report**, filling each
+delimited region. Scope the deep work to **notable** findings (secrets, over-threshold blobs, failing
+CI, work items); mechanical actions already explain themselves, so don't re-explain them.
 
-Produce two layers:
-- **`### Cross-repo themes`** — groups of related items spanning more than one repo; call out overlap and
-  duplicates so the same work isn't done twice.
-- **`### Per-repo task groups`** — within each repo, merge related items into a single task and collapse
-  duplicates. Make each actionable task a checkbox carrying a tag:
-  `- [ ] <task> <!--gs op=work-item-implement repo=<name> numbers=<n,m> slug=<kebab>-->`
-  where `numbers` lists every work-item number the task subsumes (comma-joined, no spaces) and `slug` is
-  a kebab branch name. Group, don't just transcribe — the value is fewer, better-scoped tasks.
+1. **Per-repo `<!-- gs:repo:<name>-start/end -->` regions** — for each repo:
+   - **Explain notable findings with sources (deep).** For each secret, the scan is working-tree-only
+     (`commit` unknown), so investigate: `git -C <repo> log -S '<snippet>' --oneline` and/or
+     `git blame`/inspect the `file:line` to find when/where it was introduced, and state plainly whether
+     it's a **real secret or a false positive** (e.g. a value read from env) — cite the file:line/commit.
+     For each over-threshold blob, judge **cleanability**: `in_worktree` + build-artifact/gitignored →
+     removable (untrack now, or history rewrite if history-only); a real committed asset → keep. For
+     failing CI, summarize the cause from the job detail. If a deeper tool is needed (e.g. gitleaks for
+     full-history secrets), say so rather than guessing.
+   - **Group this repo's work items into tasks.** Merge related items, collapse duplicates, and write each
+     as a checkbox **with a how/why execution description** (what you'll change and why):
+     `- [ ] <task — how you'll do it, why> <!--gs op=work-item-implement repo=<name> numbers=<n,m> slug=<kebab>-->`
+     where `numbers` lists every item number the task subsumes (comma-joined, no spaces) and `slug` is a
+     kebab branch name. Group, don't transcribe — the value is fewer, better-scoped tasks.
+2. **Top `<!-- gs:themes-start/end -->` region** — groups of related items spanning more than one repo;
+   call out overlap/duplication so the same work isn't done twice. Per-repo tasks stay in their repo's
+   region (linked by theme).
+
+Base every explanation on evidence (file:line, commit, branch, CI cause, blob size + in-worktree). When
+you cap deep investigation, say what you skipped.
 
 ## Step 3 — Execute the checked items
 
-When the user has checked boxes (Actions and/or task-plan tasks) and says to execute:
+When the user has checked boxes (Actions and/or work-item tasks) and says to execute:
 ```bash
 bash ${CLAUDE_PLUGIN_ROOT}/shared/run-plan.sh --report <fleet_report>   # add --dry-run to preview
 ```

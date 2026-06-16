@@ -9,10 +9,12 @@ set -u
 
 repo="."
 stale_days=90
+blob_mb="${GIT_STEWARD_BLOB_MB:-5}"   # recommended max size (MB) for a tracked blob
 while [ $# -gt 0 ]; do
   case "$1" in
     --repo) repo="$2"; shift 2 ;;
     --stale-days) stale_days="$2"; shift 2 ;;
+    --blob-mb) blob_mb="$2"; shift 2 ;;
     --mode) shift 2 ;;   # accepted for contract uniformity; health is always read-only
     *) shift ;;
   esac
@@ -66,12 +68,22 @@ commits_90d="$(git log --since='90 days ago' --oneline 2>/dev/null | wc -l | tr 
 total_commits="$(git rev-list --count --all 2>/dev/null || echo 0)"
 contributors="$(git shortlog -sn --all 2>/dev/null | wc -l | tr -d ' ')"
 
-# largest tracked blobs (top 3, MB)
+# largest blobs anywhere in the object database (top 3, MB). Note: rev-list --all is
+# history-wide, so a blob may be history-only; in_worktree distinguishes "removable now
+# by untracking" from "only removable via history rewrite". over_threshold flags blobs
+# above the recommended size guideline so the report only nags when it matters.
+worktree_files="$(git ls-files 2>/dev/null || true)"
 big_blobs="$(git rev-list --objects --all 2>/dev/null \
   | git cat-file --batch-check='%(objecttype) %(objectsize) %(rest)' 2>/dev/null \
   | awk '$1=="blob" && $3!="" {print $2"\t"$3}' \
   | sort -rn | head -3 \
-  | awk '{mb=$1/1048576; printf "{\"path\":\"%s\",\"mb\":%.2f}\n", $2, mb}' \
+  | awk '{mb=$1/1048576; printf "%s\t%.2f\n", $2, mb}' \
+  | while IFS=$'\t' read -r path mb; do
+      inwt=false; printf '%s\n' "$worktree_files" | grep -qxF "$path" && inwt=true
+      over=$(awk -v m="$mb" -v t="$blob_mb" 'BEGIN{print (m+0 > t+0) ? "true" : "false"}')
+      jq -n --arg p "$path" --argjson mb "$mb" --argjson over "$over" --argjson iw "$inwt" \
+        '{path:$p, mb:$mb, over_threshold:$over, in_worktree:$iw}'
+    done \
   | jq -s . 2>/dev/null || echo '[]')"
 
 # health flags (advisory; remediation pointers, not actions)
@@ -79,11 +91,13 @@ flags="$(jq -n \
   --argjson dirty "$dirty_count" --argjson ahead "$ahead" --argjson behind "$behind" \
   --argjson merged "$merged_into_default" --argjson stale "$stale_branches" \
   --argjson dormant "$days_since_commit" --arg sd "$stale_days" \
+  --argjson blobs "$big_blobs" --arg bt "$blob_mb" \
   '[ (if $dirty>0 then "uncommitted-changes" else empty end),
      (if $ahead>0 then "unpushed-commits" else empty end),
      (if $behind>0 then "behind-upstream" else empty end),
      (if $merged>0 then "merged-branches-prunable" else empty end),
      (if $stale>0 then ("stale-branches>" + $sd + "d") else empty end),
+     (if ([$blobs[]|select(.over_threshold)]|length)>0 then ("large-blobs>" + $bt + "mb") else empty end),
      (if $dormant>180 then "repo-dormant>180d" else empty end) ]')"
 
 jq -n \
@@ -94,10 +108,10 @@ jq -n \
   --argjson merged "$merged_into_default" --argjson stale "$stale_branches" --argjson staledays "$stale_days" \
   --argjson dsc "$days_since_commit" --argjson c90 "$commits_90d" \
   --argjson total "$total_commits" --argjson contrib "$contributors" \
-  --argjson blobs "$big_blobs" --argjson flags "$flags" \
+  --argjson blobs "$big_blobs" --argjson flags "$flags" --argjson bt "$blob_mb" \
   '{schema:"repo-health/v1", name:$name, repo:$repo, current_branch:$cur, default_branch:$db,
     worktree:{dirty:$dirty, untracked:$untracked},
     sync:{upstream:$upstream, ahead:$ahead, behind:$behind},
     branches:{local:$local, remote:$remote, merged_into_default:$merged, stale:$stale, stale_days:$staledays},
     activity:{days_since_last_commit:$dsc, commits_last_90d:$c90, total_commits:$total, contributors:$contrib},
-    largest_blobs:$blobs, flags:$flags}'
+    blob_threshold_mb:$bt, largest_blobs:$blobs, flags:$flags}'

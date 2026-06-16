@@ -18,8 +18,11 @@ done
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 res="$(bash "$here/../../../shared/resolve-host.sh" --repo "$repo")"
 cli="$(jq -r '.cli' <<<"$res")"; proj="$(jq -r '.project' <<<"$res")"; auth="$(jq -r '.auth' <<<"$res")"
+default_branch="$(jq -r '.default_branch // ""' <<<"$res")"
 cd "$repo" 2>/dev/null || { echo "{\"schema\":\"pipeline-health/v1\",\"error\":\"path not found\"}"; exit 0; }
-[ -z "$branch" ] && branch="$(git rev-parse --abbrev-ref HEAD 2>/dev/null)"
+cur_branch="$(git rev-parse --abbrev-ref HEAD 2>/dev/null)"
+[ -z "$branch" ] && branch="$cur_branch"
+[ -z "$default_branch" ] && default_branch="$branch"
 
 unavail() { jq -n --argjson res "$res" --arg b "$branch" --arg r "$1" \
   '{schema:"pipeline-health/v1", available:false, reason:$r, branch:$b, resolution:$res}'; exit 0; }
@@ -28,6 +31,8 @@ case "$cli" in
   glab|gh) : ;;
   *) unavail "no usable forge CLI for host '$(jq -r '.host' <<<"$res")' (CI needs glab or gh)" ;;
 esac
+
+DEEP_MAX=3   # cap on how many failing pipelines we pull job logs for, to bound API calls
 
 # classify a failure cause from job name + log text
 classify() { # $1=jobname $2=logtext -> cause
@@ -45,46 +50,71 @@ classify() { # $1=jobname $2=logtext -> cause
   esac
 }
 
-jobs_json="[]"; status="unknown"; pid=""; web=""
+# --- 1) list recent pipelines across ALL branches (one call) ---
 if [ "$cli" = "glab" ]; then
-  pj="$(glab ci get -R "$proj" -b "$branch" -F json 2>/dev/null || echo '')"
-  [ -z "$pj" ] && unavail "no pipeline found for branch '$branch'"
-  status="$(jq -r '.status // "unknown"' <<<"$pj")"
-  pid="$(jq -r '.id // ""' <<<"$pj")"; web="$(jq -r '.web_url // ""' <<<"$pj")"
-  jobs_basic="$(jq -c '[.jobs[]? | {name,status,stage,id}]' <<<"$pj" 2>/dev/null || echo '[]')"
-  jobs_json="[]"
-  while IFS= read -r job; do
-    jn="$(jq -r '.name' <<<"$job")"; js="$(jq -r '.status' <<<"$job")"; jid="$(jq -r '.id' <<<"$job")"
-    cause="null"; excerpt=""
-    if [ "$js" = "failed" ]; then
-      log="$(glab ci trace -R "$proj" "$jid" 2>/dev/null | tail -40 || true)"
-      [ -z "$log" ] && log="$(glab ci trace -R "$proj" -b "$branch" -j "$jn" 2>/dev/null | tail -40 || true)"
-      cause="\"$(classify "$jn" "$log")\""
-      excerpt="$(printf '%s' "$log" | tail -8)"
-    fi
-    jobs_json="$(jq -c --argjson job "$job" --argjson cause "$cause" --arg ex "$excerpt" \
-      '. += [$job + {cause:$cause, log_excerpt:$ex}]' <<<"$jobs_json")"
-  done < <(jq -c '.[]' <<<"$jobs_basic")
-elif [ "$cli" = "gh" ]; then
+  raw="$(glab ci list -R "$proj" -F json 2>/dev/null || echo '[]')"
+  jq -e 'type=="array"' >/dev/null 2>&1 <<<"$raw" || raw='[]'
+  pipes="$(jq -c '[ .[] | {ref, status, id, web_url, created_at} ]' <<<"$raw")"
+else # gh
   command -v gh >/dev/null 2>&1 || unavail "github repo but gh not installed"
-  rl="$(gh run list -R "$proj" -b "$branch" --json databaseId,status,conclusion,workflowName --limit 1 2>/dev/null || echo '[]')"
-  [ "$(jq 'length' <<<"$rl")" = "0" ] && unavail "no workflow runs for branch '$branch'"
-  pid="$(jq -r '.[0].databaseId' <<<"$rl")"; status="$(jq -r '.[0].conclusion // .[0].status' <<<"$rl")"
-  rv="$(gh run view "$pid" -R "$proj" --json jobs 2>/dev/null || echo '{}')"
-  failedlog="$(gh run view "$pid" -R "$proj" --log-failed 2>/dev/null | tail -40 || true)"
-  jobs_json="$(jq -c --arg log "$failedlog" '[.jobs[]? | {name, status:.conclusion, stage:null, id:.databaseId,
-      cause:null, log_excerpt:(if .conclusion=="failure" then ($log|.[-400:]) else "" end)}]' <<<"$rv" 2>/dev/null || echo '[]')"
+  raw="$(gh run list -R "$proj" --json databaseId,status,conclusion,headBranch,url,createdAt --limit 50 2>/dev/null || echo '[]')"
+  jq -e 'type=="array"' >/dev/null 2>&1 <<<"$raw" || raw='[]'
+  pipes="$(jq -c '[ .[] | {ref:.headBranch, status:(.conclusion // .status), id:(.databaseId|tostring), web_url:.url, created_at:.createdAt} ]' <<<"$raw")"
 fi
+[ "$(jq 'length' <<<"$pipes")" = "0" ] && unavail "no pipelines found for project '$proj'"
 
-failing="$(jq -c '[.[]|select(.status=="failed" or .status=="failure")]' <<<"$jobs_json")"
-overall="$(jq -r 'if (.[]|select(.status=="failed" or .status=="failure")) then "failed" else empty end' <<<"$jobs_json" | head -1)"
-[ -z "$overall" ] && overall="$status"
-# dominant cause among failing jobs
-top_cause="$(jq -r '[.[].cause|select(.!=null)] | (group_by(.)|max_by(length)|.[0]) // "none"' <<<"$failing" 2>/dev/null || echo none)"
+# latest pipeline per ref; split real branches from merge-request refs
+latest="$(jq -c 'group_by(.ref) | map(max_by(.created_at))' <<<"$pipes")"
+mr_pipelines="$(jq -c '[ .[] | select(.ref|startswith("refs/merge-requests/")) | {ref, status, pipeline_id:(.id|tostring), web_url} ] | sort_by(.ref)' <<<"$latest")"
+real="$(jq -c --arg db "$default_branch" --arg cur "$branch" '
+  [ .[] | select((.ref|startswith("refs/merge-requests/"))|not)
+        | {branch:.ref, status, pipeline_id:(.id|tostring), web_url,
+           is_default:(.ref==$db), is_current:(.ref==$cur)} ]
+  | sort_by([(if .is_default then 0 else 1 end), (if .is_current then 0 else 1 end), .branch])' <<<"$latest")"
 
-jq -n --argjson res "$res" --arg b "$branch" --arg status "$status" --arg overall "$overall" \
-  --arg pid "$pid" --arg web "$web" --argjson jobs "$jobs_json" --argjson failing "$failing" --arg tc "$top_cause" \
-  '{schema:"pipeline-health/v1", available:true, project:$res.project, branch:$b,
-    pipeline_id:$pid, web_url:$web, status:$status, overall:$overall,
-    jobs:$jobs, failing:$failing, likely_cause:$tc,
+# headline status = default branch, else current, else first
+overall="$(jq -r --arg db "$default_branch" --arg cur "$branch" '
+  ([.[]|select(.branch==$db)]|first) // ([.[]|select(.branch==$cur)]|first) // .[0] | .status // "unknown"' <<<"$real")"
+
+# --- 2) deep-dive failing branches (bounded) to attach cause + job excerpts ---
+deep_n=0; branches_json="[]"; top_cause="none"
+while IFS= read -r br; do
+  bn="$(jq -r '.branch' <<<"$br")"; st="$(jq -r '.status' <<<"$br")"
+  cause="null"; failing_jobs="[]"
+  if { [ "$st" = "failed" ] || [ "$st" = "failure" ]; } && [ "$deep_n" -lt "$DEEP_MAX" ]; then
+    deep_n=$((deep_n+1))
+    if [ "$cli" = "glab" ]; then
+      # fetch jobs by pipeline id (ci get -b can resolve to the wrong/MR pipeline)
+      proj_enc="$(printf '%s' "$proj" | sed 's#/#%2F#g')"
+      pid="$(jq -r '.pipeline_id' <<<"$br")"
+      jobs_basic="$(glab api "projects/$proj_enc/pipelines/$pid/jobs" 2>/dev/null | jq -c '[.[]?|{name,status,stage,id}]' 2>/dev/null || echo '[]')"
+      while IFS= read -r job; do
+        jn="$(jq -r '.name' <<<"$job")"; js="$(jq -r '.status' <<<"$job")"; jid="$(jq -r '.id' <<<"$job")"
+        [ "$js" = "failed" ] || continue
+        log="$(glab ci trace -R "$proj" "$jid" 2>/dev/null | tail -40 || true)"
+        c="$(classify "$jn" "$log")"; ex="$(printf '%s' "$log" | tail -8)"
+        failing_jobs="$(jq -c --arg n "$jn" --arg s "${js:-failed}" --arg c "$c" --arg ex "$ex" \
+          '. += [{name:$n, status:$s, cause:$c, log_excerpt:$ex}]' <<<"$failing_jobs")"
+      done < <(jq -c '.[]' <<<"$jobs_basic")
+    else # gh
+      rv="$(gh run view "$(jq -r '.pipeline_id' <<<"$br")" -R "$proj" --json jobs 2>/dev/null || echo '{}')"
+      failedlog="$(gh run view "$(jq -r '.pipeline_id' <<<"$br")" -R "$proj" --log-failed 2>/dev/null | tail -40 || true)"
+      failing_jobs="$(jq -c --arg log "$failedlog" '[.jobs[]? | select(.conclusion=="failure") |
+          {name, status:.conclusion, cause:null, log_excerpt:($log|.[-400:])}]' <<<"$rv" 2>/dev/null || echo '[]')"
+    fi
+    cause="\"$(jq -r '[.[].cause|select(.!=null)] | (group_by(.)|max_by(length)|.[0]) // "unknown"' <<<"$failing_jobs" 2>/dev/null || echo unknown)\""
+    [ "$top_cause" = "none" ] && top_cause="$(jq -r . <<<"$cause" 2>/dev/null || echo none)"
+  fi
+  branches_json="$(jq -c --argjson br "$br" --argjson cause "$cause" --argjson fj "$failing_jobs" \
+    '. += [$br + {likely_cause:$cause, failing_jobs:$fj}]' <<<"$branches_json")"
+done < <(jq -c '.[]' <<<"$real")
+
+n_failing="$(jq '[.[]|select(.status=="failed" or .status=="failure")]|length' <<<"$branches_json")"
+
+jq -n --argjson res "$res" --arg b "$branch" --arg db "$default_branch" --arg overall "$overall" \
+  --argjson branches "$branches_json" --argjson mr "$mr_pipelines" \
+  --argjson scanned "$(jq 'length' <<<"$pipes")" --argjson nfail "$n_failing" --arg tc "$top_cause" \
+  '{schema:"pipeline-health/v1", available:true, project:$res.project, branch:$b, default_branch:$db,
+    overall:$overall, scanned:$scanned, branches_failing:$nfail,
+    branches:$branches, mr_pipelines:$mr, likely_cause:$tc,
     agent_fixable:( $tc as $c | ($c=="lint" or $c=="build" or $c=="hygiene" or $c=="test") )}'

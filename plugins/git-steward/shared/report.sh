@@ -1,15 +1,13 @@
 #!/usr/bin/env bash
-# report.sh — turn a repo-steward/v1 analyze aggregate into a detailed,
-# human-readable Markdown findings document so the user can make an informed
-# decision about what to apply. Read-only.
+# report.sh — turn a repo-steward/v1 (single repo) or fleet-steward/v1 (whole
+# fleet) analyze aggregate into a detailed, self-explaining Markdown decision
+# document. Read-only. The instructions and glossary appear once; each repo gets
+# a findings section with bulleted, evidenced actions plus an agent-authored
+# "Analysis & tasks" region.
 #
-# Single repo:
-#   report.sh --in <repo-steward.json> [--out <file.md>]
-#   <repo-steward JSON on stdin> | report.sh [--out <file.md>]
-# Whole fleet (one consolidated file):
-#   report.sh --fleet --in <fleet-steward.json> [--out <file.md>]
-#   <fleet-steward JSON on stdin> | report.sh --fleet [--out <file.md>]
-# Prints the written file path on stdout. With --stdout, prints the Markdown.
+# Single repo:  report.sh --in <repo-steward.json> [--out <file.md>] | --stdout
+# Whole fleet:  report.sh --fleet --in <fleet-steward.json> [--out <file.md>] | --stdout
+# Prints the written file path on stdout (or the Markdown with --stdout).
 set -u
 
 in=""; out=""; to_stdout=false; fleet=false
@@ -33,186 +31,249 @@ RJSON=""
 g(){ jq -r "$1 // empty" <<<"$RJSON" 2>/dev/null; }   # scalar getter
 lines(){ jq -r "$1" <<<"$RJSON" 2>/dev/null; }         # multi-line getter
 
-# render_repo <repo-steward-json> [heading-base]
-# heading-base is a literal markdown prefix ("" for top-level, "#" to demote one
-# level when embedding many repos in a single fleet document). FLEET_MODE=true
-# suppresses the per-repo "Work items — start" action block (the synthesized
-# fleet task plan replaces it).
-render_repo() {
-  RJSON="$1"
-  local hb="${2:-}"
+# ---- one-time orientation (emitted once per document) ----
+emit_howto() {
+cat <<'HOWTO'
+## How to use this report
+
+This is a **read-only analysis** — nothing was changed. Decide what to act on, then tell me to do it.
+
+- **Actions** (per repo) and **work-item tasks** are checkboxes: `- [x]` = do it, `- [ ]` = skip (deleting the line also skips it).
+- Each item carries *Why* (rationale), *Risk* (tier + reversibility), and *Source* (the evidence it's based on) so nothing is a black box.
+- **Tier 1** = local & recoverable (branch deletes, rewords, `.gitignore`). **Tier 2** 🔴 = outward or irreversible (history rewrite, remote pushes, opening MRs) — each is confirmed again before it runs.
+- Leave the `<!--gs ...-->` tags intact; they map a checkbox to an action. For rewords, edit the message after the `→`.
+- When ready, say **"execute the checked items"**, or run `bash ${CLAUDE_PLUGIN_ROOT}/shared/run-plan.sh --report <this-file>`.
+- Unfamiliar terms (non-conventional commits, prunable branches, big blobs, working-tree vs history secret scan, tiers) are defined in the **Glossary** at the end.
+HOWTO
+}
+
+emit_glossary() {
+cat <<'GLOSS'
+## Glossary
+
+**How this file is organized.** Top: fleet totals, a severity-sorted repo table, and cross-repo themes. Then one section per repo — *Analysis & tasks* (agent summary + this repo's work-item tasks), *Repository health*, *Branches*, *Commit hygiene*, *Secrets & history*, *CI / pipeline health*, and *Actions*. This glossary is last.
+
+- **Prunable branch** — a local branch that is merged into the default branch, whose upstream is gone, or that has been stale past the threshold; safe to delete.
+- **Non-conventional commit** — a commit whose subject does not follow Conventional Commits (`type(scope): summary`, e.g. `feat:`, `fix:`, `chore:`). Can be reworded while still un-pushed.
+- **Secret finding (working-tree scan)** — a regex match for something secret-shaped in the **current** files. The built-in `git-native` scanner does **not** read history, so each finding's `commit` is *unknown* and a match can be a false positive (e.g. a value loaded from an env file). Full-history detection needs `gitleaks`/`trufflehog`. The per-repo *Analysis* traces provenance where possible.
+- **Big blob / large tracked blob** — a large file object in the repository. `in worktree` = still a current file (untrack/`.gitignore` it to stop tracking going forward); `history-only` = exists only in past commits (removable only by a history rewrite). Flagged when over the size guideline (default 5 MB).
+- **Tier 1 / Tier 2** — Tier 1 actions are local and reversible; Tier 2 (🔴) are outward or irreversible and gated by a second confirmation. Removing a secret/file from history rewrites every commit and does **not** un-leak the credential — rotate it too.
+- **CI / pipeline status** — per branch, the result of that branch's latest pipeline. `refs/merge-requests/*` are MR pipelines, counted separately from real branches.
+- **MR** — GitLab Merge Request (GitHub: Pull Request).
+GLOSS
+}
+
+# ---- per-repo header (title + metadata) ----
+repo_header() {
+  RJSON="$1"; local hb="${2:-}"
+  local name repo optimize
+  name="$(jq -r '.name // "repo"' <<<"$RJSON")"
+  repo="$(jq -r '.repo // "."' <<<"$RJSON")"
+  optimize="$(jq -r '.optimize // false' <<<"$RJSON")"
+  echo "${hb}# git-steward findings — $name"
+  echo
+  echo "- **Repository:** \`$repo\`"
+  echo "- **Generated:** $ts · analyze (read-only) · optimize tier: $optimize"
+}
+
+# ---- per-repo body (at-a-glance, analysis region, dimensions, actions) ----
+render_repo_body() {
+  RJSON="$1"; local hb="${2:-}"
   local name repo optimize
   name="$(jq -r '.name // "repo"' <<<"$RJSON")"
   repo="$(jq -r '.repo // "."' <<<"$RJSON")"
   optimize="$(jq -r '.optimize // false' <<<"$RJSON")"
 
-cat <<HDR
-${hb}# git-steward findings — $name
+  echo; echo "${hb}## At a glance"
+  echo
+  echo "| Dimension | Finding |"
+  echo "|---|---|"
+  echo "| Health flags | $(g '.attention.health_flags | join(", ") | select(.!="")' || echo "none") |"
+  echo "| Prunable branches | $(g '.attention.prunable_branches') |"
+  echo "| Non-conventional commits | $(g '.attention.non_conventional_commits') |"
+  echo "| Secret findings (working-tree) | $(g '.attention.secret_findings') |"
+  echo "| Large blobs | $(g '.attention.big_blobs') |"
+  echo "| Open work items | $(g '.attention.open_work_items') |"
+  echo "| CI status (headline) | $(g '.attention.ci_status') |"
 
-- **Repository:** \`$repo\`
-- **Generated:** $ts
-- **Mode:** analyze (read-only — nothing was changed) · **optimize tier:** $optimize
+  # ---- Analysis & tasks (agent-authored region) ----
+  local secn blobn cifail summary wi_raw
+  secn="$(g '.attention.secret_findings')"; [ -z "$secn" ] && secn=0
+  blobn="$(lines '[.skills["git-repo-health"].largest_blobs[]?|select(.over_threshold)]|length')"; [ -z "$blobn" ] && blobn=0
+  cifail="$(lines '[.skills["pipeline-health"].branches[]?|select(.status=="failed" or .status=="failure")]|length')"; [ -z "$cifail" ] && cifail=0
+  echo; echo "${hb}## Analysis & tasks"
+  echo "<!-- gs:repo:${name}-start -->"
+  echo "_Agent fills this in: explain the notable findings (with sources/provenance), judge blob cleanability, and group this repo's open work items into tagged tasks. Raw material below._"
+  echo
+  echo "**Notable findings to explain:** ${secn} secret match(es) · ${blobn} blob(s) over the size guideline · ${cifail} branch(es) with failing CI."
+  echo
+  echo "**Open work items** (group/dedupe into \`- [ ] … <!--gs op=work-item-implement repo=${name} numbers=<n,m> slug=<kebab>-->\` tasks, each with a how/why description):"
+  wi_raw="$(lines '.skills["work-items"].items[]? | "- #\(.number) [\(.importance)/\(.scope)] \(.title) — \(.web_url)"')"
+  if [ -n "$wi_raw" ]; then echo "$wi_raw"; else echo "_none open._"; fi
+  echo "<!-- gs:repo:${name}-end -->"
 
-> This document summarizes everything the analyze phase found, with the exact remediation for each
-> item, so you can decide what (if anything) to apply. No command below runs until you approve it.
+  # ---- Health ----
+  echo; echo "${hb}## Repository health"
+  if [ "$(g '.skills["git-repo-health"].schema')" = "repo-health/v1" ]; then
+    echo "- Default branch: \`$(g '.skills["git-repo-health"].default_branch')\` · current: \`$(g '.skills["git-repo-health"].current_branch')\`"
+    echo "- Working tree: $(g '.skills["git-repo-health"].worktree.dirty') dirty, $(g '.skills["git-repo-health"].worktree.untracked') untracked"
+    echo "- Sync: $(g '.skills["git-repo-health"].sync.ahead') ahead / $(g '.skills["git-repo-health"].sync.behind') behind upstream"
+    echo "- Branches: $(g '.skills["git-repo-health"].branches.local') local, $(g '.skills["git-repo-health"].branches.remote') remote, $(g '.skills["git-repo-health"].branches.merged_into_default') merged, $(g '.skills["git-repo-health"].branches.stale') stale"
+    echo "- Activity: last commit $(g '.skills["git-repo-health"].activity.days_since_last_commit')d ago · $(g '.skills["git-repo-health"].activity.commits_last_90d') commits/90d · $(g '.skills["git-repo-health"].activity.total_commits') total · $(g '.skills["git-repo-health"].activity.contributors') contributors"
+    local bt over under
+    bt="$(g '.skills["git-repo-health"].blob_threshold_mb')"; [ -z "$bt" ] && bt=5
+    over="$(lines '.skills["git-repo-health"].largest_blobs[]? | select(.over_threshold) | "  - `\(.path)` — \(.mb) MB — " + (if .in_worktree then "in worktree (untrack/.gitignore to stop tracking)" else "history-only (removable only via history rewrite)" end)')"
+    if [ -n "$over" ]; then
+      echo "- ⚠️ Largest tracked blobs over the ${bt} MB guideline (see Analysis for cleanability):"; echo "$over"
+    else
+      under="$(lines '.skills["git-repo-health"].largest_blobs[0]? | "\(.mb) MB (`\(.path)`)"')"
+      [ -n "$under" ] && echo "- Largest blob: $under — under the ${bt} MB guideline; no action."
+    fi
+    local flags
+    flags="$(lines '.skills["git-repo-health"].flags[]? | "  - " + .')"
+    [ -n "$flags" ] && { echo "- Flags:"; echo "$flags"; }
+  else echo "_health data unavailable_"; fi
 
-${hb}## At a glance
+  # ---- Branches ----
+  echo; echo "${hb}## Branches (git-branch-cleanup)"
+  local bc='.skills["git-branch-cleanup"]'
+  if [ "$(g "$bc.schema")" = "branch-cleanup/v1" ]; then
+    echo "Merged: $(g "$bc.summary.merged") · gone: $(g "$bc.summary.gone") · stale: $(g "$bc.summary.stale") · keep: $(g "$bc.summary.keep")"
+    local cand
+    cand="$(lines "$bc"'.candidates[]? | select(.category!="keep") | "- `\(.branch)` — **\(.category)** — \(.reason)"')"
+    if [ -n "$cand" ]; then echo; echo "Prunable candidates:"; echo "$cand"; else echo; echo "_No prunable branches._"; fi
+  else echo "_branch data unavailable_"; fi
 
-| Dimension | Finding |
-|---|---|
-| Health flags | $(g '.attention.health_flags | join(", ") | select(.!="")' || echo "none") |
-| Prunable branches | $(g '.attention.prunable_branches') |
-| Non-conventional commits | $(g '.attention.non_conventional_commits') |
-| Secret findings | $(g '.attention.secret_findings') |
-| Large blobs | $(g '.attention.big_blobs') |
-| Open work items | $(g '.attention.open_work_items') |
-| CI status | $(g '.attention.ci_status') |
-HDR
+  # ---- Commit hygiene ----
+  echo; echo "${hb}## Commit hygiene"
+  local ch='.skills["commit-hygiene"]'
+  if [ "$(g "$ch.schema")" = "commit-hygiene/v1" ]; then
+    echo "Non-conventional in last $(g "$ch.lint.checked"): **$(g "$ch.lint.non_conventional")** · un-pushed (rewordable): $(g "$ch.unpushed | length")"
+    local bad
+    bad="$(lines "$ch"'.lint.commits[]? | select(.conventional==false) | "- `\(.sha)` \(.subject)"')"
+    [ -n "$bad" ] && { echo; echo "Non-conventional subjects:"; echo "$bad"; }
+  else echo "_commit data unavailable_"; fi
 
-# ---- Health ----
-echo; echo "${hb}## Repository health"
-if [ "$(g '.skills["git-repo-health"].schema')" = "repo-health/v1" ]; then
-  echo "- Default branch: \`$(g '.skills["git-repo-health"].default_branch')\` · current: \`$(g '.skills["git-repo-health"].current_branch')\`"
-  echo "- Working tree: $(g '.skills["git-repo-health"].worktree.dirty') dirty, $(g '.skills["git-repo-health"].worktree.untracked') untracked"
-  echo "- Sync: $(g '.skills["git-repo-health"].sync.ahead') ahead / $(g '.skills["git-repo-health"].sync.behind') behind upstream"
-  echo "- Branches: $(g '.skills["git-repo-health"].branches.local') local, $(g '.skills["git-repo-health"].branches.remote') remote, $(g '.skills["git-repo-health"].branches.merged_into_default') merged, $(g '.skills["git-repo-health"].branches.stale') stale"
-  echo "- Activity: last commit $(g '.skills["git-repo-health"].activity.days_since_last_commit')d ago · $(g '.skills["git-repo-health"].activity.commits_last_90d') commits/90d · $(g '.skills["git-repo-health"].activity.total_commits') total · $(g '.skills["git-repo-health"].activity.contributors') contributors"
-  blobs="$(lines '.skills["git-repo-health"].largest_blobs[]? | "  - `\(.path)` — \(.mb) MB"')"
-  [ -n "$blobs" ] && { echo "- Largest tracked blobs:"; echo "$blobs"; }
-  flags="$(lines '.skills["git-repo-health"].flags[]? | "  - " + .')"
-  [ -n "$flags" ] && { echo "- Flags:"; echo "$flags"; }
-else echo "_health data unavailable_"; fi
+  # ---- History surgery / secrets ----
+  echo; echo "${hb}## Secrets & history (git-history-surgery)"
+  local hs='.skills["git-history-surgery"]'
+  if [ "$(g "$hs.schema")" = "history-surgery/v1" ]; then
+    echo "Secret findings: **$(g "$hs.summary.secret_findings")** · sensitive tracked files: $(g "$hs.summary.sensitive_files") · large blobs: $(g "$hs.summary.big_blobs") · rewrite tool ready: $(g "$hs.tools.rewrite_ready")"
+    echo "_Scan method: **$(g "$hs.secret_scan.method")** — $(g "$hs.secret_scan.note")_"
+    local sec
+    sec="$(lines "$hs"'.secret_scan.findings[]? | "- **\(.rule)** in `\(.file)`" + (if .line then " (line \(.line))" else "" end) + " — commit: " + (if .commit then "`\(.commit)`" else "unknown (working-tree scan; trace provenance in Analysis)" end)')"
+    if [ -n "$sec" ]; then
+      echo; echo "⚠️ Potential secrets:"; echo "$sec"
+      echo; echo "> These are matches in the **current working tree**, not confirmed history leaks. A match may be a false positive (e.g. a value read from env). Rewriting history does **not** un-leak a real secret — rotate/revoke it."
+    fi
+    local bb
+    bb="$(lines "$hs"'.large_blobs.items[]? | "- `\(.path)` — \(.mb) MB"')"
+    [ -n "$bb" ] && { echo; echo "Large blobs in history:"; echo "$bb"; }
+  else echo "_history scan unavailable_"; fi
 
-# ---- Branches ----
-echo; echo "${hb}## Branches (git-branch-cleanup)"
-bc='.skills["git-branch-cleanup"]'
-if [ "$(g "$bc.schema")" = "branch-cleanup/v1" ]; then
-  echo "Merged: $(g "$bc.summary.merged") · gone: $(g "$bc.summary.gone") · stale: $(g "$bc.summary.stale") · keep: $(g "$bc.summary.keep")"
-  cand="$(lines "$bc"'.candidates[]? | select(.category!="keep") | "- `\(.branch)` — **\(.category)** — \(.reason)"')"
-  if [ -n "$cand" ]; then echo; echo "Prunable candidates:"; echo "$cand"; else echo; echo "_No prunable branches._"; fi
-else echo "_branch data unavailable_"; fi
+  # ---- Pipeline (all branches) ----
+  echo; echo "${hb}## CI / pipeline health"
+  local ph='.skills["pipeline-health"]'
+  if [ "$(g "$ph.available")" = "true" ]; then
+    echo "Headline (default \`$(g "$ph.default_branch")\`): **$(g "$ph.overall")** · scanned $(g "$ph.scanned") pipeline(s) · $(g "$ph.branches_failing") branch(es) failing · likely cause: $(g "$ph.likely_cause") · agent-fixable: $(lines "$ph.agent_fixable")"
+    echo
+    echo "| Branch | Status | Pipeline |"
+    echo "|---|---|---|"
+    lines "$ph"'.branches[]? | "| `\(.branch)`\((if .is_default then " (default)" else "" end) + (if .is_current then " (current)" else "" end)) | \(.status) | \(if .web_url != "" and .web_url != null then "[link](\(.web_url))" else "—" end) |"'
+    local mrn fjobs
+    mrn="$(g "$ph.mr_pipelines | length")"
+    [ "${mrn:-0}" != "0" ] && echo && echo "_+ $mrn merge-request pipeline(s) (not shown above)._"
+    fjobs="$(lines "$ph"'.branches[]? | select((.failing_jobs|length)>0) | "- `\(.branch)` (cause: \(.likely_cause // "?")): " + ([.failing_jobs[].name]|join(", "))')"
+    [ -n "$fjobs" ] && { echo; echo "Failing jobs:"; echo "$fjobs"; }
+  else
+    echo "_CI unavailable: $(g "$ph.reason" || echo "pipeline data unavailable")._"
+    local host hauth
+    host="$(g "$ph.resolution.host")"; hauth="$(g "$ph.resolution.auth")"
+    [ -n "$host" ] && echo "_(host: $host · CLI auth: ${hauth:-unknown})_"
+  fi
 
-# ---- Commit hygiene ----
-echo; echo "${hb}## Commit hygiene"
-ch='.skills["commit-hygiene"]'
-if [ "$(g "$ch.schema")" = "commit-hygiene/v1" ]; then
-  echo "Non-conventional in last $(g "$ch.lint.checked"): **$(g "$ch.lint.non_conventional")** · un-pushed (rewordable): $(g "$ch.unpushed | length")"
-  bad="$(lines "$ch"'.lint.commits[]? | select(.conventional==false) | "- `\(.sha)` \(.subject)"')"
-  [ -n "$bad" ] && { echo; echo "Non-conventional subjects:"; echo "$bad"; }
-else echo "_commit data unavailable_"; fi
+  # ---- Optimize tier ----
+  if [ "$optimize" = "true" ]; then
+    echo; echo "${hb}## Optimize tier"
+    echo "- .gitignore: $(g '.skills["gitignore-guard"].summary.tracked_to_untrack' || echo 0) tracked-should-ignore, $(g '.skills["gitignore-guard"].summary.missing_entries' || echo 0) missing entries"
+    echo "- Worktrees: $(g '.skills["worktree-manager"].summary.total' || echo 0) total, $(g '.skills["worktree-manager"].summary.prunable' || echo 0) prunable"
+    echo "- Dependencies: $(g '.skills["dependency-health"].summary.total_outdated' || echo 0) outdated, $(g '.skills["dependency-health"].summary.total_vulnerabilities' || echo 0) vulnerabilities"
+    echo "- Consistency: $(g '.skills["repo-consistency"].summary.missing' || echo 0) baseline files missing"
+    echo "- Release: next version $(g '.skills["release-changelog"].next_version' || echo "n/a") ($(g '.skills["release-changelog"].bump' || echo "n/a"))"
+    echo "- Dormancy: $(g '.skills["stale-repo-triage"].tier' || echo "n/a") — $(g '.skills["stale-repo-triage"].recommendation' || echo "")"
+  fi
 
-# ---- History surgery ----
-echo; echo "${hb}## Secrets & history (git-history-surgery)"
-hs='.skills["git-history-surgery"]'
-if [ "$(g "$hs.schema")" = "history-surgery/v1" ]; then
-  echo "Secret findings: **$(g "$hs.summary.secret_findings")** · sensitive tracked files: $(g "$hs.summary.sensitive_files") · large blobs: $(g "$hs.summary.big_blobs") · rewrite tool ready: $(g "$hs.tools.rewrite_ready")"
-  echo "_Scan method: $(g "$hs.secret_scan.method") — $(g "$hs.secret_scan.note")_"
-  sec="$(lines "$hs"'.secret_scan.findings[]? | "- **\(.rule)** in `\(.file)`" + (if .line then " (line \(.line))" else "" end)')"
-  [ -n "$sec" ] && { echo; echo "⚠️ Potential secrets:"; echo "$sec"; echo; echo "> Rewriting history does **not** un-leak a secret — rotate/revoke the credential as well."; }
-  bb="$(lines "$hs"'.large_blobs.items[]? | "- `\(.path)` — \(.mb) MB"')"
-  [ -n "$bb" ] && { echo; echo "Large blobs in history:"; echo "$bb"; }
-else echo "_history scan unavailable_"; fi
+  # ---- Actions (bulleted, each with Why / Risk / Source) ----
+  echo; echo "${hb}## Actions"
+  echo "_Check an item to queue it; see **How to use this report** at the top. Each carries Why / Risk / Source._"
+  local any=false
 
-# ---- Work items ----
-echo; echo "${hb}## Work items"
-wi='.skills["work-items"]'
-if [ "$(g "$wi.available")" = "true" ]; then
-  echo "Open: $(g "$wi.counts.total") (critical $(g "$wi.counts.critical") · high $(g "$wi.counts.high") · medium $(g "$wi.counts.medium") · low $(g "$wi.counts.low"))"
-  top="$(lines "$wi"'.items[:8][]? | "- #\(.rank) [\(.importance)/\(.scope)] \(.title) — \(.web_url)"')"
-  [ -n "$top" ] && { echo; echo "Top of the ranked plan:"; echo "$top"; }
-else echo "_$(g "$wi.reason" || echo "work items unavailable")_"; fi
+  # Branches (Tier 1)
+  local br
+  br="$(lines "$bc"'.candidates[]? | select(.category!="keep") |
+    "- [ ] **Delete branch `\(.branch)`** <!--gs op=branch-delete-local repo=REPO branch=\(.branch)-->\n  - *Why:* \(.category) — \(.reason); redundant locally.\n  - *Risk:* Tier 1 · reversible (restore via `git reflog`).\n  - *Source:* git-branch-cleanup classified it `\(.category)`."')"
+  if [ -n "$br" ]; then any=true; echo; echo "${hb}### Branches — delete (Tier 1, local)"; printf '%s\n' "${br//REPO/$repo}"; fi
 
-# ---- Pipeline ----
-echo; echo "${hb}## CI / pipeline health"
-ph='.skills["pipeline-health"]'
-if [ "$(g "$ph.available")" = "true" ]; then
-  echo "Branch \`$(g "$ph.branch")\`: overall **$(g "$ph.overall")** · likely cause: $(g "$ph.likely_cause") · agent-fixable: $(g "$ph.agent_fixable")"
-  fail="$(lines "$ph"'.failing[]? | "- `\(.name)` — \(.cause // "?")"')"
-  [ -n "$fail" ] && { echo; echo "Failing jobs:"; echo "$fail"; }
-else echo "_$(g "$ph.reason" || echo "pipeline data unavailable")_"; fi
+  # Commit rewords (Tier 1)
+  local cm
+  cm="$(lines "$ch"'.unpushed[]? |
+    "- [ ] **Reword `\(.sha)`** \(.subject) → EDIT-MESSAGE-HERE <!--gs op=commit-reword repo=REPO sha=\(.sha)-->\n  - *Why:* non-conventional subject; reword for a clean, lintable history.\n  - *Risk:* Tier 1 · safe (un-pushed only — rewrites the local message).\n  - *Source:* commit-hygiene: un-pushed commit `\(.sha)`."')"
+  if [ -n "$cm" ]; then any=true; echo; echo "${hb}### Commit messages — reword (Tier 1, un-pushed; edit text after →)"; printf '%s\n' "${cm//REPO/$repo}"; fi
 
-# ---- Optimize tier ----
-if [ "$optimize" = "true" ]; then
-  echo; echo "${hb}## Optimize tier"
-  echo "- .gitignore: $(g '.skills["gitignore-guard"].summary.tracked_to_untrack' || echo 0) tracked-should-ignore, $(g '.skills["gitignore-guard"].summary.missing_entries' || echo 0) missing entries"
-  echo "- Worktrees: $(g '.skills["worktree-manager"].summary.total' || echo 0) total, $(g '.skills["worktree-manager"].summary.prunable' || echo 0) prunable"
-  echo "- Dependencies: $(g '.skills["dependency-health"].summary.total_outdated' || echo 0) outdated, $(g '.skills["dependency-health"].summary.total_vulnerabilities' || echo 0) vulnerabilities"
-  echo "- Consistency: $(g '.skills["repo-consistency"].summary.missing' || echo 0) baseline files missing"
-  echo "- Release: next version $(g '.skills["release-changelog"].next_version' || echo "n/a") ($(g '.skills["release-changelog"].bump' || echo "n/a"))"
-  echo "- Dormancy: $(g '.skills["stale-repo-triage"].tier' || echo "n/a") — $(g '.skills["stale-repo-triage"].recommendation' || echo "")"
-fi
+  # .gitignore (Tier 1, optimize)
+  local gg_missing gg_un
+  gg_missing="$(g '.skills["gitignore-guard"].summary.missing_entries' || echo 0)"
+  gg_un="$(lines '.skills["gitignore-guard"].tracked_should_ignore[]? |
+    "- [ ] **Untrack `\(.)`** (keep on disk) <!--gs op=gitignore-untrack repo=REPO file=\(.)-->\n  - *Why:* tracked but should be ignored (build/generated artifact).\n  - *Risk:* Tier 1 · safe (removes from index, keeps the file).\n  - *Source:* gitignore-guard: tracked-should-ignore."')"
+  if { [ "${gg_missing:-0}" -gt 0 ] 2>/dev/null; } || [ -n "$gg_un" ]; then
+    any=true; echo; echo "${hb}### .gitignore (Tier 1)"
+    [ "${gg_missing:-0}" -gt 0 ] 2>/dev/null && { echo "- [ ] **Add $gg_missing recommended .gitignore entries** <!--gs op=gitignore-add repo=$repo-->"; echo "  - *Why:* keep build/artifact files out of git."; echo "  - *Risk:* Tier 1 · safe (edits .gitignore only)."; echo "  - *Source:* gitignore-guard: $gg_missing missing entries."; }
+    [ -n "$gg_un" ] && printf '%s\n' "${gg_un//REPO/$repo}"
+  fi
 
-# ---- Actions checklist (editable decision aid) ----
-echo; echo "${hb}## Actions — edit this list, then tell me to execute it"
-cat <<'HOWTO'
-Check the boxes for what you want done (`- [x]` = do it, `- [ ]` = skip; delete a line to skip too).
-For rewords, edit the message after the `→`. Then say: **"execute the checked actions in this report"**.
-Tier-1 items (local, recoverable) run once selected; Tier-2 items (🔴 irreversible/outward) are still
-confirmed individually before running. The `<!--gs ...-->` tags are how I map a checkbox to an action —
-leave them intact.
-HOWTO
+  # Worktrees / deps (Tier 1, optimize)
+  if [ "$optimize" = "true" ]; then
+    local wt_prune dep_out
+    wt_prune="$(g '.skills["worktree-manager"].summary.prunable' || echo 0)"
+    if [ "${wt_prune:-0}" -gt 0 ] 2>/dev/null; then any=true; echo; echo "${hb}### Worktrees (Tier 1)"; echo "- [ ] **Prune $wt_prune stale worktree(s)** <!--gs op=worktree-prune repo=$repo-->"; echo "  - *Why:* free leftover linked worktrees."; echo "  - *Risk:* Tier 1 · safe (removes worktree links, not your branches)."; echo "  - *Source:* worktree-manager: $wt_prune prunable."; fi
+    dep_out="$(g '.skills["dependency-health"].summary.total_outdated' || echo 0)"
+    if [ "${dep_out:-0}" -gt 0 ] 2>/dev/null; then any=true; echo; echo "${hb}### Dependencies (Tier 1)"; echo "- [ ] **Bump $dep_out outdated dep(s)** (minor/patch) <!--gs op=deps-bump repo=$repo-->"; echo "  - *Why:* stay current within a safe minor/patch policy."; echo "  - *Risk:* Tier 1 · recoverable (lockfile change; review the diff)."; echo "  - *Source:* dependency-health: $dep_out outdated."; fi
+  fi
 
-# Branches (Tier 1, local)
-br_items="$(lines "$bc"'.candidates[]? | select(.category!="keep") | "- [ ] Delete branch `\(.branch)` (\(.category): \(.reason)) <!--gs op=branch-delete-local repo=REPO branch=\(.branch)-->"')"
-[ -n "$br_items" ] && { echo; echo "${hb}### Branches — delete (local, recoverable via reflog)"; echo "${br_items//REPO/$repo}"; }
+  # History / secrets (Tier 2)
+  local hs_files hs_items hs_blobs
+  hs_files="$(jq -r "($hs.secret_scan.sensitive_tracked_files // []) + ([$hs.secret_scan.findings[]?.file]) | unique[]?" <<<"$RJSON" 2>/dev/null)"
+  hs_items=""
+  [ -n "$hs_files" ] && hs_items="$(while IFS= read -r f; do [ -n "$f" ] && { echo "- [ ] 🔴 **Remove \`$f\` from ALL history** <!--gs op=history-remove-path repo=$repo path=$f-->"; echo "  - *Why:* purge the file (secret/sensitive) from every commit."; echo "  - *Risk:* 🔴 Tier 2 · IRREVERSIBLE (rewrites history; backup taken first). Rotate any leaked credential — rewriting does not un-leak it."; echo "  - *Source:* git-history-surgery: working-tree match in \`$f\` (commit provenance unconfirmed — see Analysis)."; }; done <<<"$hs_files")"
+  hs_blobs="$(lines "$hs"'.large_blobs.items[]? |
+    "- [ ] 🔴 **Strip `\(.path)` (\(.mb) MB) from ALL history** <!--gs op=history-remove-path repo=REPO path=\(.path)-->\n  - *Why:* shrink the repo by removing a large blob from every commit.\n  - *Risk:* 🔴 Tier 2 · IRREVERSIBLE (history rewrite; backup taken first).\n  - *Source:* git-history-surgery: \(.mb) MB blob in history."')"
+  if [ -n "$hs_items$hs_blobs" ]; then
+    any=true; echo; echo "${hb}### Secrets & history (🔴 Tier 2 — irreversible)"
+    [ -n "$hs_items" ] && printf '%s\n' "$hs_items"
+    [ -n "$hs_blobs" ] && printf '%s\n' "${hs_blobs//REPO/$repo}"
+  fi
 
-# Commit rewords (Tier 1, un-pushed only)
-cm_items="$(lines "$ch"'.unpushed[]? | "- [ ] Reword `\(.sha)` \(.subject) → EDIT-MESSAGE-HERE <!--gs op=commit-reword repo=REPO sha=\(.sha)-->"')"
-[ -n "$cm_items" ] && { echo; echo "${hb}### Commit messages — reword (un-pushed only; edit text after →)"; echo "${cm_items//REPO/$repo}"; }
+  # CI fix (Tier 2) — one per failing real branch
+  local ci_items
+  ci_items="$(lines "$ph"'.branches[]? | select(.status=="failed" or .status=="failure") |
+    "- [ ] **Fix & monitor CI on `\(.branch)`** <!--gs op=pipeline-fix repo=REPO branch=\(.branch)-->\n  - *Why:* pipeline failing (cause: \(.likely_cause // "unknown")).\n  - *Risk:* Tier 2 · pushes commits and monitors; never the default branch unless asked.\n  - *Source:* pipeline-health: branch `\(.branch)` latest pipeline failed."')"
+  if [ -n "$ci_items" ]; then any=true; echo; echo "${hb}### CI — fix & monitor (Tier 2, pushes)"; printf '%s\n' "${ci_items//REPO/$repo}"; fi
 
-# .gitignore (Tier 1)
-gg_missing="$(g '.skills["gitignore-guard"].summary.missing_entries' || echo 0)"
-gg_un="$(lines '.skills["gitignore-guard"].tracked_should_ignore[]? | "- [ ] Untrack `\(.)` (keep on disk) <!--gs op=gitignore-untrack repo=REPO file=\(.)-->"')"
-if { [ "${gg_missing:-0}" -gt 0 ] 2>/dev/null; } || [ -n "$gg_un" ]; then
-  echo; echo "${hb}### .gitignore (Tier 1)"
-  [ "${gg_missing:-0}" -gt 0 ] 2>/dev/null && echo "- [ ] Add $gg_missing recommended .gitignore entries <!--gs op=gitignore-add repo=$repo-->"
-  [ -n "$gg_un" ] && echo "${gg_un//REPO/$repo}"
-fi
-
-# Worktrees / deps (optimize, Tier 1)
-if [ "$optimize" = "true" ]; then
-  wt_prune="$(g '.skills["worktree-manager"].summary.prunable' || echo 0)"
-  [ "${wt_prune:-0}" -gt 0 ] 2>/dev/null && { echo; echo "${hb}### Worktrees (Tier 1)"; echo "- [ ] Prune $wt_prune stale worktree(s) <!--gs op=worktree-prune repo=$repo-->"; }
-  dep_out="$(g '.skills["dependency-health"].summary.total_outdated' || echo 0)"
-  [ "${dep_out:-0}" -gt 0 ] 2>/dev/null && { echo; echo "${hb}### Dependencies (Tier 1)"; echo "- [ ] Bump $dep_out outdated dep(s) (minor/patch) <!--gs op=deps-bump repo=$repo-->"; }
-fi
-
-# History / secrets (Tier 2, irreversible)
-# files to offer for removal = sensitive tracked files + files containing detected secrets (deduped)
-hs_files="$(jq -r "($hs.secret_scan.sensitive_tracked_files // []) + ([$hs.secret_scan.findings[]?.file]) | unique[]?" <<<"$RJSON" 2>/dev/null)"
-hs_items=""
-[ -n "$hs_files" ] && hs_items="$(while IFS= read -r f; do [ -n "$f" ] && echo "- [ ] 🔴 Remove \`$f\` from ALL history (then rotate the secret) <!--gs op=history-remove-path repo=$repo path=$f-->"; done <<<"$hs_files")"
-hs_blobs="$(lines "$hs"'.large_blobs.items[]? | "- [ ] 🔴 Strip `\(.path)` (\(.mb) MB) from ALL history <!--gs op=history-remove-path repo=REPO path=\(.path)-->"')"
-if [ -n "$hs_items$hs_blobs" ]; then
-  echo; echo "${hb}### Secrets & history (🔴 Tier 2 — irreversible; also rotate any leaked credential)"
-  echo "_Rewrite tool ready: $(g "$hs.tools.rewrite_ready"). Removing a file purges it from every commit._"
-  [ -n "$hs_items" ] && echo "$hs_items"
-  [ -n "$hs_blobs" ] && echo "${hs_blobs//REPO/$repo}"
-fi
-
-# Work items (Tier 2, outward). In fleet mode the synthesized task plan (above) drives implementation
-# instead, so this per-repo "start" block is suppressed to avoid two competing lists.
-if [ "${FLEET_MODE:-false}" != "true" ]; then
-  wi_items="$(lines "$wi"'.items[:8][]? | "- [ ] Start #\(.number) [\(.importance)/\(.scope)] \(.title) <!--gs op=work-item-start repo=REPO number=\(.number)-->"')"
-  [ -n "$wi_items" ] && { echo; echo "${hb}### Work items — start (Tier 2, opens a branch + draft MR/PR)"; echo "${wi_items//REPO/$repo}"; }
-fi
-
-# CI (Tier 2, outward)
-if [ "$(g "$ph.overall")" = "failed" ]; then
-  echo; echo "${hb}### CI — fix & monitor (Tier 2, pushes)"
-  echo "- [ ] Fix & monitor CI on \`$(g "$ph.branch")\` (cause: $(g "$ph.likely_cause")) <!--gs op=pipeline-fix repo=$repo branch=$(g "$ph.branch")-->"
-fi
-
-echo; echo "> After editing, run everything checked with: \`bash \${CLAUDE_PLUGIN_ROOT}/shared/run-plan.sh --report <this-file>\`"
-echo "> or just tell me \"execute the checked actions\". One-shot gated pass instead: \`/git-cleanup $name\` / \`/git-optimize $name\`."
-
-echo; echo "---"; echo "_Generated by git-steward · schema $(g '.schema')_"
+  $any || { echo; echo "_No mechanical actions — see Analysis & tasks for work-item tasks._"; }
 }
 
-# emit_repo: single-repo document (unchanged top-level behaviour).
-emit_repo() { render_repo "$json" ""; }
+# ---- single-repo document ----
+emit_repo() {
+  repo_header "$json" ""
+  echo
+  emit_howto
+  render_repo_body "$json" ""
+  echo; echo "---"; echo
+  emit_glossary
+  echo; echo "_Generated by git-steward · schema $(jq -r '.schema' <<<"$json")_"
+}
 
-# emit_fleet: one consolidated document for a fleet-steward/v1 aggregate.
+# ---- fleet document (one consolidated file) ----
 emit_fleet() {
   local fjson="$json" root opt count
   root="$(jq -r '.root // "."' <<<"$fjson")"
@@ -222,13 +283,11 @@ emit_fleet() {
   echo "# git-steward fleet findings"
   echo
   echo "- **Root:** \`$root\` · **Repos:** $count · **optimize tier:** $opt"
-  echo "- **Generated:** $ts · mode: analyze (read-only — nothing was changed)"
+  echo "- **Generated:** $ts · analyze (read-only — nothing was changed)"
   echo
-  echo "> One consolidated report for the whole fleet. Below: fleet totals, a synthesized work-item task"
-  echo "> plan, and a full findings + Actions section per repo. Check boxes (or fill the task plan), then"
-  echo "> tell me to execute the checked items."
-  echo
-  echo "## Fleet totals"
+  emit_howto
+
+  echo; echo "## Fleet totals"
   echo "- Repos with secrets: **$(jq -r '.totals.repos_with_secrets // 0' <<<"$fjson")**"
   echo "- Repos with prunable branches: $(jq -r '.totals.repos_with_prunable_branches // 0' <<<"$fjson")"
   echo "- Repos with failing CI: $(jq -r '.totals.repos_ci_failing // 0' <<<"$fjson")"
@@ -236,7 +295,7 @@ emit_fleet() {
   echo
   echo "## Repos (most-flagged first)"
   echo
-  echo "| Repo | Secrets | Branches | Commits | Blobs | CI | Work items |"
+  echo "| Repo | Secrets | Prunable Branches | Commits | Blobs | CI | Work items |"
   echo "|---|---|---|---|---|---|---|"
   jq -r '.repos
     | sort_by( -( ((.attention.secret_findings // 0) * 1000)
@@ -247,52 +306,33 @@ emit_fleet() {
     | .[]
     | "| \(.name) | \(.attention.secret_findings // (if .skipped then "—" else 0 end)) | \(.attention.prunable_branches // 0) | \(.attention.non_conventional_commits // 0) | \(.attention.big_blobs // 0) | \(.attention.ci_status // "n/a") | \(.attention.open_work_items // 0) |"' <<<"$fjson"
 
-  # ---- Work-item task plan region (agent-authored) ----
   echo
-  echo "## Work Items — Task Plan"
-  echo "<!-- gs:task-plan-start -->"
-  echo "_Replace this region with the grouped, deduped task plan. Group related items into one task and"
-  echo "collapse duplicates. Tag each actionable task so it can be executed:_"
-  echo "_\`- [ ] <task> <!--gs op=work-item-implement repo=<name> numbers=<n,m> slug=<kebab>-->\`_"
-  echo "_(\`numbers\` = the work-item number(s) the task subsumes; checking it = implement → commit → push → open MR, Tier-2.)_"
-  echo
-  echo "### Cross-repo themes"
-  echo "_Groups of related items spanning more than one repo — note any overlap/duplication._"
-  echo
-  echo "### Per-repo task groups"
-  local raw
-  raw="$(jq -r '.repos[]
-    | select((.skills["work-items"].items // []) | length > 0)
-    | "\n#### \(.name)\n" + ([ .skills["work-items"].items[]
-        | "- #\(.number) [\(.importance)/\(.scope)] \(.title) — \(.web_url)" ] | join("\n"))' <<<"$fjson" 2>/dev/null)"
-  if [ -n "$raw" ]; then
-    echo "_Raw ranked items per repo (group/dedupe these into tagged tasks):_"
-    echo "$raw"
-  else
-    echo "_No open work items across the fleet._"
-  fi
-  echo "<!-- gs:task-plan-end -->"
+  echo "## Cross-repo themes"
+  echo "<!-- gs:themes-start -->"
+  echo "_Agent fills this in: groups of related work items spanning more than one repo (note overlap/duplication). Per-repo tasks live in each repo's **Analysis & tasks** section below._"
+  echo "<!-- gs:themes-end -->"
 
-  # ---- Per-repo findings + actions (headings demoted one level) ----
-  FLEET_MODE=true
   while IFS= read -r r; do
     echo; echo "---"; echo
     if [ "$(jq -r 'has("skills")' <<<"$r")" = "true" ]; then
-      render_repo "$r" "#"
+      repo_header "$r" "#"
+      render_repo_body "$r" "#"
     else
       echo "## $(jq -r '.name // "repo"' <<<"$r") — skipped"
       echo; echo "_$(jq -r '.skipped // "no data"' <<<"$r")_"
     fi
   done < <(jq -c '.repos[]' <<<"$fjson")
+
+  echo; echo "---"; echo
+  emit_glossary
 }
 
-# resolve default output path + dispatch
+# ---- dispatch ----
 if $fleet; then
-  name="fleet"
   root="$(jq -r '.root // "."' <<<"$json")"
   if [ -z "$out" ] && ! $to_stdout; then
     dir="$root/.git-steward/reports"; mkdir -p "$dir" 2>/dev/null || dir="$(mktemp -d)"
-    out="$dir/$(date +%Y%m%d-%H%M%S)-${name}.md"
+    out="$dir/$(date +%Y%m%d-%H%M%S)-fleet.md"
   fi
   if $to_stdout; then emit_fleet; else emit_fleet > "$out"; echo "$out"; fi
 else

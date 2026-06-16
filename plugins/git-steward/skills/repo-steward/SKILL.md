@@ -25,13 +25,13 @@ Runs each in-scope atomic `analyze.sh` and emits `repo-steward/v1`: the full per
 `skills`, plus an `attention` roll-up (health flags, prunable branches, non-conventional commits, secret
 findings, big blobs, open work items, CI status).
 
-**A detailed findings document is generated automatically** (unless `--no-report`) and its path is
-returned as `report_path`. The document (built by `${CLAUDE_PLUGIN_ROOT}/shared/report.sh`, saved under
-`<repo>/.git-steward/reports/`) has an at-a-glance table, per-dimension detail (every prunable branch,
-each secret with file/line, non-conventional subjects, ranked work items, failing CI jobs), and a
-**prioritized "Recommended next steps"** decision aid giving the exact gated command for each finding.
-After analyzing, present the attention summary, give the user the `report_path`, and surface the top
-recommended steps so they can make an informed decision before anything is applied.
+**A detailed, self-explaining findings document is generated automatically** (unless `--no-report`) and
+its path is returned as `report_path`. The document (built by `${CLAUDE_PLUGIN_ROOT}/shared/report.sh`,
+saved under `<repo>/.git-steward/reports/`) has a one-time **How to use** guide, an at-a-glance table, an
+**Analysis & tasks** agent region, per-dimension detail (health/blobs, every prunable branch, each secret
+with file/line, non-conventional subjects, per-branch CI), an **Actions** list where each item carries
+*Why / Risk / Source*, and a **Glossary**. After analyzing, fill the agent region (below), present the
+attention summary, and give the user the `report_path`.
 
 Core skills always run: `git-repo-health`, `git-branch-cleanup`, `commit-hygiene`, `git-history-surgery`,
 `work-items`, `pipeline-health`. With `--optimize`, the optimize-tier skills (if present) also run.
@@ -57,13 +57,16 @@ the user edits the document to choose exactly what to do.
 3. Carry out the listed Tier-2 commands only on explicit user confirmation (history rewrite still needs
    `--i-understand <repo-name>` and takes a backup first).
 
-**Work items.** For this single repo you may still group/dedupe its open work items into a few
-well-scoped tasks before listing them (per-repo layer only — there are no cross-repo themes for one
-repo). A task tagged `<!--gs op=work-item-implement repo=<name> numbers=<n,m> slug=<kebab>-->` is an
-**agent task**, not a script action: `run-plan.sh` surfaces it under Tier-2 and you implement it
-yourself — create the `slug` branch, write the change, commit, push, and open the MR via `glab` —
-behind the Tier-2 gate. (`op=work-item-start` remains the lightweight "just open a branch + draft"
-alternative.)
+**Annotate the report's `<!-- gs:repo:<name>-start/end -->` region** before handing it over. Explain the
+repo's notable findings with sources (deep): trace each working-tree secret with `git log -S`/`git blame`
+to judge real-vs-false-positive, assess each over-threshold blob's cleanability (`in_worktree` +
+artifact → removable; real asset → keep), and summarize any failing CI cause — cite file:line/commit/
+branch. Then group/dedupe this repo's open work items into a few well-scoped tasks, each a checkbox
+**with a how/why description**: `- [ ] <task — how + why> <!--gs op=work-item-implement repo=<name>
+numbers=<n,m> slug=<kebab>-->` (per-repo layer only; no cross-repo themes for a single repo). Such a task
+is an **agent task**, not a script action: `run-plan.sh` surfaces it under Tier-2 and you implement it
+yourself — create the `slug` branch, write the change, commit, push, and open the MR via `glab` — behind
+the Tier-2 gate. (`op=work-item-start` remains the lightweight "just open a branch + draft" alternative.)
 
 This per-item path is preferred when the user wants control. The whole-pass apply below is the
 "just clean it all up" alternative.

@@ -77,8 +77,9 @@ components, steps):
   - *Items:* #<n>, #<m>
   - *Why:* <why grouped / validity note>
   - *How:* <concrete steps — which files/components, the approach>
+- [ ] _**Select all of the above**_ <!--gs op=select-all-->
 ```
-(per-repo layer only; no cross-repo themes for a single repo). Such a task
+(end a 2+-item Tasks list with that select-all line; per-repo layer only; no cross-repo themes for a single repo). Such a task
 is an **agent task**, not a script action: `run-plan.sh` surfaces it under Tier-2 and you implement it
 yourself — create the `slug` branch, write the change, commit, push, and open the MR via `glab` — behind
 the Tier-2 gate. (`op=work-item-start` remains the lightweight "just open a branch + draft" alternative.)

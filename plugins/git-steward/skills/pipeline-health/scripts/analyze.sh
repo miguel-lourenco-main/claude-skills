@@ -76,37 +76,70 @@ real="$(jq -c --arg db "$default_branch" --arg cur "$branch" '
 overall="$(jq -r --arg db "$default_branch" --arg cur "$branch" '
   ([.[]|select(.branch==$db)]|first) // ([.[]|select(.branch==$cur)]|first) // .[0] | .status // "unknown"' <<<"$real")"
 
-# --- 2) deep-dive failing branches (bounded) to attach cause + job excerpts ---
+# --- 2) deep-dive failing branches (bounded): resolve cause + record a diagnosis trail ---
+# The trail captures WHAT was tried and the RESULT, so "unknown" is never a dead end.
+# Cause priority: GitLab job failure_reason (e.g. ci_quota_exceeded) → log classification
+# → config-level diagnosis (0 jobs / yaml errors / no failed job).
 deep_n=0; branches_json="[]"; top_cause="none"
+proj_enc="$(printf '%s' "$proj" | sed 's#/#%2F#g')"
 while IFS= read -r br; do
-  bn="$(jq -r '.branch' <<<"$br")"; st="$(jq -r '.status' <<<"$br")"
-  cause="null"; failing_jobs="[]"
+  bn="$(jq -r '.branch' <<<"$br")"; st="$(jq -r '.status' <<<"$br")"; pid="$(jq -r '.pipeline_id' <<<"$br")"
+  cause="null"; failing_jobs="[]"; diag="[]"; resolved=""
   if { [ "$st" = "failed" ] || [ "$st" = "failure" ]; } && [ "$deep_n" -lt "$DEEP_MAX" ]; then
     deep_n=$((deep_n+1))
     if [ "$cli" = "glab" ]; then
-      # fetch jobs by pipeline id (ci get -b can resolve to the wrong/MR pipeline)
-      proj_enc="$(printf '%s' "$proj" | sed 's#/#%2F#g')"
-      pid="$(jq -r '.pipeline_id' <<<"$br")"
-      jobs_basic="$(glab api "projects/$proj_enc/pipelines/$pid/jobs" 2>/dev/null | jq -c '[.[]?|{name,status,stage,id}]' 2>/dev/null || echo '[]')"
+      jobs_raw="$(glab api "projects/$proj_enc/pipelines/$pid/jobs" 2>/dev/null || echo '[]')"
+      jq -e 'type=="array"' >/dev/null 2>&1 <<<"$jobs_raw" || jobs_raw='[]'
+      jobs_n="$(jq 'length' <<<"$jobs_raw")"; failed_n="$(jq '[.[]|select(.status=="failed")]|length' <<<"$jobs_raw")"
+      diag="$(jq -c --argjson n "$jobs_n" --argjson f "$failed_n" --arg pid "$pid" \
+        '. += ["fetched jobs for pipeline \($pid) → \($n) job(s), \($f) failed"]' <<<"$diag")"
       while IFS= read -r job; do
-        jn="$(jq -r '.name' <<<"$job")"; js="$(jq -r '.status' <<<"$job")"; jid="$(jq -r '.id' <<<"$job")"
-        [ "$js" = "failed" ] || continue
-        log="$(glab ci trace -R "$proj" "$jid" 2>/dev/null | tail -40 || true)"
-        c="$(classify "$jn" "$log")"; ex="$(printf '%s' "$log" | tail -8)"
-        failing_jobs="$(jq -c --arg n "$jn" --arg s "${js:-failed}" --arg c "$c" --arg ex "$ex" \
-          '. += [{name:$n, status:$s, cause:$c, log_excerpt:$ex}]' <<<"$failing_jobs")"
-      done < <(jq -c '.[]' <<<"$jobs_basic")
+        jn="$(jq -r '.name' <<<"$job")"; jid="$(jq -r '.id' <<<"$job")"; jfr="$(jq -r '.failure_reason // ""' <<<"$job")"
+        log="$(glab ci trace -R "$proj" "$jid" 2>/dev/null | tail -40 || true)"; c=""
+        if [ -n "$jfr" ] && [ "$jfr" != "script_failure" ] && [ "$jfr" != "unknown_failure" ]; then
+          c="$jfr"
+          diag="$(jq -c --arg j "$jn" --arg fr "$jfr" '. += ["job `\($j)`: GitLab failure_reason = \($fr) (jobs did not run normally — infra/quota, not your code)"]' <<<"$diag")"
+        elif [ -n "$log" ]; then
+          c="$(classify "$jn" "$log")"
+          diag="$(jq -c --arg j "$jn" --arg c "$c" '. += ["job `\($j)`: read trace (last 40 lines) → classified as **\($c)**"]' <<<"$diag")"
+        else
+          c="script-failure"
+          diag="$(jq -c --arg j "$jn" --arg fr "${jfr:-none}" '. += ["job `\($j)`: failure_reason=\($fr); trace empty/unavailable → cause not determinable from logs"]' <<<"$diag")"
+        fi
+        ex="$(printf '%s' "$log" | tail -8)"
+        failing_jobs="$(jq -c --arg n "$jn" --arg fr "$jfr" --arg c "$c" --arg ex "$ex" \
+          '. += [{name:$n, status:"failed", failure_reason:$fr, cause:$c, log_excerpt:$ex}]' <<<"$failing_jobs")"
+      done < <(jq -c '.[]|select(.status=="failed")' <<<"$jobs_raw")
+      if [ "$failed_n" -gt 0 ]; then
+        resolved="$(jq -r '([.[].cause]|group_by(.)|max_by(length)|.[0]) // "unknown"' <<<"$failing_jobs")"
+        diag="$(jq -c --arg r "$resolved" '. += ["result: dominant cause across failed jobs = **\($r)**"]' <<<"$diag")"
+      elif [ "$jobs_n" -eq 0 ]; then
+        pdetail="$(glab api "projects/$proj_enc/pipelines/$pid" 2>/dev/null || echo '{}')"
+        yerr="$(jq -r '.yaml_errors // ""' <<<"$pdetail")"
+        diag="$(jq -c --arg y "${yerr:-none}" '. += ["pipeline has 0 jobs; checked CI config → yaml_errors: \($y)"]' <<<"$diag")"
+        if [ -n "$yerr" ]; then resolved="invalid-ci-config"
+          diag="$(jq -c '. += ["result: .gitlab-ci.yml is invalid (see yaml_errors) — no pipeline could be built"]' <<<"$diag")"
+        else resolved="empty-pipeline"
+          diag="$(jq -c '. += ["result: failed with no jobs and no yaml errors — `workflow:`/`rules:` produced nothing on this ref, or it is a parent of a trigger/child pipeline. Not a job failure; check .gitlab-ci.yml rules for this branch."]' <<<"$diag")"
+        fi
+      else
+        resolved="no-failed-job"
+        diag="$(jq -c --argjson n "$jobs_n" '. += ["pipeline failed but none of its \($n) job(s) is marked failed → likely a blocked/manual/canceled stage or a downstream trigger, not a script error"]' <<<"$diag")"
+      fi
     else # gh
-      rv="$(gh run view "$(jq -r '.pipeline_id' <<<"$br")" -R "$proj" --json jobs 2>/dev/null || echo '{}')"
-      failedlog="$(gh run view "$(jq -r '.pipeline_id' <<<"$br")" -R "$proj" --log-failed 2>/dev/null | tail -40 || true)"
+      rv="$(gh run view "$pid" -R "$proj" --json jobs 2>/dev/null || echo '{}')"
+      failedlog="$(gh run view "$pid" -R "$proj" --log-failed 2>/dev/null | tail -40 || true)"
       failing_jobs="$(jq -c --arg log "$failedlog" '[.jobs[]? | select(.conclusion=="failure") |
-          {name, status:.conclusion, cause:null, log_excerpt:($log|.[-400:])}]' <<<"$rv" 2>/dev/null || echo '[]')"
+          {name, status:.conclusion, failure_reason:"", cause:"script-failure", log_excerpt:($log|.[-400:])}]' <<<"$rv" 2>/dev/null || echo '[]')"
+      resolved="$(jq -r '([.[].cause]|group_by(.)|max_by(length)|.[0]) // "unknown"' <<<"$failing_jobs")"
+      diag="$(jq -c --arg r "$resolved" '. += ["GitHub: viewed run jobs + --log-failed → \($r)"]' <<<"$diag")"
     fi
-    cause="\"$(jq -r '[.[].cause|select(.!=null)] | (group_by(.)|max_by(length)|.[0]) // "unknown"' <<<"$failing_jobs" 2>/dev/null || echo unknown)\""
-    [ "$top_cause" = "none" ] && top_cause="$(jq -r . <<<"$cause" 2>/dev/null || echo none)"
+    [ -z "$resolved" ] && resolved="unknown"
+    cause="$(jq -cn --arg c "$resolved" '$c')"
+    [ "$top_cause" = "none" ] && top_cause="$resolved"
   fi
-  branches_json="$(jq -c --argjson br "$br" --argjson cause "$cause" --argjson fj "$failing_jobs" \
-    '. += [$br + {likely_cause:$cause, failing_jobs:$fj}]' <<<"$branches_json")"
+  branches_json="$(jq -c --argjson br "$br" --argjson cause "$cause" --argjson fj "$failing_jobs" --argjson dg "$diag" \
+    '. += [$br + {likely_cause:$cause, failing_jobs:$fj, diagnosis:$dg}]' <<<"$branches_json")"
 done < <(jq -c '.[]' <<<"$real")
 
 n_failing="$(jq '[.[]|select(.status=="failed" or .status=="failure")]|length' <<<"$branches_json")"

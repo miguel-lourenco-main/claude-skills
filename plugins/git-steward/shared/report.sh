@@ -30,15 +30,21 @@ ts="$(date '+%Y-%m-%d %H:%M:%S %Z')"
 RJSON=""
 g(){ jq -r "$1 // empty" <<<"$RJSON" 2>/dev/null; }   # scalar getter
 lines(){ jq -r "$1" <<<"$RJSON" 2>/dev/null; }         # multi-line getter
+# selall: emit a "select all" checkbox for a list when it has >=2 selectable items.
+# When the user checks it, parse-actions selects every item in the group EXCEPT the
+# ones individually checked (a checked item then means "exclude me").
+selall(){ local n; n="$(grep -c '^- \[' <<<"${1:-}" 2>/dev/null || echo 0)"
+  [ "${n:-0}" -ge 2 ] && { echo "- [ ] _**Select all of the above** — then tick individual items to EXCLUDE them_ <!--gs op=select-all-->"; }; }
 
 # ---- one-time orientation (emitted once per document) ----
 emit_howto() {
 cat <<'HOWTO'
-## How to use this report
+## 🧭 How to use this report
 
-This is a **read-only analysis** — nothing was changed. Decide what to act on, then tell me to do it.
+> **Read-only analysis — nothing was changed.** Decide what to act on, then tell me to do it.
 
 - **Actions** (per repo) and **work-item tasks** are checkboxes: `- [x]` = do it, `- [ ]` = skip (deleting the line also skips it).
+- A list may end with **_Select all of the above_**. Tick it to queue the **whole list**; then tick individual items to **exclude** them — with select-all on, a checked item means "skip this one" (i.e. "all except these"). Leave it unticked for normal per-item selection.
 - Each item carries *Why* (rationale), *Risk* (tier + reversibility), and *Source* (the evidence it's based on) so nothing is a black box.
 - **Tier 1** = local & recoverable (branch deletes, rewords, `.gitignore`). **Tier 2** 🔴 = outward or irreversible (history rewrite, remote pushes, opening MRs) — each is confirmed again before it runs.
 - Leave the `<!--gs ...-->` tags intact; they map a checkbox to an action. For rewords, edit the message after the `→`.
@@ -49,7 +55,7 @@ HOWTO
 
 emit_glossary() {
 cat <<'GLOSS'
-## Glossary
+## 📖 Glossary
 
 **How this file is organized.** Top: fleet totals, a severity-sorted repo table, and cross-repo themes. Then one section per repo — *Analysis & tasks* (agent summary + this repo's work-item tasks), *Repository health*, *Branches*, *Commit hygiene*, *Secrets & history*, *CI / pipeline health*, and *Actions*. This glossary is last.
 
@@ -60,6 +66,7 @@ cat <<'GLOSS'
 - **Tier 1 / Tier 2** — Tier 1 actions are local and reversible; Tier 2 (🔴) are outward or irreversible and gated by a second confirmation. Removing a secret/file from history rewrites every commit and does **not** un-leak the credential — rotate it too.
 - **CI / pipeline status** — per branch, the result of that branch's latest pipeline. `refs/merge-requests/*` are MR pipelines, counted separately from real branches.
 - **MR** — GitLab Merge Request (GitHub: Pull Request).
+- **Select all of the above** — a checkbox at the end of a list. Checked = act on the whole list; any item you *also* check is then treated as an **exclusion** ("all except these"). Unchecked = normal (only the items you tick run).
 GLOSS
 }
 
@@ -70,10 +77,9 @@ repo_header() {
   name="$(jq -r '.name // "repo"' <<<"$RJSON")"
   repo="$(jq -r '.repo // "."' <<<"$RJSON")"
   optimize="$(jq -r '.optimize // false' <<<"$RJSON")"
-  echo "${hb}# git-steward findings — $name"
+  echo "${hb}# 📦 $name"
   echo
-  echo "- **Repository:** \`$repo\`"
-  echo "- **Generated:** $ts · analyze (read-only) · optimize tier: $optimize"
+  echo "> \`$repo\`  ·  analyze (read-only)  ·  optimize tier: $optimize"
 }
 
 # ---- per-repo body (at-a-glance, analysis region, dimensions, actions) ----
@@ -84,7 +90,7 @@ render_repo_body() {
   repo="$(jq -r '.repo // "."' <<<"$RJSON")"
   optimize="$(jq -r '.optimize // false' <<<"$RJSON")"
 
-  echo; echo "${hb}## At a glance"
+  echo; echo "${hb}## 📊 At a glance"; echo
   echo
   echo "| Dimension | Finding |"
   echo "|---|---|"
@@ -101,7 +107,7 @@ render_repo_body() {
   secn="$(g '.attention.secret_findings')"; [ -z "$secn" ] && secn=0
   blobn="$(lines '[.skills["git-repo-health"].largest_blobs[]?|select(.over_threshold)]|length')"; [ -z "$blobn" ] && blobn=0
   cifail="$(lines '[.skills["pipeline-health"].branches[]?|select(.status=="failed" or .status=="failure")]|length')"; [ -z "$cifail" ] && cifail=0
-  echo; echo "${hb}## Analysis & tasks"
+  echo; echo "${hb}## 🧭 Analysis & tasks"; echo
   echo "<!-- gs:repo:${name}-start -->"
   echo "_Agent fills this in: explain notable findings (mention false-positive secrets only in aggregate), judge blob cleanability, assess active branches for merge-vs-variant, and turn this repo's open work items into validated tasks. Put a blank line before every bullet list so it renders. Raw material below._"
   echo
@@ -114,6 +120,7 @@ render_repo_body() {
   echo "  - *Items:* #<n>, #<m>"
   echo "  - *Why:* <why these belong together / the goal>"
   echo "  - *How:* <concrete steps grounded in the code you read — which files/components, the approach>"
+  echo "- [ ] _**Select all of the above**_ <!--gs op=select-all-->   ← end the Tasks list with this when there are 2+ tasks"
   echo '```'
   echo
   wi_raw="$(lines '.skills["work-items"].items[]? | "- #\(.number) [\(.importance)/\(.scope)] \(.title) — \(.web_url)"')"
@@ -121,7 +128,7 @@ render_repo_body() {
   echo "<!-- gs:repo:${name}-end -->"
 
   # ---- Health ----
-  echo; echo "${hb}## Repository health"
+  echo; echo "${hb}## 🩺 Repository health"; echo
   if [ "$(g '.skills["git-repo-health"].schema')" = "repo-health/v1" ]; then
     echo "- Default branch: \`$(g '.skills["git-repo-health"].default_branch')\` · current: \`$(g '.skills["git-repo-health"].current_branch')\`"
     echo "- Working tree: $(g '.skills["git-repo-health"].worktree.dirty') dirty, $(g '.skills["git-repo-health"].worktree.untracked') untracked"
@@ -143,7 +150,7 @@ render_repo_body() {
   else echo "_health data unavailable_"; fi
 
   # ---- Branches ----
-  echo; echo "${hb}## Branches (git-branch-cleanup)"
+  echo; echo "${hb}## 🌿 Branches"; echo
   local bc='.skills["git-branch-cleanup"]'
   if [ "$(g "$bc.schema")" = "branch-cleanup/v1" ]; then
     echo "Merged: $(g "$bc.summary.merged") · gone: $(g "$bc.summary.gone") · stale: $(g "$bc.summary.stale") · keep: $(g "$bc.summary.keep")"
@@ -155,7 +162,7 @@ render_repo_body() {
   else echo "_branch data unavailable_"; fi
 
   # ---- Commit hygiene ----
-  echo; echo "${hb}## Commit hygiene"
+  echo; echo "${hb}## 📝 Commit hygiene"; echo
   local ch='.skills["commit-hygiene"]'
   if [ "$(g "$ch.schema")" = "commit-hygiene/v1" ]; then
     echo "Non-conventional in last $(g "$ch.lint.checked"): **$(g "$ch.lint.non_conventional")** · un-pushed (rewordable): $(g "$ch.unpushed | length")"
@@ -165,7 +172,7 @@ render_repo_body() {
   else echo "_commit data unavailable_"; fi
 
   # ---- History surgery / secrets ----
-  echo; echo "${hb}## Secrets & history (git-history-surgery)"
+  echo; echo "${hb}## 🔑 Secrets & history"; echo
   local hs='.skills["git-history-surgery"]'
   if [ "$(g "$hs.schema")" = "history-surgery/v1" ]; then
     echo "Secret findings: **$(g "$hs.summary.secret_findings")** · sensitive tracked files: $(g "$hs.summary.sensitive_files") · large blobs: $(g "$hs.summary.big_blobs") · rewrite tool ready: $(g "$hs.tools.rewrite_ready")"
@@ -173,7 +180,7 @@ render_repo_body() {
     secn="$(g "$hs.summary.secret_findings")"; [ -z "$secn" ] && secn=0
     if [ "${secn:-0}" -gt 0 ] 2>/dev/null; then
       echo
-      echo "_$secn working-tree regex match(es) (scan method **$(g "$hs.secret_scan.method")**, no history). The verdict is in **Analysis & tasks** — most such matches are false positives (env interpolation, i18n strings, test fixtures); only real secrets are listed there with an action._"
+      echo "> ⚠️ $secn working-tree regex match(es) (scan method **$(g "$hs.secret_scan.method")**, no history). Verdict in **Analysis & tasks** — most are false positives (env interpolation, i18n, test fixtures); only real secrets get an action."
     fi
     local bb
     bb="$(lines "$hs"'.large_blobs.items[]? | "- `\(.path)` — \(.mb) MB"')"
@@ -181,7 +188,7 @@ render_repo_body() {
   else echo "_history scan unavailable_"; fi
 
   # ---- Pipeline (all branches) ----
-  echo; echo "${hb}## CI / pipeline health"
+  echo; echo "${hb}## 🚦 CI / pipeline health"; echo
   local ph='.skills["pipeline-health"]'
   if [ "$(g "$ph.available")" = "true" ]; then
     echo "Headline (default \`$(g "$ph.default_branch")\`): **$(g "$ph.overall")** · scanned $(g "$ph.scanned") pipeline(s) · $(g "$ph.branches_failing") branch(es) failing · likely cause: $(g "$ph.likely_cause") · agent-fixable: $(lines "$ph.agent_fixable")"
@@ -192,8 +199,9 @@ render_repo_body() {
     local mrn fjobs
     mrn="$(g "$ph.mr_pipelines | length")"
     [ "${mrn:-0}" != "0" ] && echo && echo "_+ $mrn merge-request pipeline(s) (not shown above)._"
-    fjobs="$(lines "$ph"'.branches[]? | select((.failing_jobs|length)>0) | "- `\(.branch)` (cause: \(.likely_cause // "?")): " + ([.failing_jobs[].name]|join(", "))')"
-    [ -n "$fjobs" ] && { echo; echo "Failing jobs:"; echo; echo "$fjobs"; }
+    fdiag="$(lines "$ph"'.branches[]? | select(.status=="failed" or .status=="failure")
+      | "- `\(.branch)` — cause: **\(.likely_cause // "unknown")**" + ([.diagnosis[]? | "\n  - " + .] | join(""))')"
+    [ -n "$fdiag" ] && { echo; echo "Why the failing pipeline(s) failed (what was checked, and the result):"; echo; echo "$fdiag"; }
   else
     echo "_CI unavailable: $(g "$ph.reason" || echo "pipeline data unavailable")._"
     local host hauth
@@ -203,7 +211,7 @@ render_repo_body() {
 
   # ---- Optimize tier ----
   if [ "$optimize" = "true" ]; then
-    echo; echo "${hb}## Optimize tier"
+    echo; echo "${hb}## ✨ Optimize tier"; echo
     echo "- .gitignore: $(g '.skills["gitignore-guard"].summary.tracked_to_untrack' || echo 0) tracked-should-ignore, $(g '.skills["gitignore-guard"].summary.missing_entries' || echo 0) missing entries"
     echo "- Worktrees: $(g '.skills["worktree-manager"].summary.total' || echo 0) total, $(g '.skills["worktree-manager"].summary.prunable' || echo 0) prunable"
     echo "- Dependencies: $(g '.skills["dependency-health"].summary.total_outdated' || echo 0) outdated, $(g '.skills["dependency-health"].summary.total_vulnerabilities' || echo 0) vulnerabilities"
@@ -213,21 +221,22 @@ render_repo_body() {
   fi
 
   # ---- Actions (bulleted, each with Why / Risk / Source) ----
-  echo; echo "${hb}## Actions"
-  echo "_Check an item to queue it; see **How to use this report** at the top. Each carries Why / Risk / Source._"
+  echo; echo "---"; echo; echo "${hb}## ✅ Actions"; echo
+  echo "> Check an item to queue it (or use _Select all_ at the bottom of a list). Each carries *Why / Risk / Source*; see **How to use this report** at the top."
+  echo
   local any=false
 
   # Branches (Tier 1)
   local br
   br="$(lines "$bc"'.candidates[]? | select(.category!="keep") |
     "- [ ] **Delete branch `\(.branch)`** <!--gs op=branch-delete-local repo=REPO branch=\(.branch)-->\n  - *Why:* \(.category) — \(.reason); redundant locally.\n  - *Risk:* Tier 1 · reversible (restore via `git reflog`).\n  - *Source:* git-branch-cleanup classified it `\(.category)`."')"
-  if [ -n "$br" ]; then any=true; echo; echo "${hb}### Branches — delete (Tier 1, local)"; printf '%s\n' "${br//REPO/$repo}"; fi
+  if [ -n "$br" ]; then any=true; echo; echo "${hb}### Branches — delete (Tier 1, local)"; printf '%s\n' "${br//REPO/$repo}"; selall "${br//REPO/$repo}"; fi
 
   # Commit rewords (Tier 1)
   local cm
   cm="$(lines "$ch"'.unpushed[]? |
     "- [ ] **Reword `\(.sha)`** \(.subject) → EDIT-MESSAGE-HERE <!--gs op=commit-reword repo=REPO sha=\(.sha)-->\n  - *Why:* non-conventional subject; reword for a clean, lintable history.\n  - *Risk:* Tier 1 · safe (un-pushed only — rewrites the local message).\n  - *Source:* commit-hygiene: un-pushed commit `\(.sha)`."')"
-  if [ -n "$cm" ]; then any=true; echo; echo "${hb}### Commit messages — reword (Tier 1, un-pushed; edit text after →)"; printf '%s\n' "${cm//REPO/$repo}"; fi
+  if [ -n "$cm" ]; then any=true; echo; echo "${hb}### Commit messages — reword (Tier 1, un-pushed; edit text after →)"; printf '%s\n' "${cm//REPO/$repo}"; selall "${cm//REPO/$repo}"; fi
 
   # .gitignore (Tier 1, optimize)
   local gg_missing gg_un
@@ -260,15 +269,16 @@ render_repo_body() {
     any=true; echo; echo "${hb}### Secrets & history (🔴 Tier 2 — irreversible)"
     [ -n "$hs_items" ] && printf '%s\n' "$hs_items"
     [ -n "$hs_blobs" ] && printf '%s\n' "${hs_blobs//REPO/$repo}"
+    selall "$hs_items"$'\n'"${hs_blobs//REPO/$repo}"
   fi
 
   # CI fix (Tier 2) — one per failing real branch
   local ci_items
   ci_items="$(lines "$ph"'.branches[]? | select(.status=="failed" or .status=="failure") |
     "- [ ] **Fix & monitor CI on `\(.branch)`** <!--gs op=pipeline-fix repo=REPO branch=\(.branch)-->\n  - *Why:* pipeline failing (cause: \(.likely_cause // "unknown")).\n  - *Risk:* Tier 2 · pushes commits and monitors; never the default branch unless asked.\n  - *Source:* pipeline-health: branch `\(.branch)` latest pipeline failed."')"
-  if [ -n "$ci_items" ]; then any=true; echo; echo "${hb}### CI — fix & monitor (Tier 2, pushes)"; printf '%s\n' "${ci_items//REPO/$repo}"; fi
+  if [ -n "$ci_items" ]; then any=true; echo; echo "${hb}### CI — fix & monitor (Tier 2, pushes)"; printf '%s\n' "${ci_items//REPO/$repo}"; selall "${ci_items//REPO/$repo}"; fi
 
-  $any || { echo; echo "_No mechanical actions — see Analysis & tasks for work-item tasks._"; }
+  $any || { echo; echo "> _No mechanical actions — see **Analysis & tasks** for work-item tasks._"; }
 }
 
 # ---- single-repo document ----
@@ -289,20 +299,21 @@ emit_fleet() {
   opt="$(jq -r '.optimize // false' <<<"$fjson")"
   count="$(jq -r '.repo_count // (.repos|length)' <<<"$fjson")"
 
-  echo "# git-steward fleet findings"
+  echo "# 🛠️ git-steward — fleet findings"
   echo
-  echo "- **Root:** \`$root\` · **Repos:** $count · **optimize tier:** $opt"
-  echo "- **Generated:** $ts · analyze (read-only — nothing was changed)"
+  echo "> **Root:** \`$root\`  ·  **Repos:** $count  ·  **optimize tier:** $opt"
+  echo ">"
+  echo "> **Generated:** $ts  ·  analyze (read-only — nothing was changed)"
   echo
   emit_howto
 
-  echo; echo "## Fleet totals"
+  echo; echo "## 📊 Fleet totals"; echo
   echo "- Repos with secrets: **$(jq -r '.totals.repos_with_secrets // 0' <<<"$fjson")**"
   echo "- Repos with prunable branches: $(jq -r '.totals.repos_with_prunable_branches // 0' <<<"$fjson")"
   echo "- Repos with failing CI: $(jq -r '.totals.repos_ci_failing // 0' <<<"$fjson")"
   echo "- Total open work items: $(jq -r '.totals.total_open_work_items // 0' <<<"$fjson")"
   echo
-  echo "## Repos (most-flagged first)"
+  echo "---"; echo; echo "## 🗂️ Repos (most-flagged first)"
   echo
   echo "| Repo | Secrets | Prunable Branches | Commits | Blobs | CI | Work items |"
   echo "|---|---|---|---|---|---|---|"
@@ -316,7 +327,7 @@ emit_fleet() {
     | "| \(.name) | \(.attention.secret_findings // (if .skipped then "—" else 0 end)) | \(.attention.prunable_branches // 0) | \(.attention.non_conventional_commits // 0) | \(.attention.big_blobs // 0) | \(.attention.ci_status // "n/a") | \(.attention.open_work_items // 0) |"' <<<"$fjson"
 
   echo
-  echo "## Cross-repo themes"
+  echo "---"; echo; echo "## 🔗 Cross-repo themes"; echo
   echo "<!-- gs:themes-start -->"
   echo "_Agent fills this in: groups of related work items spanning more than one repo (note overlap/duplication). Per-repo tasks live in each repo's **Analysis & tasks** section below._"
   echo "<!-- gs:themes-end -->"

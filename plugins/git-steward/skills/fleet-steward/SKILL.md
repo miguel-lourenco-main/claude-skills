@@ -70,7 +70,10 @@ it won't render as bullets. Keep every list as real `-` bullets; nest sub-bullet
        history-remove).
      - *Blobs:* judge cleanability — `in_worktree` + build-artifact/gitignored → removable (untrack now,
        or history rewrite if history-only); a real committed asset → keep.
-     - *CI:* summarize the cause from the job detail. If a deeper tool is needed (e.g. gitleaks), say so.
+     - *CI:* the report already prints each failing pipeline's cause **and a diagnosis trail** (what was
+       checked + the result, incl. GitLab `failure_reason`). Summarize it; if the cause is still
+       `unknown`/`empty-pipeline`, dig one level further (read the branch's `.gitlab-ci.yml`
+       `workflow:`/`rules:`) and report what you found.
    - **Assess active / unmerged branches (merge-vs-variant).** For each branch listed as active/unmerged
      (`ahead>0`): look at `git -C <repo> log <default>..<branch> --oneline`, the branch name, and any open
      MR. If it holds finished, sensible work, propose a merge task
@@ -91,7 +94,9 @@ it won't render as bullets. Keep every list as real `-` bullets; nest sub-bullet
        - *How:* <concrete steps grounded in the code you read — name the files/components and the approach, not a vague restatement>
      ```
      `numbers` lists every item the task subsumes (comma-joined, no spaces); `slug` is a kebab branch name.
-     Group, don't transcribe — fewer, better-scoped, validated tasks.
+     Group, don't transcribe — fewer, better-scoped, validated tasks. When the Tasks list has 2+ items,
+     **end it with** `- [ ] _**Select all of the above**_ <!--gs op=select-all-->` so the user can queue
+     them all (then exclude individual ones by ticking).
 2. **Top `<!-- gs:themes-start/end -->` region** — groups of related items spanning more than one repo;
    call out overlap/duplication so the same work isn't done twice. Per-repo tasks stay in their repo's
    region (linked by theme).

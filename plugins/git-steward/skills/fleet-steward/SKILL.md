@@ -67,9 +67,15 @@ CI, work items); mechanical actions already explain themselves, so don't re-expl
      removable (untrack now, or history rewrite if history-only); a real committed asset → keep. For
      failing CI, summarize the cause from the job detail. If a deeper tool is needed (e.g. gitleaks for
      full-history secrets), say so rather than guessing.
-   - **Group this repo's work items into tasks.** Merge related items, collapse duplicates, and write each
-     as a checkbox **with a how/why execution description** (what you'll change and why):
-     `- [ ] <task — how you'll do it, why> <!--gs op=work-item-implement repo=<name> numbers=<n,m> slug=<kebab>-->`
+   - **Group this repo's work items into tasks.** Merge related items, collapse duplicates. Write each
+     task **across multiple lines**: a short checkbox **title** line carrying the tag (keep the tag on
+     that line so it parses), then indented `*Items:*`, `*Why:*`, `*How:*` sub-bullets:
+     ```
+     - [ ] **<task title>** <!--gs op=work-item-implement repo=<name> numbers=<n,m> slug=<kebab>-->
+       - *Items:* #<n>, #<m>
+       - *Why:* <why these belong together / the goal>
+       - *How:* <how you'll implement it>
+     ```
      where `numbers` lists every item number the task subsumes (comma-joined, no spaces) and `slug` is a
      kebab branch name. Group, don't transcribe — the value is fewer, better-scoped tasks.
 2. **Top `<!-- gs:themes-start/end -->` region** — groups of related items spanning more than one repo;

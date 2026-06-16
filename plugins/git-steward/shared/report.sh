@@ -107,7 +107,15 @@ render_repo_body() {
   echo
   echo "**Notable findings to explain:** ${secn} secret match(es) · ${blobn} blob(s) over the size guideline · ${cifail} branch(es) with failing CI."
   echo
-  echo "**Open work items** (group/dedupe into \`- [ ] … <!--gs op=work-item-implement repo=${name} numbers=<n,m> slug=<kebab>-->\` tasks, each with a how/why description):"
+  echo "**Open work items** — group/dedupe into tasks. Write each as a short checkbox line carrying the tag, with \`*Items:*\`, \`*Why:*\`, \`*How:*\` on their own indented sub-bullets:"
+  echo
+  echo '```'
+  echo "- [ ] **<task title>** <!--gs op=work-item-implement repo=${name} numbers=<n,m> slug=<kebab>-->"
+  echo "  - *Items:* #<n>, #<m>"
+  echo "  - *Why:* <why these belong together / the goal>"
+  echo "  - *How:* <how you'll implement it>"
+  echo '```'
+  echo
   wi_raw="$(lines '.skills["work-items"].items[]? | "- #\(.number) [\(.importance)/\(.scope)] \(.title) — \(.web_url)"')"
   if [ -n "$wi_raw" ]; then echo "$wi_raw"; else echo "_none open._"; fi
   echo "<!-- gs:repo:${name}-end -->"

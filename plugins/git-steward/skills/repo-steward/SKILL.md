@@ -61,9 +61,16 @@ the user edits the document to choose exactly what to do.
 repo's notable findings with sources (deep): trace each working-tree secret with `git log -S`/`git blame`
 to judge real-vs-false-positive, assess each over-threshold blob's cleanability (`in_worktree` +
 artifact → removable; real asset → keep), and summarize any failing CI cause — cite file:line/commit/
-branch. Then group/dedupe this repo's open work items into a few well-scoped tasks, each a checkbox
-**with a how/why description**: `- [ ] <task — how + why> <!--gs op=work-item-implement repo=<name>
-numbers=<n,m> slug=<kebab>-->` (per-repo layer only; no cross-repo themes for a single repo). Such a task
+branch. Then group/dedupe this repo's open work items into a few well-scoped tasks. Write each **across multiple
+lines** — a short checkbox **title** line carrying the tag, then indented `*Items:*` / `*Why:*` / `*How:*`
+sub-bullets:
+```
+- [ ] **<task title>** <!--gs op=work-item-implement repo=<name> numbers=<n,m> slug=<kebab>-->
+  - *Items:* #<n>, #<m>
+  - *Why:* <why these belong together / the goal>
+  - *How:* <how you'll implement it>
+```
+(per-repo layer only; no cross-repo themes for a single repo). Such a task
 is an **agent task**, not a script action: `run-plan.sh` surfaces it under Tier-2 and you implement it
 yourself — create the `slug` branch, write the change, commit, push, and open the MR via `glab` — behind
 the Tier-2 gate. (`op=work-item-start` remains the lightweight "just open a branch + draft" alternative.)

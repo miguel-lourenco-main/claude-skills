@@ -66,8 +66,17 @@ it won't render as bullets. Keep every list as real `-` bullets; nest sub-bullet
      - *Secrets:* investigate (`git -C <repo> log -S '<snippet>' --oneline`, `git blame`, read the
        `file:line`) to decide real-vs-false-positive. **Don't enumerate false positives** — mention them
        in **one casual aggregate line** (e.g. *"the N matches are all false positives — env interpolation /
-       i18n / test fixtures"*). Only a **real** secret gets a detailed finding + an action (rotate +
-       history-remove).
+       i18n / test fixtures"*). The **script does not auto-propose history removal** for raw working-tree
+       matches (so false positives never become actions); only a **real** secret gets a detailed finding
+       **and** an action that **you** author here — tell the user to rotate the credential, and add the
+       parseable Tier-2 checkbox:
+       ```
+
+       - [ ] 🔴 **Remove `<file>` from ALL history** <!--gs op=history-remove-path repo=<name> path=<file>-->
+         - *Why:* purge the confirmed secret `<file>` from every commit.
+         - *Risk:* 🔴 Tier 2 · IRREVERSIBLE (history rewrite; backup first). **Rotate the credential** — rewriting does not un-leak it.
+         - *Source:* <commit/blame evidence that the value is a real secret>.
+       ```
      - *Blobs:* judge cleanability — `in_worktree` + build-artifact/gitignored → removable (untrack now,
        or history rewrite if history-only); a real committed asset → keep.
      - *CI:* the report already prints each failing pipeline's cause **and a diagnosis trail** (what was

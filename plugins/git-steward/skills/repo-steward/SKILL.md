@@ -61,7 +61,11 @@ the user edits the document to choose exactly what to do.
 rule: always put a blank line before a bulleted list** or it won't render. Explain the repo's notable
 findings with sources (deep): trace each working-tree secret with `git log -S`/`git blame` to judge
 real-vs-false-positive — but **don't enumerate false positives**, mention them in one casual aggregate
-line; only a **real** secret gets detail + an action. Assess each over-threshold blob's cleanability
+line. The **script does not auto-propose history removal** for raw working-tree matches, so false
+positives never become actions; only a **real** secret gets detail + an action **you** author here (tell
+the user to rotate it) — add the parseable checkbox `- [ ] 🔴 **Remove `<file>` from ALL history**
+<!--gs op=history-remove-path repo=<name> path=<file>-->` with *Why/Risk/Source*. Assess each
+over-threshold blob's cleanability
 (`in_worktree` + artifact → removable; real asset → keep) and summarize any failing CI cause. For each
 **active/unmerged branch** (`ahead>0`), check `git log <default>..<branch>` + the name: propose a merge
 task `<!--gs op=branch-merge repo=<name> branch=<branch>-->` if it's finished sensible work, or flag it as

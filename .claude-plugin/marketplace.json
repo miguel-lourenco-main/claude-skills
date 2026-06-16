@@ -10,7 +10,7 @@
       "description": "Multi-repo git stewardship: branch pruning, commit & history hygiene, secret/large-file removal, repo health, work-item triage, and CI pipeline health, with analyze (read-only) and apply (mutating) modes that stack from a single operation to a single repo to the whole fleet.",
       "source": "./plugins/git-steward",
       "category": "git",
-      "version": "0.6.0",
+      "version": "0.6.1",
       "author": { "name": "migaloco", "email": "migasoulou@gmail.com" }
     }
   ]

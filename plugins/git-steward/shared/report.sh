@@ -259,17 +259,17 @@ render_repo_body() {
   fi
 
   # History / secrets (Tier 2)
-  local hs_files hs_items hs_blobs
-  hs_files="$(jq -r "($hs.secret_scan.sensitive_tracked_files // []) + ([$hs.secret_scan.findings[]?.file]) | unique[]?" <<<"$RJSON" 2>/dev/null)"
-  hs_items=""
-  [ -n "$hs_files" ] && hs_items="$(while IFS= read -r f; do [ -n "$f" ] && { echo "- [ ] 🔴 **Remove \`$f\` from ALL history** <!--gs op=history-remove-path repo=$repo path=$f-->"; echo "  - *Why:* purge the file (secret/sensitive) from every commit."; echo "  - *Risk:* 🔴 Tier 2 · IRREVERSIBLE (rewrites history; backup taken first). Rotate any leaked credential — rewriting does not un-leak it."; echo "  - *Source:* git-history-surgery: working-tree match in \`$f\` (commit provenance unconfirmed — see Analysis)."; }; done <<<"$hs_files")"
+  # NOTE: unvalidated working-tree secret matches do NOT auto-emit history-remove actions — that
+  # judgement (real-vs-false-positive) is the agent's, in the per-repo region. Only a CONFIRMED secret
+  # gets a history-remove checkbox, authored by the agent (see SKILL "Annotate"). The script emits only
+  # objective, size-based large-blob strips here.
+  local hs_blobs
   hs_blobs="$(lines "$hs"'.large_blobs.items[]? |
     "- [ ] 🔴 **Strip `\(.path)` (\(.mb) MB) from ALL history** <!--gs op=history-remove-path repo=REPO path=\(.path)-->\n  - *Why:* shrink the repo by removing a large blob from every commit.\n  - *Risk:* 🔴 Tier 2 · IRREVERSIBLE (history rewrite; backup taken first).\n  - *Source:* git-history-surgery: \(.mb) MB blob in history."')"
-  if [ -n "$hs_items$hs_blobs" ]; then
+  if [ -n "$hs_blobs" ]; then
     any=true; echo; echo "${hb}### Secrets & history (🔴 Tier 2 — irreversible)"
-    [ -n "$hs_items" ] && printf '%s\n' "$hs_items"
-    [ -n "$hs_blobs" ] && printf '%s\n' "${hs_blobs//REPO/$repo}"
-    selall "$hs_items"$'\n'"${hs_blobs//REPO/$repo}"
+    printf '%s\n' "${hs_blobs//REPO/$repo}"
+    selall "${hs_blobs//REPO/$repo}"
   fi
 
   # CI fix (Tier 2) — one per failing real branch

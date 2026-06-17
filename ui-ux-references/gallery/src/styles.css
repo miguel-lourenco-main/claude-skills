@@ -139,6 +139,7 @@ code, .mono { font-family: "JetBrains Mono", ui-monospace, monospace; }
 .shot { position: relative; background: var(--surface-2); aspect-ratio: 16 / 10; overflow: hidden; }
 .shot img { width: 100%; height: 100%; object-fit: cover; object-position: top; display: block; transition: transform 0.5s var(--ease); }
 .card:hover .shot img { transform: scale(1.035); }
+.shot .no-shot { position: absolute; inset: 0; display: grid; place-items: center; color: var(--faint); font-size: 12px; letter-spacing: 0.04em; }
 .q-badge {
   position: absolute; top: 10px; right: 10px;
   background: rgba(8, 9, 10, 0.7); border: 1px solid var(--border);

@@ -14,20 +14,21 @@ deploys to GitLab Pages — this skill just runs it locally.
 
 ## 0 · Locate the gallery
 
-The gallery is part of the monorepo (not shipped inside the plugin cache), so resolve it via the
-references skill's location, then the repo root:
+The gallery lives in the `claude-skills` monorepo **checkout** (beside the vault + Pages CI), NOT in
+the plugin cache — and the cache isn't a git repo, so don't resolve via `$CLAUDE_PLUGIN_ROOT`. The
+`~/.claude/skills/ui-ux-references` symlink (created by `bootstrap.sh` from a checkout) points INTO
+the checkout, so use it to find the repo root:
 
 ```bash
-SK="${CLAUDE_PLUGIN_ROOT:+$CLAUDE_PLUGIN_ROOT/skills/ui-ux-references}"
-[ -d "$SK" ] || SK="$HOME/.claude/skills/ui-ux-references"
-REPO="$(cd "$SK" 2>/dev/null && git rev-parse --show-toplevel 2>/dev/null)"
+# 1) repo via the references-skill symlink (-> checkout). 2) the current checkout if run from one.
+REPO="$(git -C "$HOME/.claude/skills/ui-ux-references" rev-parse --show-toplevel 2>/dev/null)"
+[ -n "$REPO" ] || REPO="$(git rev-parse --show-toplevel 2>/dev/null)"
 GALLERY="${UIUX_GALLERY:-${REPO:+$REPO/ui-ux-references/gallery}}"
-[ -d "$GALLERY" ] || GALLERY="$(cd "$SK/../../../.." 2>/dev/null && pwd)/ui-ux-references/gallery"
-echo "gallery: $GALLERY"
+echo "gallery: ${GALLERY:-NOT FOUND}"
 ```
 
 If `$GALLERY/build.mjs` doesn't exist, the monorepo checkout isn't reachable from here — tell the
-user to run it from their `claude-skills` checkout (or set `$UIUX_GALLERY`).
+user to run it from their `claude-skills` checkout, or set `$UIUX_GALLERY` to its `gallery/` dir.
 
 Prereqs: `node` (build) and `python3` (serve) — both standard. The build needs no npm install.
 

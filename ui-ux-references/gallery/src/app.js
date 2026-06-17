@@ -112,7 +112,7 @@ function render(rows) {
     const more = r.tags.length > 3 ? `<span class="tag more">+${r.tags.length - 3}</span>` : "";
     card.innerHTML = `
       <div class="shot">
-        ${r.shots.above_fold ? `<img loading="lazy" src="${esc(r.shots.above_fold)}" alt="${esc(r.title)} screenshot" />` : ""}
+        ${r.shots.above_fold ? `<img src="${esc(r.shots.above_fold)}" alt="${esc(r.title)} screenshot" decoding="async" />` : `<span class="no-shot">no screenshot</span>`}
         <span class="q-badge"><b>${r.quality}</b>/100</span>
       </div>
       <div class="card-body">

@@ -19,6 +19,32 @@
       "awwwardsCategories": ["food-beverage"],
       "godlyHome": false,
       "seeds": []
+    },
+    "dashboard": {
+      "label": "Developer Dashboard / Dev Tool / Console (dark, data-dense)",
+      "onePageLoveGenres": ["dark", "saas", "app"],
+      "awwwardsCategories": [],
+      "godlyHome": false,
+      "seeds": [
+        "https://linear.app",
+        "https://vercel.com",
+        "https://railway.com",
+        "https://www.raycast.com",
+        "https://sentry.io",
+        "https://planetscale.com",
+        "https://supabase.com",
+        "https://www.warp.dev",
+        "https://resend.com",
+        "https://www.prisma.io",
+        "https://clerk.com",
+        "https://posthog.com",
+        "https://www.crunchydata.com",
+        "https://neon.tech",
+        "https://www.cockroachlabs.com",
+        "https://upstash.com",
+        "https://www.fly.io",
+        "https://www.scalar.com"
+      ]
     }
   }
 }

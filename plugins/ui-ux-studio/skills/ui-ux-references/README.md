@@ -5,8 +5,11 @@ Companion to `ui-ux-pro-max`: that one gives *rules* (style/color/type), this on
 examples* — screenshots, **raw + rendered HTML, CSS, JS, downloaded images**, and a structured
 design teardown per reference.
 
-References are stored as an **Obsidian vault** at `vault/` (the note is the single source of truth).
-This skill lives in the `claude-skills` monorepo (`~/.claude/skills/`), synced via git + Git LFS.
+References are stored as an **Obsidian vault** (the note is the single source of truth). This skill
+ships as **code** inside the `ui-ux-studio` plugin; the **vault is data and lives outside the
+plugin** (so it survives `/plugin update`). Scripts resolve it as `$UIUX_VAULT` → a `vault/` beside
+the code → `~/.claude/ui-ux-references-vault` (which in the monorepo checkout symlinks to
+`ui-ux-references/vault/`). All in the `claude-skills` monorepo, synced via git + Git LFS.
 
 ## Daily use (find references while designing)
 
@@ -52,5 +55,7 @@ tracker denylist). Defaults are generous (sync-everything via LFS); tune as need
 
 ## Sync
 
-It's part of the `claude-skills` monorepo. `cd ~/.claude/skills && git add -A && git commit && git push`;
-elsewhere `git pull && git lfs pull`. See `~/.claude/skills/README.md`.
+Code + vault both live in the `claude-skills` monorepo. Commit from your **checkout** (not the
+plugin cache): `cd <claude-skills checkout> && git add -A && git commit && git push`; elsewhere
+`git pull && git lfs pull`, then point `$UIUX_VAULT` at (or symlink `~/.claude/ui-ux-references-vault`
+to) `ui-ux-references/vault/`.

@@ -23,9 +23,11 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const fm = require('../scripts/lib/frontmatter.cjs');
+const { resolveVault } = require('../scripts/lib/vault.cjs');
 
 const ROOT = path.resolve(__dirname, '..');
-const VAULT = path.join(ROOT, 'vault');
+// Vault is data, not code — resolved OUTSIDE the plugin (see scripts/lib/vault.cjs).
+const VAULT = resolveVault(ROOT);
 const sources = JSON.parse(fs.readFileSync(path.join(ROOT, 'sources.json'), 'utf8'));
 
 const DEFAULT_CAPTURE = {

@@ -10,9 +10,21 @@ grow it. Each reference is a note with a viewport + full-page screenshot, the **
 the **rendered DOM**, the page's **CSS** and **JS** (incl. inline), its **downloaded images**, and
 a structured design teardown (style, palette, layout, strengths, reusable patterns).
 
-- Skill code: `~/.claude/skills/ui-ux-references/` (part of the `claude-skills` monorepo).
-- Vault: `~/.claude/skills/ui-ux-references/vault/` — open *this folder* in Obsidian. The
-  per-reference **note is the single source of truth**.
+### Paths
+
+This skill ships as **code** inside the `ui-ux-studio` plugin; the **vault is data and lives
+outside the plugin** so it survives `/plugin update` and stays git-committable.
+
+```bash
+# Skill code (run scripts from here):
+SK="${CLAUDE_PLUGIN_ROOT:+$CLAUDE_PLUGIN_ROOT/skills/ui-ux-references}"
+[ -d "$SK" ] || SK="$HOME/.claude/skills/ui-ux-references"
+```
+
+- **Vault** (open *this folder* in Obsidian; the per-reference **note is the single source of
+  truth**): `${UIUX_VAULT:-~/.claude/ui-ux-references-vault}`. The scripts resolve it automatically
+  (`$UIUX_VAULT` → a `vault/` beside the code → the stable default), so you don't pass it on the
+  command line. In the `claude-skills` checkout the default symlinks to `ui-ux-references/vault/`.
 
 ## When to use
 
@@ -23,9 +35,9 @@ a structured design teardown (style, palette, layout, strengths, reusable patter
 
 ## Use references when designing (the main flow)
 
-1. Query the vault:
+1. Query the vault (resolve `$SK` first — see **Paths**):
    ```bash
-   python3 ~/.claude/skills/ui-ux-references/scripts/query.py "restaurant warm rustic" -n 4
+   python3 "$SK/scripts/query.py" "restaurant warm rustic" -n 4
    ```
    (`--category restaurant`, `--json` for machine output). It returns each match's **note path**
    + screenshot/HTML paths, with tags, palette, and "when to use".
@@ -44,11 +56,12 @@ Run on a machine with normal internet (capture drives a real browser; sandboxed/
 egress to arbitrary sites). It captures **everything from any URL**:
 
 ```bash
-cd ~/.claude/skills/ui-ux-references
+cd "$SK"                                              # see Paths
 node research/discover.cjs restaurant --limit 16     # find candidate live sites (OnePageLove + seeds)
 node research/extract.cjs  restaurant                 # full extraction per site -> vault note + assets
 node research/extract.cjs  restaurant --url https://a-site.com   # extract ONE specific site (e.g. a Godly find)
 ```
+(Writes go to the external vault, not beside the code — see **Paths**.)
 
 Each extract writes `vault/References/<category>/<slug>/`:
 `above-fold.jpg, full.jpg, rendered.html, raw.html, images/ (+manifest), css/ (+manifest),
@@ -95,13 +108,16 @@ A different scraper won't beat an egress allowlist — only a proxy or a permitt
 
 ## Sync (free — no paid Obsidian Sync)
 
-This skill + its vault live in the `claude-skills` monorepo, synced via git + Git LFS (images & JS
-binaries). After growing the library:
+The skill code (this plugin) and the vault both live in the `claude-skills` monorepo, synced via
+git + Git LFS (images & JS binaries). Commit from your **monorepo checkout** (NOT the volatile
+plugin cache). After growing the library:
 ```bash
-cd ~/.claude/skills && git add -A && git commit -m "refs: add <category> examples" && git push
+cd <your claude-skills checkout>   # e.g. ~/Desktop/personal/projects/claude-skills
+git add -A && git commit -m "refs: add <category> examples" && git push
 ```
-On another machine: `git pull && git lfs pull`. New machine setup + Obsidian/Dataview notes:
-see `~/.claude/skills/ui-ux-references/README.md` and `~/.claude/skills/README.md`.
+On another machine: `git pull && git lfs pull`, then point `$UIUX_VAULT` at (or symlink
+`~/.claude/ui-ux-references-vault` to) `ui-ux-references/vault/`. Obsidian/Dataview notes: see this
+skill's `README.md`.
 
 ## Data model
 

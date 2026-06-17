@@ -20,7 +20,23 @@ import re
 import sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-VAULT = os.path.join(ROOT, "vault")
+
+
+def _resolve_vault():
+    # The vault is data, not code: it lives OUTSIDE the plugin so it survives
+    # /plugin update and stays git-committable. Resolution order:
+    #   1. $UIUX_VAULT   2. a vault/ beside the code (dev / monorepo checkout)
+    #   3. the stable ~/.claude/ui-ux-references-vault default.
+    env = os.environ.get("UIUX_VAULT")
+    if env:
+        return os.path.expanduser(env)
+    local = os.path.join(ROOT, "vault")
+    if os.path.isdir(local):
+        return local
+    return os.path.join(os.path.expanduser("~"), ".claude", "ui-ux-references-vault")
+
+
+VAULT = _resolve_vault()
 INDEX = os.path.join(VAULT, "_index.json")
 REFS = os.path.join(VAULT, "References")
 

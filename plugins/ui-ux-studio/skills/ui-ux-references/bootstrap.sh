@@ -21,6 +21,33 @@ echo "  - ensuring Chromium for Playwright"
 npx --yes playwright install chromium chromium-headless-shell >/dev/null 2>&1 || \
   echo "    (warning: could not install Chromium automatically; run 'npx playwright install chromium' manually)"
 
+# 2.5) Wire the EXTERNAL vault (data lives outside the plugin so it survives
+#   /plugin update). In a monorepo checkout the vault is a few dirs up at
+#   <repo>/ui-ux-references/vault; in the volatile plugin cache it isn't present,
+#   so fall back to a fresh, persistent ~/.claude/ui-ux-references-vault.
+case "$HERE" in
+  "$HOME"/.claude/plugins/cache/*) IN_CACHE=1 ;;
+  *) IN_CACHE=0 ;;
+esac
+VAULT_DEFAULT="$HOME/.claude/ui-ux-references-vault"
+MONO_VAULT="$(cd "$HERE/../../../../ui-ux-references/vault" 2>/dev/null && pwd || true)"
+if [ -n "${UIUX_VAULT:-}" ]; then
+  echo "  - vault: honoring \$UIUX_VAULT=$UIUX_VAULT"
+elif [ -n "$MONO_VAULT" ]; then
+  ln -sfn "$MONO_VAULT" "$VAULT_DEFAULT"
+  echo "  - vault: linked $VAULT_DEFAULT -> $MONO_VAULT"
+elif [ ! -e "$VAULT_DEFAULT" ]; then
+  mkdir -p "$VAULT_DEFAULT/References" "$VAULT_DEFAULT/Indexes"
+  echo "  - vault: created fresh $VAULT_DEFAULT (no monorepo vault found)"
+fi
+# When run from a checkout (not the cache), expose the skill personally so it's
+# discoverable before /plugin install. From the cache the plugin already provides it.
+if [ "$IN_CACHE" = "0" ]; then
+  mkdir -p "$HOME/.claude/skills"
+  ln -sfn "$HERE" "$HOME/.claude/skills/ui-ux-references"
+  echo "  - skill: linked ~/.claude/skills/ui-ux-references -> $HERE"
+fi
+
 # 3) Git LFS (vault images + JS bundles are LFS-tracked) + build the query index
 echo "  - ensuring Git LFS"
 git lfs install >/dev/null 2>&1 || echo "    (warning: 'git lfs install' failed; install git-lfs for the vault binaries)"

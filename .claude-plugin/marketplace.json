@@ -12,6 +12,25 @@
       "category": "git",
       "version": "0.6.1",
       "author": { "name": "migaloco", "email": "migasoulou@gmail.com" }
+    },
+    {
+      "name": "ui-ux-studio",
+      "description": "UI/UX design studio: a director skill that orchestrates real-world-inspired UI work — deciding when to design from rules, when to pull concrete references, and when the reference library is too thin and must be grown by discovering + extracting new sites. Bundles the ui-ux-references example library and composes with the ui-ux-pro-max rules skill.",
+      "source": "./plugins/ui-ux-studio",
+      "category": "design",
+      "version": "0.1.0",
+      "author": { "name": "migaloco", "email": "migasoulou@gmail.com" }
+    },
+    {
+      "name": "ui-ux-pro-max",
+      "description": "UI/UX design intelligence: styles, color palettes, font pairings, product-type guidance, UX guidelines, and charts across many stacks. Open-source skill by nextlevelbuilder, referenced here (not vendored) so it updates from upstream — bump the pinned sha to take a new release.",
+      "source": {
+        "source": "url",
+        "url": "https://github.com/nextlevelbuilder/ui-ux-pro-max-skill.git",
+        "sha": "b7e3af80f6e331f6fb456667b82b12cade7c9d35"
+      },
+      "category": "design",
+      "author": { "name": "nextlevelbuilder" }
     }
   ]
 }

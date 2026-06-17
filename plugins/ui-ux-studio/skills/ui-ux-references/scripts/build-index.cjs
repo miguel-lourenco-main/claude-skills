@@ -10,9 +10,11 @@
 const fs = require('fs');
 const path = require('path');
 const fm = require('./lib/frontmatter.cjs');
+const { resolveVault } = require('./lib/vault.cjs');
 
 const ROOT = path.resolve(__dirname, '..');
-const VAULT = path.join(ROOT, 'vault');
+// Vault is data, not code — resolved OUTSIDE the plugin (see lib/vault.cjs).
+const VAULT = resolveVault(ROOT);
 const REFS = path.join(VAULT, 'References');
 const INDEXES = path.join(VAULT, 'Indexes');
 

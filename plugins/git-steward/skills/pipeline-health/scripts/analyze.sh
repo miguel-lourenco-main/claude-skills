@@ -2,14 +2,15 @@
 # pipeline-health analyze.sh — report CI status, fetch failing job logs, and
 # classify the likely failure cause. Read-only. Emits pipeline-health/v1 JSON.
 #
-# Usage: analyze.sh --repo <path> [--branch <name>]
+# Usage: analyze.sh --repo <path> [--branch <name>] [--deep-max N]
 set -u
 
-repo="."; branch=""
+repo="."; branch=""; deep_max_arg=""
 while [ $# -gt 0 ]; do
   case "$1" in
     --repo) repo="$2"; shift 2 ;;
     --branch) branch="$2"; shift 2 ;;
+    --deep-max) deep_max_arg="$2"; shift 2 ;;
     --mode) shift 2 ;;
     *) shift ;;
   esac
@@ -33,6 +34,8 @@ case "$cli" in
 esac
 
 DEEP_MAX=3   # cap on how many failing pipelines we pull job logs for, to bound API calls
+# pipeline-sentinel raises this to diagnose every failing pipeline in a repo, not just the first few.
+case "$deep_max_arg" in ''|*[!0-9]*) : ;; *) DEEP_MAX="$deep_max_arg" ;; esac
 
 # classify a failure cause from job name + log text
 classify() { # $1=jobname $2=logtext -> cause

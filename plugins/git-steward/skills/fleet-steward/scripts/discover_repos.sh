@@ -5,7 +5,7 @@
 # Usage: discover_repos.sh [--root <dir>] [--max-depth N]
 set -u
 
-root="/home/migaloco/Desktop/personal/projects"; max_depth=2
+root="${GS_ROOT:-$HOME/Desktop/personal/projects}"; max_depth=2
 while [ $# -gt 0 ]; do
   case "$1" in
     --root) root="$2"; shift 2 ;;

@@ -15,7 +15,7 @@ dispatch one sub-agent per repo for isolation, behind a single top-level confirm
 Ask the user which repo source to manage, then let them exclude repos. Never assume.
 
 1. **Choose the source** (`scripts/resolve_fleet.sh --source <choice>`):
-   - `workspace` — local `.git` repos under the root (default `/home/migaloco/Desktop/personal/projects`).
+   - `workspace` — local `.git` repos under the root (`$GS_ROOT`, default `~/Desktop/personal/projects`; or pass `--root`).
    - `gitlab` — all projects in the authenticated GitLab account (`scripts/list_gitlab_projects.sh`).
    - `both` — the **intersection** (repos in both, matched by project slug).
 

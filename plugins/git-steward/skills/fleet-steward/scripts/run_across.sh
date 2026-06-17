@@ -7,7 +7,7 @@
 # Usage: run_across.sh [--root <dir>] [--optimize]   # uses saved fleet, else workspace
 set -u
 
-root="/home/migaloco/Desktop/personal/projects"; optimize=false
+root="${GS_ROOT:-$HOME/Desktop/personal/projects}"; optimize=false
 while [ $# -gt 0 ]; do
   case "$1" in
     --root) root="$2"; shift 2 ;;

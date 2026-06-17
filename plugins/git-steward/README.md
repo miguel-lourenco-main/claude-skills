@@ -20,6 +20,9 @@ Or add it to a marketplace and `/plugin install git-steward`.
     `dependency-health`, `release-changelog`, `stale-repo-triage`
 - **Tier 2 — `repo-steward`**: runs the in-scope skills on one repo and aggregates.
 - **Tier 3 — `fleet-steward`**: resolves a repo fleet and runs `repo-steward` across it.
+- **Tier 3 — `pipeline-sentinel`**: fleet-wide CI watchdog — sweeps every pipeline in every repo,
+  diagnoses failures, and (per a user-controlled policy, **gated by default**) autofixes / pushes /
+  monitors them; one-shot, in-session loop, or always-on cron. Never pushes the default branch.
 
 ## Two modes (every skill)
 

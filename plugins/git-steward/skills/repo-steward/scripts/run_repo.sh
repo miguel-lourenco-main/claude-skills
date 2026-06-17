@@ -22,8 +22,18 @@ done
 
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 skills_dir="$(cd "$here/../.." && pwd)"
+shared_dir="$(cd "$here/../../../shared" && pwd)"
 core=(git-repo-health git-branch-cleanup commit-hygiene git-history-surgery work-items pipeline-health)
 opt=(worktree-manager gitignore-guard repo-consistency dependency-health release-changelog stale-repo-triage)
+
+# Reconcile local with the remote ONCE, before any analyze.sh reads git state, so
+# every skill below sees one up-to-date view (fetch+prune drops refs for branches
+# deleted on the remote; a clean, strictly-behind default branch is fast-forwarded).
+# Safe & non-aborting: progress/warnings go to stderr, never to the report. See
+# shared/sync-remote.sh for the (offline/dirty/divergent/detached) edge handling.
+# stdout (the JSON summary) is discarded so it never enters the report pipeline;
+# stderr (human progress) is left intact so the run is transparent.
+bash "$shared_dir/sync-remote.sh" --repo "$repo" >/dev/null || true
 
 selected=("${core[@]}")
 $optimize && selected+=("${opt[@]}")

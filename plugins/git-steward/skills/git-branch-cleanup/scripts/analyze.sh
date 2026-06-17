@@ -45,7 +45,15 @@ while IFS='|' read -r br track cdate; do
   elif case "$merged_set" in *" $br "*) true;; *) false;; esac; then
     category="merged"; reason="fully merged into $default"
   elif [ "$track" = "[gone]" ]; then
-    category="gone"; reason="upstream deleted on remote"
+    # Upstream deleted on the remote (after fetch --prune). If this branch has NO
+    # commits the default branch lacks (ahead==0), it was merged THEN deleted
+    # upstream — already merged, safe to delete locally; NOT a re-merge candidate.
+    category="gone"
+    if [ "${ahead:-0}" -eq 0 ] 2>/dev/null; then
+      reason="merged upstream then deleted on remote — safe to delete locally"
+    else
+      reason="upstream deleted on remote (${ahead} commit(s) not on $default)"
+    fi
   elif [ -n "$cdate" ] && [ "$cdate" -lt "$cutoff" ]; then
     category="stale"; reason="no commit in ${stale_days}d"
   else

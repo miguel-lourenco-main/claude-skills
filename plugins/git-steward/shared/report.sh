@@ -200,7 +200,10 @@ render_repo_body() {
     mrn="$(g "$ph.mr_pipelines | length")"
     [ "${mrn:-0}" != "0" ] && echo && echo "_+ $mrn merge-request pipeline(s) (not shown above)._"
     fdiag="$(lines "$ph"'.branches[]? | select(.status=="failed" or .status=="failure")
-      | "- `\(.branch)` — cause: **\(.likely_cause // "unknown")**" + ([.diagnosis[]? | "\n  - " + .] | join(""))')"
+      | "- `\(.branch)` — cause: **\(.likely_cause // "unknown")**"
+        + ([.diagnosis[]? | "\n  - " + .] | join(""))
+        + ([.failing_jobs[]? | select((.log_excerpt // "") != "") | .log_excerpt]
+           | if length > 0 then "\n  - log: " + (.[0] | gsub("\\[[0-9;?]*[A-Za-z]";"") | gsub("[\r\n]+";" ⏎ ") | gsub("  +";" ") | .[0:240]) else "" end)')"
     [ -n "$fdiag" ] && { echo; echo "Why the failing pipeline(s) failed (what was checked, and the result):"; echo; echo "$fdiag"; }
   else
     echo "_CI unavailable: $(g "$ph.reason" || echo "pipeline data unavailable")._"

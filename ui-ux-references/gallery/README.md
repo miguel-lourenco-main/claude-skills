@@ -1,45 +1,38 @@
 # UI Reference Gallery
 
-A simple-but-stunning static gallery over the `ui-ux-references` vault — for humans to browse
-and analyze the references we've discovered/extracted. OLED-dark, masonry grid, per-reference
-detail with screenshots, palette, typography, and the full design teardown.
+A simple-but-stunning **client-side** gallery over a `ui-ux-references` vault — OLED-dark masonry of
+references with screenshots, palettes, typography, and full design teardowns. No build step, no
+bundled data: it reads the vault at runtime.
 
-Design lineage (built with the `ui-ux-director` skill): **Linear** (elevation-by-gray-steps,
-single indigo accent, Inter + mono), **Raycast** (gradient light-streak hero, floating bordered
-controls), and the **Portfolio Grid** pattern (visuals-first masonry, category filter).
+Design lineage (built via the `ui-ux-director` skill): **Linear** (OLED, elevation-by-gray-steps,
+single indigo accent, Inter + mono), **Raycast** (gradient hero, floating controls), and the
+**Portfolio Grid** pattern.
 
-## How it works
+## Two data sources (the vault is never shipped with the site)
 
-It's a **build-time bake**, not a runtime reader — so it deploys to GitLab Pages with no server
-or filesystem access:
+1. **Local — auto-fetch.** Served from the repo's `ui-ux-references/` root, the vault sits at `/vault`
+   and the gallery fetches it directly (`_index.json` + notes + screenshots), parsing the
+   `%% TEARDOWN %%` prose in the browser. Override the location with `?vault=<URL>`.
+2. **Hosted (GitLab Pages) — user loads it.** The deploy is just the shell (`index.html`, `styles.css`,
+   `app.js`) with **no data**. On open, `/vault` 404s, so the gallery shows a *“Load your reference
+   vault”* picker — the visitor selects their vault folder (the one containing `_index.json`) and it's
+   read entirely client-side (nothing is uploaded).
 
-```
-vault (_index.json + notes + screenshots)
-        │  build.mjs
-        ▼
-public/  ├─ index.html · styles.css · app.js   (the gallery, vanilla — no framework/deps)
-         ├─ data.json                          (structured records + parsed teardowns)
-         └─ shots/<slug>/{above-fold,full}.jpg (only the 2 screenshots per ref, ~4–5 MB total)
-```
-
-`build.mjs` reads structured fields from `_index.json` and parses the `%% TEARDOWN %%` prose out
-of each note's `.md`.
-
-## Build & preview locally
+## Run locally
 
 ```bash
-node ui-ux-references/gallery/build.mjs     # writes ./public (vault resolved automatically)
-cd public && python3 -m http.server 8091    # open http://127.0.0.1:8091
+cd ui-ux-references && python3 -m http.server 8091
+# open http://127.0.0.1:8091/gallery/src/index.html
 ```
-
-Vault resolution matches the skill: `$UIUX_VAULT` → `ui-ux-references/vault` (in the checkout) →
-`~/.claude/ui-ux-references-vault`. Override the output dir with `OUT=…`.
+(The `ui-ux-gallery` skill does exactly this.) Any static server rooted at `ui-ux-references/` works,
+as long as `/vault/_index.json` is reachable.
 
 ## Deploy (GitLab Pages)
 
-The repo-root `.gitlab-ci.yml` has a `pages` job that, on the default branch, runs `git lfs pull`
-(to fetch the vault screenshots), builds `public/`, and publishes it. It only rebuilds when the
-gallery or the vault changes. Add new references with the `ui-ux-references` pipeline, commit them,
-and the next push redeploys the gallery.
+The repo-root `.gitlab-ci.yml` `pages` job copies `gallery/src/` → `public/` on the default branch —
+no vault, no LFS, no Node. Visitors load their own vault. `public/` is git-ignored.
 
-`public/` is generated and git-ignored — never commit it; CI rebuilds it from the vault.
+## Files
+
+- `src/index.html` · `src/styles.css` · `src/app.js` — the whole app. `app.js` resolves the vault
+  from `?vault=` or `/vault`, falls back to the folder picker, and parses notes/teardowns client-side.

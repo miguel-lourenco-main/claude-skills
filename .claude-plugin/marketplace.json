@@ -18,7 +18,7 @@
       "description": "UI/UX design studio: a director skill that orchestrates real-world-inspired UI work — deciding when to design from rules, when to pull concrete references, and when the reference library is too thin and must be grown by discovering + extracting new sites. Bundles the ui-ux-references example library, a ui-ux-gallery skill to browse it in the browser, and composes with the ui-ux-pro-max rules skill.",
       "source": "./plugins/ui-ux-studio",
       "category": "design",
-      "version": "0.2.1",
+      "version": "0.2.2",
       "author": { "name": "migaloco", "email": "migasoulou@gmail.com" }
     },
     {

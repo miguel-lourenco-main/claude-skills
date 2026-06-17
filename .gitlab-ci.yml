@@ -1,27 +1,20 @@
-# GitLab Pages — build the UI Reference Gallery from the local vault and publish.
-# The build bakes the vault (screenshots + parsed teardowns) into a self-contained
-# static site under public/. Pages serves it; no runtime filesystem access needed.
+# GitLab Pages — publish the UI Reference Gallery SHELL (static, no data).
+# The vault is intentionally NOT shipped: the hosted gallery lets each visitor load
+# their own vault folder in the browser. So this just copies the gallery assets to
+# public/ — no build, no Node, no Git LFS, nothing from the vault.
 pages:
   stage: deploy
-  image: node:20-bookworm
-  variables:
-    GIT_LFS_SKIP_SMUDGE: "0"   # we DO want the vault's LFS screenshots
+  image: alpine:latest
   rules:
-    # Build on the default branch, and only when the gallery or vault changes.
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
       changes:
-        - ui-ux-references/gallery/**/*
-        - ui-ux-references/vault/**/*
+        - ui-ux-references/gallery/src/**/*
         - .gitlab-ci.yml
-  before_script:
-    - apt-get update -qq && apt-get install -y -qq git-lfs >/dev/null
-    - git lfs install
-    - git lfs pull            # materialize the vault screenshots (LFS pointers -> files)
   script:
-    - export BUILD_DATE="$(date -u +%Y-%m-%d)"
-    - node ui-ux-references/gallery/build.mjs   # resolves vault at ui-ux-references/vault in the checkout
+    - mkdir -p public
+    - cp -r ui-ux-references/gallery/src/. public/
   artifacts:
     paths:
-      - public                # GitLab Pages publishes this directory
+      - public
   environment:
     name: pages

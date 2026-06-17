@@ -1,6 +1,6 @@
 {
   "name": "ui-ux-studio",
   "description": "UI/UX design studio: a director skill that orchestrates real-world-inspired UI work — it decides when to design from rules alone, when to pull concrete references, and when the reference library is too thin and must be grown by discovering + extracting new sites. Bundles the ui-ux-references example library, a ui-ux-gallery skill to browse it, and composes with the external ui-ux-pro-max rules skill.",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "author": { "name": "migaloco", "email": "migasoulou@gmail.com" }
 }

@@ -10,15 +10,12 @@ node_modules/
 # Pipeline scratch
 **/research/candidates.*.json
 
-# Gallery build output (generated from the vault by CI / build.mjs)
+# Gallery deploy output (CI copies gallery/src -> public)
 /public/
 
-# Obsidian per-machine / volatile state (the vault content itself IS committed)
-ui-ux-references/vault/.obsidian/workspace.json
-ui-ux-references/vault/.obsidian/workspace-mobile.json
-ui-ux-references/vault/.obsidian/cache
-ui-ux-references/vault/.obsidian/plugins/
-ui-ux-references/vault/.trash/
+# Reference vault is LOCAL-ONLY — never committed. The hosted gallery loads a
+# vault per-user (folder picker); locally it fetches from this dir directly.
+ui-ux-references/vault/
 
 # Misc
 *.log

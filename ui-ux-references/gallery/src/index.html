@@ -37,7 +37,7 @@
       </div>
     </header>
 
-    <div class="controls" role="toolbar" aria-label="Filter references">
+    <div class="controls" id="controls" role="toolbar" aria-label="Filter references" hidden>
       <div class="search">
         <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="m21 21-4.3-4.3M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16Z"/></svg>
         <input id="search" type="search" placeholder="Search title, tag, vibe…" autocomplete="off" spellcheck="false" />
@@ -52,8 +52,24 @@
       </label>
     </div>
 
-    <main id="grid" class="grid" aria-live="polite"></main>
+    <main id="grid" class="grid" aria-live="polite" hidden></main>
     <p id="empty" class="empty" hidden>No references match — try clearing the search.</p>
+
+    <!-- Shown when no vault is served (e.g. the hosted deploy): user loads their own. -->
+    <section id="loader" class="loader" hidden>
+      <div class="loader-card">
+        <svg viewBox="0 0 24 24" width="34" height="34" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" d="M3 7.5A1.5 1.5 0 0 1 4.5 6h5l2 2h8A1.5 1.5 0 0 1 21 9.5v8A1.5 1.5 0 0 1 19.5 19h-15A1.5 1.5 0 0 1 3 17.5Z"/></svg>
+        <h2>Load your reference vault</h2>
+        <p>This gallery reads a local <code>ui-ux-references</code> vault. Pick the vault folder
+          (the one containing <code>_index.json</code>) — nothing is uploaded; it's read entirely in your browser.</p>
+        <label class="load-btn">
+          Choose vault folder…
+          <input id="vault-input" type="file" webkitdirectory directory multiple hidden />
+        </label>
+        <p id="loader-error" class="loader-error" aria-live="polite"></p>
+        <p class="loader-hint">Served locally it loads automatically from <code>/vault</code> · override with <code>?vault=URL</code>.</p>
+      </div>
+    </section>
 
     <footer class="foot">
       <span>Built from the <code>ui-ux-references</code> vault · static GitLab Pages</span>

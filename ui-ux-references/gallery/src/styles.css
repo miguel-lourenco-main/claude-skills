@@ -91,6 +91,8 @@ code, .mono { font-family: "JetBrains Mono", ui-monospace, monospace; }
   border-radius: var(--radius);
   backdrop-filter: blur(14px) saturate(140%);
 }
+/* class sets display:flex (author) which would override the UA [hidden] rule. */
+.controls[hidden] { display: none; }
 .search { display: flex; align-items: center; gap: 8px; flex: 1 1 240px; padding: 0 12px; color: var(--faint); }
 .search input {
   flex: 1; min-width: 0; background: transparent; border: 0; outline: none;
@@ -159,6 +161,26 @@ code, .mono { font-family: "JetBrains Mono", ui-monospace, monospace; }
 .tag.more { color: var(--faint); }
 
 .empty { text-align: center; color: var(--faint); padding: 60px 20px; }
+
+/* ---- vault loader (hosted deploy: user picks their own vault) ---- */
+.loader { max-width: 1200px; margin: 0 auto; padding: 40px 28px 80px; display: grid; place-items: center; }
+.loader-card {
+  max-width: 480px; width: 100%; text-align: center; padding: 40px 32px;
+  background: var(--surface-1); border: 1px solid var(--border); border-radius: 18px;
+  box-shadow: var(--lift, 0 12px 40px -16px rgba(0,0,0,0.6));
+}
+.loader-card > svg { color: var(--accent); margin-bottom: 8px; }
+.loader-card h2 { margin: 6px 0 10px; font-size: 1.4rem; letter-spacing: -0.02em; font-weight: 600; }
+.loader-card > p { color: var(--muted); font-size: 14px; margin: 0 0 18px; }
+.loader-card code { background: var(--surface-2); border: 1px solid var(--border-soft); padding: 1px 6px; border-radius: 5px; font-size: 0.86em; color: #cdd2f5; }
+.load-btn {
+  display: inline-block; cursor: pointer; font-weight: 600; font-size: 14px;
+  background: var(--accent); color: #04210f; padding: 11px 22px; border-radius: 10px;
+  transition: filter 0.18s var(--ease), transform 0.18s var(--ease);
+}
+.load-btn:hover { filter: brightness(1.08); transform: translateY(-1px); }
+.loader-error { color: var(--muted); font-size: 13px; min-height: 18px; margin: 14px 0 0; }
+.loader-hint { color: var(--faint); font-size: 12px; margin: 16px 0 0; }
 .foot { max-width: 1200px; margin: 0 auto; padding: 30px 28px 60px; color: var(--faint); font-size: 13px; border-top: 1px solid var(--border-soft); }
 .foot code { color: var(--muted); }
 

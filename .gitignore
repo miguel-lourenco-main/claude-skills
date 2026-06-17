@@ -10,6 +10,9 @@ node_modules/
 # Pipeline scratch
 **/research/candidates.*.json
 
+# Gallery build output (generated from the vault by CI / build.mjs)
+/public/
+
 # Obsidian per-machine / volatile state (the vault content itself IS committed)
 ui-ux-references/vault/.obsidian/workspace.json
 ui-ux-references/vault/.obsidian/workspace-mobile.json

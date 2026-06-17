@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>UI Reference Library</title>
+    <meta name="description" content="A curated gallery of real production UI references — screenshots, palettes, typography, and design teardowns." />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="aurora" aria-hidden="true"></div>
+
+    <header class="hero">
+      <nav class="topbar">
+        <span class="wordmark"><span class="dot"></span> Reference Library</span>
+        <a class="ghost-link" href="https://onepagelove.com" target="_blank" rel="noreferrer">curated from the wild ↗</a>
+      </nav>
+      <div class="hero-copy">
+        <h1>The UI reference library.</h1>
+        <p class="lede">
+          Real production interfaces — captured, dissected, and distilled into reusable lessons.
+          Screenshots, palettes, type, and full teardowns.
+        </p>
+        <div class="hero-stats">
+          <span><b id="stat-count">—</b> references</span>
+          <span class="sep">·</span>
+          <span><b id="stat-cats">—</b> categories</span>
+          <span class="sep" id="gen-sep" hidden>·</span>
+          <span id="gen" hidden></span>
+        </div>
+      </div>
+    </header>
+
+    <div class="controls" role="toolbar" aria-label="Filter references">
+      <div class="search">
+        <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="m21 21-4.3-4.3M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16Z"/></svg>
+        <input id="search" type="search" placeholder="Search title, tag, vibe…" autocomplete="off" spellcheck="false" />
+      </div>
+      <div id="cat-pills" class="pills" role="tablist" aria-label="Category"></div>
+      <label class="sort">
+        <span>Sort</span>
+        <select id="sort">
+          <option value="quality">Quality</option>
+          <option value="title">A–Z</option>
+        </select>
+      </label>
+    </div>
+
+    <main id="grid" class="grid" aria-live="polite"></main>
+    <p id="empty" class="empty" hidden>No references match — try clearing the search.</p>
+
+    <footer class="foot">
+      <span>Built from the <code>ui-ux-references</code> vault · static GitLab Pages</span>
+    </footer>
+
+    <!-- Detail overlay -->
+    <div id="overlay" class="overlay" hidden>
+      <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="d-title">
+        <button class="close" id="close" aria-label="Close">
+          <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M6 6l12 12M18 6 6 18"/></svg>
+        </button>
+        <div id="detail" class="detail"></div>
+      </div>
+    </div>
+
+    <script src="app.js" type="module"></script>
+  </body>
+</html>

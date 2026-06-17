@@ -15,6 +15,10 @@ marketplace.
   OUTSIDE the plugin** (at `claude-skills/ui-ux-references/vault/`) so it survives `/plugin update`
   and stays committable. Scripts resolve the vault as `$UIUX_VAULT` → a `vault/` beside the code →
   `~/.claude/ui-ux-references-vault` (symlinked to the monorepo vault by `bootstrap.sh`).
+- **ui-ux-gallery** (`skills/ui-ux-gallery/`) — builds and serves the static **Reference Gallery**
+  (OLED-dark, browse screenshots/palettes/typography/teardowns) so a human can review the library in
+  a browser. The gallery source lives in the monorepo at `ui-ux-references/gallery/` (beside the
+  vault + Pages CI); the skill resolves it via the repo root and runs `build.mjs` + a local server.
 
 ## How it composes
 

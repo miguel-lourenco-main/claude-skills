@@ -1,0 +1,27 @@
+# GitLab Pages — build the UI Reference Gallery from the local vault and publish.
+# The build bakes the vault (screenshots + parsed teardowns) into a self-contained
+# static site under public/. Pages serves it; no runtime filesystem access needed.
+pages:
+  stage: deploy
+  image: node:20-bookworm
+  variables:
+    GIT_LFS_SKIP_SMUDGE: "0"   # we DO want the vault's LFS screenshots
+  rules:
+    # Build on the default branch, and only when the gallery or vault changes.
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      changes:
+        - ui-ux-references/gallery/**/*
+        - ui-ux-references/vault/**/*
+        - .gitlab-ci.yml
+  before_script:
+    - apt-get update -qq && apt-get install -y -qq git-lfs >/dev/null
+    - git lfs install
+    - git lfs pull            # materialize the vault screenshots (LFS pointers -> files)
+  script:
+    - export BUILD_DATE="$(date -u +%Y-%m-%d)"
+    - node ui-ux-references/gallery/build.mjs   # resolves vault at ui-ux-references/vault in the checkout
+  artifacts:
+    paths:
+      - public                # GitLab Pages publishes this directory
+  environment:
+    name: pages

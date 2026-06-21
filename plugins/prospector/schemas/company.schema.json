@@ -1,0 +1,64 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "prospector/company",
+  "title": "Company dossier",
+  "description": "One record per company. Holds what the business does + size/financials/contacts. Does NOT hold website quality (see audit.schema.json).",
+  "type": "object",
+  "required": ["id", "name", "sector", "location", "size", "pipeline"],
+  "properties": {
+    "id": { "type": "string", "description": "Stable id: tax id (pt-<NIPC>) → domain → name+city hash" },
+    "name": { "type": "string" },
+    "taxId": { "type": ["string", "null"], "description": "NIPC/NIF (PT)" },
+    "sector": {
+      "type": "object",
+      "properties": {
+        "cae": { "type": "array", "items": { "type": "string" } },
+        "labels": { "type": "array", "items": { "type": "string" } },
+        "vertical": { "enum": ["hospitality", "clinics", "legal", "realEstate", "trades", "other"] }
+      }
+    },
+    "description": { "type": "string" },
+    "location": {
+      "type": "object",
+      "properties": {
+        "country": { "type": "string" }, "district": { "type": "string" }, "city": { "type": "string" },
+        "lat": { "type": "number" }, "lng": { "type": "number" }
+      }
+    },
+    "size": {
+      "type": "object",
+      "properties": {
+        "employees": { "type": "number" },
+        "revenue": { "type": "object", "properties": { "value": { "type": "number" }, "currency": { "type": "string" }, "year": { "type": "number" } } },
+        "netIncome": { "type": "number" }
+      }
+    },
+    "founded": { "type": "number" },
+    "contacts": {
+      "type": "object",
+      "properties": {
+        "website": { "type": ["string", "null"] }, "domain": { "type": ["string", "null"] },
+        "emails": { "type": "array", "items": { "type": "string" } },
+        "phones": { "type": "array", "items": { "type": "string" } },
+        "social": { "type": "object" }
+      }
+    },
+    "digital": { "type": "object", "properties": { "hasWebsite": { "type": "boolean" }, "socialOnly": { "type": "boolean" } } },
+    "provenance": {
+      "type": "array",
+      "description": "Which source supplied which fields, and how confident — resolves cross-source disagreement.",
+      "items": {
+        "type": "object",
+        "properties": { "source": { "type": "string" }, "fetchedAt": { "type": "string" }, "fields": { "type": "array", "items": { "type": "string" } }, "confidence": { "type": "number" } }
+      }
+    },
+    "pipeline": {
+      "type": "object",
+      "properties": {
+        "status": { "enum": ["candidate", "outreach-ready", "contacted", "won", "dismissed"] },
+        "leadScore": { "type": ["number", "null"] }
+      }
+    },
+    "schemaVersion": { "type": "number" }
+  }
+}

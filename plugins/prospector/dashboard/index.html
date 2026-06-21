@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Prospector</title>
+    <link rel="preconnect" href="https://rsms.me/" />
+    <link rel="stylesheet" href="https://rsms.me/inter/inter.css" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header class="topbar glass">
+      <span class="brand"><span class="dot"></span> Prospector</span>
+      <span class="scope-chip" id="scopeChip">scope…</span>
+      <span class="spacer"></span>
+      <input class="filter" id="filter" placeholder="Filter companies…" />
+      <span class="status"><span class="live off" id="live"></span><span id="statusText">connecting…</span><span class="badge" id="pending" hidden>0</span></span>
+    </header>
+
+    <div class="shell">
+      <div class="toolbar">
+        <button class="btn btn-primary" data-act="discover">＋ Discover</button>
+        <button class="btn" data-act="audit">◎ Audit selected</button>
+        <button class="btn" data-act="score">★ Score all</button>
+        <button class="btn" data-act="outreach">✉ Outreach selected</button>
+        <button class="btn" id="editScope">⚙ Edit scope</button>
+        <span class="sel-count" id="selCount"></span>
+      </div>
+
+      <section class="kpis" id="kpis"></section>
+
+      <section class="table">
+        <div class="trow thead" id="thead"></div>
+        <div class="tbody" id="tbody"></div>
+      </section>
+    </div>
+
+    <!-- detail slide-over -->
+    <div class="scrim" id="scrim"></div>
+    <aside class="panel" id="panel" aria-hidden="true"></aside>
+
+    <!-- scope editor -->
+    <div class="modal-scrim" id="scopeModal">
+      <div class="modal">
+        <div class="modal-head">Edit scope</div>
+        <div class="modal-body">
+          <p style="margin: 0 0 0.75rem; font-size: 0.8rem; color: var(--p-muted)">
+            The scope is the query that bounds discovery and weights lead scoring. Edit the JSON, then save.
+          </p>
+          <textarea id="scopeText" spellcheck="false"></textarea>
+          <div class="err" id="scopeErr"></div>
+        </div>
+        <div class="modal-foot">
+          <button class="btn" id="scopeCancel">Cancel</button>
+          <button class="btn btn-primary" id="scopeSave">Save scope</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="toasts" id="toasts"></div>
+    <script src="app.js" type="module"></script>
+  </body>
+</html>

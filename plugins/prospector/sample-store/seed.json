@@ -1,0 +1,229 @@
+{
+  "scope": {
+    "country": "PT",
+    "verticals": ["hospitality", "clinics", "legal", "realEstate"],
+    "revenue": { "min": 250000, "max": 10000000, "currency": "EUR" },
+    "employees": { "min": 5, "max": 100 },
+    "companyAge": { "min": 3 },
+    "hasWebsite": "any",
+    "maxCompanies": 200,
+    "freshnessDays": 30,
+    "excludeContacted": true,
+    "suppress": { "domains": [], "taxIds": [] },
+    "weights": { "canPay": 0.35, "siteMatters": 0.25, "opportunity": 0.4 }
+  },
+  "companies": [
+    {
+      "id": "pt-509812345",
+      "name": "Casa do Vale, Lda",
+      "taxId": "509812345",
+      "sector": { "cae": ["55119"], "labels": ["alojamento", "turismo rural"], "vertical": "hospitality" },
+      "description": "Boutique 12-room guesthouse in the Douro valley; direct bookings + a few OTAs.",
+      "location": { "district": "Vila Real", "city": "Peso da Régua", "lat": 41.16, "lng": -7.79 },
+      "size": { "employees": 18, "revenue": { "value": 1240000, "currency": "EUR", "year": 2024 }, "netIncome": 95000 },
+      "founded": 2009,
+      "contacts": { "website": "https://casadovale.pt", "domain": "casadovale.pt", "emails": ["geral@casadovale.pt"], "phones": ["+351 254 000 111"], "social": { "instagram": "casadovale" } },
+      "digital": { "hasWebsite": true, "socialOnly": false },
+      "provenance": [{ "source": "racius", "fetchedAt": "2026-06-10", "fields": ["taxId", "cae", "founded"], "confidence": 0.9 }, { "source": "einforma", "fetchedAt": "2026-06-10", "fields": ["revenue", "employees"], "confidence": 0.8 }],
+      "pipeline": { "status": "candidate", "leadScore": null },
+      "schemaVersion": 1
+    },
+    {
+      "id": "pt-508447120",
+      "name": "Clínica Dentária Sorriso, Lda",
+      "taxId": "508447120",
+      "sector": { "cae": ["86230"], "labels": ["medicina dentária"], "vertical": "clinics" },
+      "description": "Two-chair dental clinic in central Porto; private + insurance patients.",
+      "location": { "district": "Porto", "city": "Porto", "lat": 41.15, "lng": -8.61 },
+      "size": { "employees": 24, "revenue": { "value": 2100000, "currency": "EUR", "year": 2024 }, "netIncome": 210000 },
+      "founded": 2006,
+      "contacts": { "website": "https://clinicasorriso.pt", "domain": "clinicasorriso.pt", "emails": ["marcacoes@clinicasorriso.pt"], "phones": ["+351 222 000 222"], "social": {} },
+      "digital": { "hasWebsite": true, "socialOnly": false },
+      "provenance": [{ "source": "racius", "fetchedAt": "2026-06-11", "fields": ["taxId", "cae"], "confidence": 0.9 }],
+      "pipeline": { "status": "candidate", "leadScore": null },
+      "schemaVersion": 1
+    },
+    {
+      "id": "pt-510338907",
+      "name": "Adega Quinta Nova, S.A.",
+      "taxId": "510338907",
+      "sector": { "cae": ["11021"], "labels": ["vinhos", "enoturismo"], "vertical": "hospitality" },
+      "description": "Family winery with tastings + enotourism; sells direct and exports.",
+      "location": { "district": "Vila Real", "city": "Sabrosa", "lat": 41.26, "lng": -7.57 },
+      "size": { "employees": 30, "revenue": { "value": 3400000, "currency": "EUR", "year": 2024 }, "netIncome": 280000 },
+      "founded": 1998,
+      "contacts": { "website": "https://quintanova-vinhos.pt", "domain": "quintanova-vinhos.pt", "emails": ["enoturismo@quintanova-vinhos.pt"], "phones": ["+351 259 000 333"], "social": { "instagram": "quintanovavinhos" } },
+      "digital": { "hasWebsite": true, "socialOnly": false },
+      "provenance": [{ "source": "einforma", "fetchedAt": "2026-06-09", "fields": ["revenue", "employees", "founded"], "confidence": 0.85 }],
+      "pipeline": { "status": "candidate", "leadScore": null },
+      "schemaVersion": 1
+    },
+    {
+      "id": "pt-503991204",
+      "name": "Martins & Associados — Sociedade de Advogados",
+      "taxId": "503991204",
+      "sector": { "cae": ["69101"], "labels": ["advocacia"], "vertical": "legal" },
+      "description": "Mid-size law firm, Lisbon; corporate + real-estate practice.",
+      "location": { "district": "Lisboa", "city": "Lisboa", "lat": 38.72, "lng": -9.14 },
+      "size": { "employees": 12, "revenue": { "value": 1800000, "currency": "EUR", "year": 2024 }, "netIncome": 320000 },
+      "founded": 2001,
+      "contacts": { "website": "https://martinsadvogados.pt", "domain": "martinsadvogados.pt", "emails": ["geral@martinsadvogados.pt"], "phones": ["+351 213 000 444"], "social": { "linkedin": "martins-associados" } },
+      "digital": { "hasWebsite": true, "socialOnly": false },
+      "provenance": [{ "source": "racius", "fetchedAt": "2026-06-12", "fields": ["taxId", "cae", "founded"], "confidence": 0.9 }],
+      "pipeline": { "status": "candidate", "leadScore": null },
+      "schemaVersion": 1
+    },
+    {
+      "id": "pt-511204663",
+      "name": "Imobiliária Costa Verde, Lda",
+      "taxId": "511204663",
+      "sector": { "cae": ["68311"], "labels": ["mediação imobiliária"], "vertical": "realEstate" },
+      "description": "Regional real-estate agency, Braga district; residential + holiday lets.",
+      "location": { "district": "Braga", "city": "Braga", "lat": 41.55, "lng": -8.43 },
+      "size": { "employees": 22, "revenue": { "value": 4200000, "currency": "EUR", "year": 2024 }, "netIncome": 180000 },
+      "founded": 2012,
+      "contacts": { "website": "https://costaverde-imo.pt", "domain": "costaverde-imo.pt", "emails": ["info@costaverde-imo.pt"], "phones": ["+351 253 000 555"], "social": { "facebook": "costaverdeimo" } },
+      "digital": { "hasWebsite": true, "socialOnly": false },
+      "provenance": [{ "source": "einforma", "fetchedAt": "2026-06-08", "fields": ["revenue", "employees"], "confidence": 0.8 }],
+      "pipeline": { "status": "candidate", "leadScore": null },
+      "schemaVersion": 1
+    },
+    {
+      "id": "pt-512889031",
+      "name": "Restaurante O Pescador, Lda",
+      "taxId": "512889031",
+      "sector": { "cae": ["56101"], "labels": ["restauração", "marisqueira"], "vertical": "hospitality" },
+      "description": "Seafood restaurant on the Matosinhos seafront; no website, Instagram + Zomato only.",
+      "location": { "district": "Porto", "city": "Matosinhos", "lat": 41.18, "lng": -8.69 },
+      "size": { "employees": 14, "revenue": { "value": 680000, "currency": "EUR", "year": 2024 }, "netIncome": 41000 },
+      "founded": 2015,
+      "contacts": { "website": null, "domain": null, "emails": [], "phones": ["+351 229 000 666"], "social": { "instagram": "opescador.matosinhos" } },
+      "digital": { "hasWebsite": false, "socialOnly": true },
+      "provenance": [{ "source": "google-maps", "fetchedAt": "2026-06-13", "fields": ["name", "phones", "location", "hasWebsite"], "confidence": 0.7 }],
+      "pipeline": { "status": "candidate", "leadScore": null },
+      "schemaVersion": 1
+    },
+    {
+      "id": "pt-505617388",
+      "name": "Hotel Miramar, S.A.",
+      "taxId": "505617388",
+      "sector": { "cae": ["55111"], "labels": ["hotelaria"], "vertical": "hospitality" },
+      "description": "55-room 4-star hotel in Cascais; strong OTA mix, wants more direct bookings.",
+      "location": { "district": "Lisboa", "city": "Cascais", "lat": 38.7, "lng": -9.42 },
+      "size": { "employees": 55, "revenue": { "value": 6800000, "currency": "EUR", "year": 2024 }, "netIncome": 540000 },
+      "founded": 1994,
+      "contacts": { "website": "https://hotelmiramarcascais.pt", "domain": "hotelmiramarcascais.pt", "emails": ["reservas@hotelmiramarcascais.pt"], "phones": ["+351 214 000 777"], "social": { "instagram": "hotelmiramarcascais" } },
+      "digital": { "hasWebsite": true, "socialOnly": false },
+      "provenance": [{ "source": "einforma", "fetchedAt": "2026-06-07", "fields": ["revenue", "employees", "founded"], "confidence": 0.85 }],
+      "pipeline": { "status": "candidate", "leadScore": null },
+      "schemaVersion": 1
+    },
+    {
+      "id": "pt-513770915",
+      "name": "Clínica Veterinária PetCare, Lda",
+      "taxId": "513770915",
+      "sector": { "cae": ["75000"], "labels": ["veterinária"], "vertical": "clinics" },
+      "description": "Small-animal vet clinic, Aveiro; appointments mostly by phone.",
+      "location": { "district": "Aveiro", "city": "Aveiro", "lat": 40.64, "lng": -8.65 },
+      "size": { "employees": 9, "revenue": { "value": 540000, "currency": "EUR", "year": 2024 }, "netIncome": 38000 },
+      "founded": 2017,
+      "contacts": { "website": "https://petcare-aveiro.pt", "domain": "petcare-aveiro.pt", "emails": ["geral@petcare-aveiro.pt"], "phones": ["+351 234 000 888"], "social": { "facebook": "petcareaveiro" } },
+      "digital": { "hasWebsite": true, "socialOnly": false },
+      "provenance": [{ "source": "google-maps", "fetchedAt": "2026-06-13", "fields": ["name", "location", "hasWebsite"], "confidence": 0.7 }],
+      "pipeline": { "status": "candidate", "leadScore": null },
+      "schemaVersion": 1
+    },
+    {
+      "id": "pt-506332471",
+      "name": "Construções Silva, Lda",
+      "taxId": "506332471",
+      "sector": { "cae": ["41200"], "labels": ["construção"], "vertical": "trades" },
+      "description": "Residential + light-commercial builder, Coimbra; sells on relationships, not the web.",
+      "location": { "district": "Coimbra", "city": "Coimbra", "lat": 40.21, "lng": -8.43 },
+      "size": { "employees": 40, "revenue": { "value": 5100000, "currency": "EUR", "year": 2024 }, "netIncome": 260000 },
+      "founded": 1989,
+      "contacts": { "website": "https://construcoessilva.pt", "domain": "construcoessilva.pt", "emails": ["obras@construcoessilva.pt"], "phones": ["+351 239 000 999"], "social": {} },
+      "digital": { "hasWebsite": true, "socialOnly": false },
+      "provenance": [{ "source": "racius", "fetchedAt": "2026-06-11", "fields": ["taxId", "cae", "founded"], "confidence": 0.9 }],
+      "pipeline": { "status": "contacted", "leadScore": null },
+      "schemaVersion": 1
+    }
+  ],
+  "audits": [
+    {
+      "companyId": "pt-509812345",
+      "url": "https://casadovale.pt",
+      "capturedAt": "2026-06-14",
+      "tech": { "https": true, "mobileFriendly": false, "lighthousePerf": 38, "cms": "Wix (2017 template)", "lastModified": "2018-04", "domainAge": 14 },
+      "screenshots": { "desktop": ["desktop-hero.png", "desktop-rooms.png"], "mobile": ["mobile-hero.png"], "thumbnail": "thumbnail.png" },
+      "taste": {
+        "scores": { "visual": 2, "typography": 2, "layout": 3, "modernity": 1, "mobile": 1, "trust": 3, "conversion": 2 },
+        "overall": 2.0,
+        "datedSignals": ["non-responsive below 768px", "2018 copyright", "stock photo carousel", "tiny body text"],
+        "issues": [{ "severity": "high", "area": "mobile", "note": "layout breaks on phones — most booking traffic is mobile" }, { "severity": "medium", "area": "conversion", "note": "no visible 'Book direct' CTA above the fold" }],
+        "opportunity": 0.88,
+        "effortEstimate": "M"
+      }
+    },
+    {
+      "companyId": "pt-508447120",
+      "url": "https://clinicasorriso.pt",
+      "capturedAt": "2026-06-14",
+      "tech": { "https": true, "mobileFriendly": true, "lighthousePerf": 64, "cms": "WordPress (Divi)", "lastModified": "2022-09", "domainAge": 11 },
+      "screenshots": { "desktop": ["desktop-hero.png"], "mobile": ["mobile-hero.png"], "thumbnail": "thumbnail.png" },
+      "taste": {
+        "scores": { "visual": 3, "typography": 3, "layout": 3, "modernity": 3, "mobile": 4, "trust": 4, "conversion": 3 },
+        "overall": 3.3,
+        "datedSignals": ["generic theme look", "clip-art icons"],
+        "issues": [{ "severity": "low", "area": "visual", "note": "looks like a default template; differentiation is weak" }],
+        "opportunity": 0.45,
+        "effortEstimate": "S"
+      }
+    },
+    {
+      "companyId": "pt-510338907",
+      "url": "https://quintanova-vinhos.pt",
+      "capturedAt": "2026-06-14",
+      "tech": { "https": false, "mobileFriendly": false, "lighthousePerf": 29, "cms": "Joomla (2014)", "lastModified": "2016-11", "domainAge": 16 },
+      "screenshots": { "desktop": ["desktop-hero.png", "desktop-shop.png"], "mobile": ["mobile-hero.png"], "thumbnail": "thumbnail.png" },
+      "taste": {
+        "scores": { "visual": 1, "typography": 2, "layout": 2, "modernity": 1, "mobile": 1, "trust": 2, "conversion": 1 },
+        "overall": 1.4,
+        "datedSignals": ["no HTTPS", "Flash-era layout", "non-responsive", "broken shop links", "2016 copyright"],
+        "issues": [{ "severity": "high", "area": "tech", "note": "no HTTPS — browsers warn visitors" }, { "severity": "high", "area": "conversion", "note": "enotourism bookings + wine shop both hard to reach" }],
+        "opportunity": 0.94,
+        "effortEstimate": "L"
+      }
+    },
+    {
+      "companyId": "pt-511204663",
+      "url": "https://costaverde-imo.pt",
+      "capturedAt": "2026-06-14",
+      "tech": { "https": true, "mobileFriendly": false, "lighthousePerf": 47, "cms": "Custom (jQuery)", "lastModified": "2019-06", "domainAge": 12 },
+      "screenshots": { "desktop": ["desktop-hero.png", "desktop-listings.png"], "mobile": ["mobile-hero.png"], "thumbnail": "thumbnail.png" },
+      "taste": {
+        "scores": { "visual": 2, "typography": 3, "layout": 2, "modernity": 2, "mobile": 1, "trust": 3, "conversion": 2 },
+        "overall": 2.1,
+        "datedSignals": ["non-responsive listings grid", "slow image loading", "dated property cards"],
+        "issues": [{ "severity": "high", "area": "mobile", "note": "property search unusable on phones" }],
+        "opportunity": 0.79,
+        "effortEstimate": "M"
+      }
+    },
+    {
+      "companyId": "pt-506332471",
+      "url": "https://construcoessilva.pt",
+      "capturedAt": "2026-06-14",
+      "tech": { "https": true, "mobileFriendly": false, "lighthousePerf": 41, "cms": "FrontPage-era static", "lastModified": "2013-02", "domainAge": 17 },
+      "screenshots": { "desktop": ["desktop-hero.png"], "mobile": ["mobile-hero.png"], "thumbnail": "thumbnail.png" },
+      "taste": {
+        "scores": { "visual": 1, "typography": 1, "layout": 2, "modernity": 1, "mobile": 1, "trust": 2, "conversion": 1 },
+        "overall": 1.3,
+        "datedSignals": ["table-based layout", "2013 copyright", "no mobile version", "low-res logo"],
+        "issues": [{ "severity": "medium", "area": "siteMatters", "note": "builder sells on relationships — website upside is real but lower priority" }],
+        "opportunity": 0.9,
+        "effortEstimate": "M"
+      }
+    }
+  ]
+}

@@ -31,6 +31,14 @@
       },
       "category": "design",
       "author": { "name": "nextlevelbuilder" }
+    },
+    {
+      "name": "prospector",
+      "description": "Lead-generation system for a web-redesign business: gather companies within a defined scope, store rich dossiers (sector, revenue, employees), capture + taste-audit their websites, score the money×bad-site×site-matters opportunity, and prep outreach. Runs as Claude Code skills over a filesystem store, driven from a local HTML dashboard.",
+      "source": "./plugins/prospector",
+      "category": "business",
+      "version": "0.1.0",
+      "author": { "name": "migaloco", "email": "migasoulou@gmail.com" }
     }
   ]
 }

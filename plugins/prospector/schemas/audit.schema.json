@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "prospector/audit",
+  "title": "Website audit",
+  "description": "Website capture + quality, keyed by company id. Separate from the company dossier so quality never pollutes identity/financials.",
+  "type": "object",
+  "required": ["companyId", "tech", "taste"],
+  "properties": {
+    "companyId": { "type": "string" },
+    "url": { "type": ["string", "null"] },
+    "capturedAt": { "type": "string" },
+    "tech": {
+      "type": "object",
+      "description": "Cheap, predictive signals — no vision needed.",
+      "properties": {
+        "https": { "type": "boolean" }, "mobileFriendly": { "type": "boolean" },
+        "lighthousePerf": { "type": "number" }, "cms": { "type": "string" },
+        "lastModified": { "type": "string" }, "domainAge": { "type": "number" }
+      }
+    },
+    "screenshots": {
+      "type": "object",
+      "properties": {
+        "desktop": { "type": "array", "items": { "type": "string" } },
+        "mobile": { "type": "array", "items": { "type": "string" } },
+        "thumbnail": { "type": ["string", "null"] }
+      }
+    },
+    "taste": {
+      "type": "object",
+      "required": ["scores", "overall", "opportunity"],
+      "properties": {
+        "scores": {
+          "type": "object",
+          "description": "1 (worst) – 5 (best) per dimension.",
+          "properties": {
+            "visual": { "type": "number" }, "typography": { "type": "number" }, "layout": { "type": "number" },
+            "modernity": { "type": "number" }, "mobile": { "type": "number" }, "trust": { "type": "number" }, "conversion": { "type": "number" }
+          }
+        },
+        "overall": { "type": "number" },
+        "datedSignals": { "type": "array", "items": { "type": "string" } },
+        "issues": {
+          "type": "array",
+          "items": { "type": "object", "properties": { "severity": { "enum": ["low", "medium", "high"] }, "area": { "type": "string" }, "note": { "type": "string" } } }
+        },
+        "opportunity": { "type": "number", "description": "0–1: how much a redesign would help." },
+        "effortEstimate": { "enum": ["S", "M", "L"] }
+      }
+    }
+  }
+}

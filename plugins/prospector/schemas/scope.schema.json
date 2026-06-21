@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "prospector/scope",
+  "title": "Scope spec",
+  "description": "The query that bounds discovery and weights lead scoring. User-editable (JSON or, next phase, free-text compiled into this).",
+  "type": "object",
+  "properties": {
+    "country": { "type": "string" },
+    "districts": { "type": "array", "items": { "type": "string" } },
+    "cities": { "type": "array", "items": { "type": "string" } },
+    "radius": { "type": "object", "properties": { "lat": { "type": "number" }, "lng": { "type": "number" }, "km": { "type": "number" } } },
+    "verticals": { "type": "array", "items": { "enum": ["hospitality", "clinics", "legal", "realEstate", "trades", "other"] } },
+    "caeCodes": { "type": "array", "items": { "type": "string" } },
+    "keywords": { "type": "array", "items": { "type": "string" } },
+    "revenue": { "type": "object", "properties": { "min": { "type": "number" }, "max": { "type": "number" }, "currency": { "type": "string" } } },
+    "employees": { "type": "object", "properties": { "min": { "type": "number" }, "max": { "type": "number" } } },
+    "companyAge": { "type": "object", "properties": { "min": { "type": "number" }, "max": { "type": "number" } } },
+    "hasWebsite": { "enum": [true, false, "any"] },
+    "maxCompanies": { "type": "number" },
+    "freshnessDays": { "type": "number" },
+    "excludeContacted": { "type": "boolean" },
+    "sources": { "type": "object", "properties": { "allow": { "type": "array", "items": { "type": "string" } }, "deny": { "type": "array", "items": { "type": "string" } } } },
+    "suppress": { "type": "object", "properties": { "domains": { "type": "array", "items": { "type": "string" } }, "taxIds": { "type": "array", "items": { "type": "string" } } } },
+    "weights": {
+      "type": "object",
+      "description": "Blend for leadScore; should sum to ~1.",
+      "properties": { "canPay": { "type": "number" }, "siteMatters": { "type": "number" }, "opportunity": { "type": "number" } }
+    }
+  }
+}

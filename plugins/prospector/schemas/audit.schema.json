@@ -4,11 +4,15 @@
   "title": "Website audit",
   "description": "Website capture + quality, keyed by company id. Separate from the company dossier so quality never pollutes identity/financials.",
   "type": "object",
-  "required": ["companyId", "tech", "taste"],
+  "required": ["companyId", "reachable"],
   "properties": {
     "companyId": { "type": "string" },
     "url": { "type": ["string", "null"] },
     "capturedAt": { "type": "string" },
+    "reachable": { "type": "boolean", "description": "Did the site resolve + respond OK? Gate: a false here means NO capture and taste:null (never fabricated)." },
+    "reason": { "type": ["string", "null"], "description": "Why unreachable: 'no website' | 'timeout' | 'unreachable' | 'http <code>'." },
+    "status": { "type": ["number", "null"] },
+    "captureError": { "type": ["string", "null"] },
     "tech": {
       "type": "object",
       "description": "Cheap, predictive signals — no vision needed.",
@@ -27,6 +31,16 @@
       }
     },
     "taste": {
+      "description": "null when the site couldn't be graded (no website / unreachable / capture failed); { pending:true } after capture, awaiting the agent's vision grading; the full object once graded. NEVER fabricated.",
+      "oneOf": [
+        { "type": "null" },
+        { "type": "object", "required": ["pending"], "properties": { "pending": { "const": true } } },
+        { "type": "object", "$ref": "#/$defs/tasteGraded" }
+      ]
+    }
+  },
+  "$defs": {
+    "tasteGraded": {
       "type": "object",
       "required": ["scores", "overall", "opportunity"],
       "properties": {

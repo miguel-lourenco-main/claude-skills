@@ -9,54 +9,142 @@
 // real LLM reasoning (discovery, vision taste) are run by the agent invoking the
 // matching prospect-* skill instead — same request contract.
 
-import { spawnSync } from "node:child_process";
+import { spawn } from "node:child_process";
+import { existsSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { appendResult, ensureStore, readQueue, readResults, storeRoot, PLUGIN_ROOT } from "../lib/store.mjs";
+import { appendResult, ensureStore, paths, readCancels, readQueue, readResults, storeRoot, writeJSON, PLUGIN_ROOT } from "../lib/store.mjs";
 
 const SCRIPTS = {
   discover: "discover.mjs",
   audit: "audit.mjs",
-  score: "score.mjs",
+  rank: "rank.mjs",
   outreach: "outreach.mjs",
   scope: "scope.mjs",
+  delete: "delete.mjs",
+  shortlist: "shortlist.mjs",
 };
+
+// Actions the LOOP must NOT run — they need the agent (open-ended LLM research). They stay
+// pending in the queue until a Claude session drains them via the matching skill.
+const AGENT_ACTIONS = new Set(["deepdive", "hunt"]);
 
 const root = storeRoot();
 ensureStore(root);
 const once = process.argv.includes("--once");
 const done = new Set(readResults(root).map((r) => r.reqId).filter(Boolean));
 
-function runOne(req) {
-  const script = SCRIPTS[req.action];
-  if (!script) {
-    appendResult({ reqId: req.id, action: req.action, ok: false, error: "unknown action" }, root);
-    return;
-  }
-  const r = spawnSync("node", [join(PLUGIN_ROOT, "scripts", script), JSON.stringify(req)], { encoding: "utf8" });
-  let result = null;
-  const out = (r.stdout || "").trim().split("\n").filter(Boolean).pop();
-  try { result = out ? JSON.parse(out) : null; } catch { /* keep raw */ }
-  appendResult({ reqId: req.id, action: req.action, ok: !!result?.ok, result, stderr: (r.stderr || "").slice(0, 500) || undefined }, root);
-  const summary = result ? Object.entries(result).filter(([k]) => !["ok", "action"].includes(k)).map(([k, v]) => `${k}=${Array.isArray(v) ? v.length : v}`).join(" ") : "(no output)";
-  console.log(`▸ ${req.action} ${req.id} → ${result?.ok ? "ok" : "FAILED"} ${summary}`);
+const summarize = (result) =>
+  result ? Object.entries(result).filter(([k]) => !["ok", "action"].includes(k)).map(([k, v]) => `${k}=${Array.isArray(v) ? v.length : v}`).join(" ") || "ok" : "(no output)";
+
+/** Marker the bridge reads for the "now running" indicator in the Activity console. */
+function setRunning(req) {
+  const label = req ? `${req.action}${req.companyIds?.length ? ` (${req.companyIds.length})` : req.payload?.area ? ` · ${req.payload.area}` : ""}` : null;
+  writeJSON(paths(root).running, req ? { reqId: req.id, action: req.action, label, startedAt: Date.now() } : { running: null });
 }
 
-function tick() {
-  let ran = 0;
+// One request runs at a time. Async (not spawnSync) so the loop can react to a cancel
+// while a long action (e.g. a 375-site audit) is in flight.
+let current = null;          // { req, child, startedAt, queuedAtMs, out, err, canceling }
+const canceled = new Set();  // reqIds known canceled (so we don't restart them)
+
+const qMs = (req) => (req.queuedAt ? new Date(req.queuedAt).getTime() : Date.now());
+
+/** Stop a child gracefully: SIGTERM the action process (it traps this, finishes the current
+ *  item safely, saves completed work + emits a partial result), then SIGKILL the whole process
+ *  group as a fallback if it doesn't exit (also reaps Playwright/Chrome). */
+function killTree(child) {
+  try { process.kill(child.pid, "SIGTERM"); } catch { try { child.kill("SIGTERM"); } catch { /* gone */ } }
+  setTimeout(() => { try { process.kill(-child.pid, "SIGKILL"); } catch { /* gone */ } }, 8000);
+}
+
+/** Read cancel markers: flag matching queued reqs, and kill the running one if it's targeted. */
+function refreshCancels() {
+  const { ids, allBefore } = readCancels(root);
+  const isCanceled = (id, ms) => ids.has(id) || (allBefore && ms <= allBefore);
   for (const req of readQueue(root)) {
     if (done.has(req.id)) continue;
-    done.add(req.id);
-    runOne(req);
-    ran++;
+    if (isCanceled(req.id, qMs(req))) canceled.add(req.id);
   }
-  return ran;
+  if (current && !current.canceling && isCanceled(current.req.id, current.queuedAtMs)) {
+    current.canceling = true;
+    console.log(`⏹ canceling ${current.req.action} ${current.req.id}…`);
+    killTree(current.child);
+  }
+}
+
+function startReq(req) {
+  const script = SCRIPTS[req.action];
+  done.add(req.id); // claim it so we never start it twice
+  if (!script) { appendResult({ reqId: req.id, action: req.action, ok: false, summary: "unknown action" }, root); return; }
+  setRunning(req);
+  const child = spawn("node", [join(PLUGIN_ROOT, "scripts", script), JSON.stringify(req)], { detached: true, stdio: ["ignore", "pipe", "pipe"] });
+  current = { req, child, startedAt: Date.now(), queuedAtMs: qMs(req), out: "", err: "", canceling: false };
+  child.stdout.on("data", (d) => (current.out += d.toString()));
+  child.stderr.on("data", (d) => (current.err += d.toString()));
+  child.on("exit", (_code, signal) => onExit(req, signal));
+  child.on("error", () => onExit(req, "error"));
+}
+
+function onExit(req, signal) {
+  const c = current;
+  current = null;
+  const wasCanceled = !!c?.canceling || canceled.has(req.id);
+  let result = null;
+  const last = (c?.out || "").trim().split("\n").filter(Boolean).pop();
+  try { result = last ? JSON.parse(last) : null; } catch { /* keep raw */ }
+  const ms = Date.now() - (c?.startedAt ?? Date.now());
+  // Prefer the script's own (possibly PARTIAL) result — a graceful cancel still emits one,
+  // so completed work + a real summary are kept. Only fall back to "canceled" if hard-killed.
+  const summary = result ? summarize(result) : wasCanceled ? "canceled" : "(no output)";
+  const ok = result ? !!result.ok : false;
+  const tag = wasCanceled ? (result ? "CANCELED (partial saved)" : "CANCELED") : ok ? "ok" : "FAILED";
+  appendResult({ reqId: req.id, action: req.action, ok, canceled: wasCanceled || undefined, ms, summary, result, stderr: (c?.err || "").slice(0, 500) || undefined }, root);
+  setRunning(null);
+  console.log(`▸ ${req.action} ${req.id} → ${tag} ${summary} (${ms}ms)`);
+  pump();
+}
+
+/** Start the next runnable request if idle; drop canceled queued ones. */
+function pump() {
+  if (current) return;
+  for (const req of readQueue(root)) {
+    if (done.has(req.id)) continue;
+    if (AGENT_ACTIONS.has(req.action)) continue; // left for the agent
+    if (canceled.has(req.id)) { done.add(req.id); appendResult({ reqId: req.id, action: req.action, ok: false, canceled: true, summary: "canceled" }, root); console.log(`▸ ${req.action} ${req.id} → CANCELED (queued)`); continue; }
+    startReq(req);
+    return;
+  }
+  if (once) process.exit(0); // --once: nothing left → done
+}
+
+function tick() { refreshCancels(); pump(); }
+
+/** Single-instance guard for the watch loop — never run two loops on one store (they'd
+ *  double-process the queue). A stale lock (dead pid) is taken over. */
+function acquireLock() {
+  const lockFile = join(paths(root).requests, "loop.lock");
+  const alive = (pid) => { try { process.kill(pid, 0); return true; } catch { return false; } };
+  if (existsSync(lockFile)) {
+    const pid = Number(readFileSync(lockFile, "utf8").trim());
+    if (pid && pid !== process.pid && alive(pid)) {
+      console.log(`prospector loop already running (pid ${pid}) — exiting.`);
+      process.exit(0);
+    }
+  }
+  writeFileSync(lockFile, String(process.pid));
+  const release = () => {
+    try { if (current?.child?.pid) process.kill(-current.child.pid, "SIGKILL"); } catch { /* gone */ }
+    try { if (existsSync(lockFile) && Number(readFileSync(lockFile, "utf8")) === process.pid) unlinkSync(lockFile); } catch { /* ignore */ }
+  };
+  process.on("exit", release);
+  for (const sig of ["SIGINT", "SIGTERM"]) process.on(sig, () => { release(); process.exit(0); });
 }
 
 if (once) {
-  const n = tick();
-  console.log(`drained ${n} request(s).`);
+  pump(); // async chain drains the queue, then exits
 } else {
-  console.log(`prospector loop watching ${root} … (Ctrl-C to stop)`);
+  acquireLock();
+  console.log(`prospector loop watching ${root} (pid ${process.pid}) … (Ctrl-C to stop)`);
   tick();
   setInterval(tick, 1000);
 }

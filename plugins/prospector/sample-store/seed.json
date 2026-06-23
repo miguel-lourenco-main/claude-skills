@@ -154,6 +154,7 @@
       "companyId": "pt-509812345",
       "url": "https://casadovale.pt",
       "capturedAt": "2026-06-14",
+      "reachable": true,
       "tech": { "https": true, "mobileFriendly": false, "lighthousePerf": 38, "cms": "Wix (2017 template)", "lastModified": "2018-04", "domainAge": 14 },
       "screenshots": { "desktop": ["desktop-hero.png", "desktop-rooms.png"], "mobile": ["mobile-hero.png"], "thumbnail": "thumbnail.png" },
       "taste": {
@@ -169,6 +170,7 @@
       "companyId": "pt-508447120",
       "url": "https://clinicasorriso.pt",
       "capturedAt": "2026-06-14",
+      "reachable": true,
       "tech": { "https": true, "mobileFriendly": true, "lighthousePerf": 64, "cms": "WordPress (Divi)", "lastModified": "2022-09", "domainAge": 11 },
       "screenshots": { "desktop": ["desktop-hero.png"], "mobile": ["mobile-hero.png"], "thumbnail": "thumbnail.png" },
       "taste": {
@@ -184,6 +186,7 @@
       "companyId": "pt-510338907",
       "url": "https://quintanova-vinhos.pt",
       "capturedAt": "2026-06-14",
+      "reachable": true,
       "tech": { "https": false, "mobileFriendly": false, "lighthousePerf": 29, "cms": "Joomla (2014)", "lastModified": "2016-11", "domainAge": 16 },
       "screenshots": { "desktop": ["desktop-hero.png", "desktop-shop.png"], "mobile": ["mobile-hero.png"], "thumbnail": "thumbnail.png" },
       "taste": {
@@ -199,6 +202,7 @@
       "companyId": "pt-511204663",
       "url": "https://costaverde-imo.pt",
       "capturedAt": "2026-06-14",
+      "reachable": true,
       "tech": { "https": true, "mobileFriendly": false, "lighthousePerf": 47, "cms": "Custom (jQuery)", "lastModified": "2019-06", "domainAge": 12 },
       "screenshots": { "desktop": ["desktop-hero.png", "desktop-listings.png"], "mobile": ["mobile-hero.png"], "thumbnail": "thumbnail.png" },
       "taste": {
@@ -214,6 +218,7 @@
       "companyId": "pt-506332471",
       "url": "https://construcoessilva.pt",
       "capturedAt": "2026-06-14",
+      "reachable": true,
       "tech": { "https": true, "mobileFriendly": false, "lighthousePerf": 41, "cms": "FrontPage-era static", "lastModified": "2013-02", "domainAge": 17 },
       "screenshots": { "desktop": ["desktop-hero.png"], "mobile": ["mobile-hero.png"], "thumbnail": "thumbnail.png" },
       "taste": {

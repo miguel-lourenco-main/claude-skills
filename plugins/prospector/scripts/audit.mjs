@@ -1,54 +1,87 @@
-// STUB audit — writes a website audit record (tech + taste) for each target company.
-// Next phase: replace with real capture (Playwright section-split screenshots) + a
-// vision taste pass. Contract stays: read company, write audits/<id>.website.json.
+// Real audit orchestration — reachability gate → real tech signals → real screenshots.
+// It NEVER fabricates taste: a captured site is written with taste:{pending:true} for the
+// agent to grade; a no-website or unreachable site gets reachable:false and taste:null.
 
-import { listCompanyIds, readCompany, storeRoot, writeAudit } from "../lib/store.mjs";
-import { emit, hashInt, pick, readRequest } from "./_cli.mjs";
-
-const CMS = ["Wix (2016 template)", "WordPress (Divi)", "Joomla (2014)", "Custom (jQuery)", "Squarespace", "static HTML"];
-const SIGNALS = ["non-responsive below 768px", "dated copyright year", "stock photo carousel", "tiny body text", "no clear CTA", "slow image loading", "clip-art icons", "no HTTPS"];
+import { join } from "node:path";
+import { listCompanyIds, paths, readCompany, storeRoot, writeAudit } from "../lib/store.mjs";
+import { probe } from "../lib/probe.mjs";
+import { capture } from "../lib/capture.mjs";
+import { emit, readRequest } from "./_cli.mjs";
 
 const root = storeRoot();
 const req = readRequest();
 const ids = (req.companyIds && req.companyIds.length ? req.companyIds : listCompanyIds(root)).filter((id) => readCompany(id, root));
-const audited = [];
+
+const today = () => new Date().toISOString().slice(0, 10);
+const audited = [];       // captured, taste pending
+const unreachable = [];   // no site / dead
+let captureError = null;
+
+// Cooperative cancel: on a stop signal, finish-safe between companies (all completed
+// audits are already on disk) and abort the in-flight capture, then emit a partial result.
+const ac = new AbortController();
+let stopping = false;
+const stop = () => { stopping = true; ac.abort(); };
+process.on("SIGTERM", stop);
+process.on("SIGINT", stop);
 
 for (const id of ids) {
+  if (stopping) break;
   const c = readCompany(id, root);
-  const h = hashInt(id);
-  const hasSite = !!c.digital?.hasWebsite;
-  // Stub taste: lower (worse) scores → higher opportunity. Social-only sites score lowest.
-  const base = hasSite ? 1 + (h % 4) : 1;
-  const s = (n) => Math.max(1, Math.min(5, base + ((hashInt(id + n) % 3) - 1)));
-  const scores = { visual: s("v"), typography: s("t"), layout: s("l"), modernity: s("m"), mobile: s("mo"), trust: s("tr"), conversion: s("co") };
-  const overall = Number((Object.values(scores).reduce((a, b) => a + b, 0) / 7).toFixed(1));
-  const opportunity = Number(Math.max(0, Math.min(1, (5 - overall) / 4 + (hasSite ? 0 : 0.15))).toFixed(2));
-  const audit = {
+  const url = c.contacts?.website;
+
+  // 1) no website → honest record, no capture, no taste
+  if (!c.digital?.hasWebsite || !url) {
+    writeAudit({ companyId: id, url: null, capturedAt: today(), reachable: false, reason: "no website", tech: null, screenshots: { desktop: [], mobile: [], thumbnail: null }, taste: null }, root);
+    unreachable.push(id);
+    continue;
+  }
+
+  // 2) probe (reachability gate + real tech)
+  const p = await probe(url);
+  if (!p.reachable) {
+    writeAudit({ companyId: id, url, capturedAt: today(), reachable: false, reason: p.reason ?? "unreachable", status: p.status ?? null, tech: null, screenshots: { desktop: [], mobile: [], thumbnail: null }, taste: null }, root);
+    unreachable.push(id);
+    continue;
+  }
+
+  // 3) capture real screenshots
+  const dir = join(paths(root).screenshots, id);
+  let shots = { desktop: [], mobile: [], thumbnail: null, meta: {} };
+  let capErr = null;
+  try {
+    shots = await capture(p.finalUrl ?? url, dir, { signal: ac.signal });
+  } catch (e) {
+    capErr = e.message;
+    captureError = captureError ?? e.message;
+  }
+  if (stopping) break; // aborted mid-capture → skip writing a partial record for this one
+
+  // 4) write audit — taste PENDING (agent grades it), or null if capture failed (nothing to grade)
+  const tech = { ...p.tech };
+  if (shots.meta?.loadMs != null) tech.loadMs = shots.meta.loadMs;
+  writeAudit({
     companyId: id,
-    url: c.contacts?.website ?? null,
-    capturedAt: new Date().toISOString().slice(0, 10),
-    tech: {
-      https: hasSite ? h % 7 !== 0 : false,
-      mobileFriendly: scores.mobile >= 4,
-      lighthousePerf: 25 + (h % 60),
-      cms: hasSite ? pick(CMS, id) : "no website",
-      lastModified: `${2013 + (h % 11)}-0${1 + (h % 9)}`,
-      domainAge: hasSite ? 8 + (h % 12) : 0,
-    },
-    screenshots: hasSite
-      ? { desktop: ["desktop-hero.png", "desktop-section.png"], mobile: ["mobile-hero.png"], thumbnail: "thumbnail.png" }
-      : { desktop: [], mobile: [], thumbnail: null },
-    taste: {
-      scores,
-      overall,
-      datedSignals: [pick(SIGNALS, id + "a"), pick(SIGNALS, id + "b")].filter((v, i, arr) => arr.indexOf(v) === i),
-      issues: [{ severity: opportunity > 0.7 ? "high" : "medium", area: scores.mobile <= 2 ? "mobile" : "visual", note: hasSite ? "stub finding — replace with real taste analysis" : "no website — social presence only" }],
-      opportunity,
-      effortEstimate: overall < 2 ? "L" : overall < 3.2 ? "M" : "S",
-    },
-  };
-  writeAudit(audit, root);
+    url: p.finalUrl ?? url,
+    capturedAt: today(),
+    reachable: true,
+    status: p.status,
+    tech,
+    screenshots: { desktop: shots.desktop, mobile: shots.mobile, thumbnail: shots.thumbnail },
+    captureError: capErr,
+    taste: capErr || !shots.desktop.length ? null : { pending: true },
+  }, root);
   audited.push(id);
 }
 
-emit({ action: "audit", ok: true, audited, count: audited.length });
+emit({
+  action: "audit",
+  ok: !captureError && !stopping,
+  audited,
+  unreachable,
+  pending: audited.length,
+  count: audited.length + unreachable.length,
+  total: ids.length,
+  canceled: stopping || undefined,
+  captureError,
+});

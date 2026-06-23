@@ -6,9 +6,10 @@
 // executes anything itself — it only reads the store and appends to the request queue.
 
 import { createServer } from "node:http";
-import { existsSync, readFileSync } from "node:fs";
+import { spawn } from "node:child_process";
+import { existsSync, openSync, readFileSync } from "node:fs";
 import { extname, join, normalize } from "node:path";
-import { aggregateStore, enqueue, ensureStore, paths, readQueue, readResults, PLUGIN_ROOT, storeRoot } from "../lib/store.mjs";
+import { aggregateStore, cancelRequest, enqueue, ensureStore, paths, readAssessment, readDossier, readJSON, readQueue, readResults, PLUGIN_ROOT, storeRoot } from "../lib/store.mjs";
 
 const HOST = "127.0.0.1";
 const PORT = Number(process.env.PROSPECTOR_PORT ?? 8092);
@@ -16,7 +17,8 @@ const DASH = join(PLUGIN_ROOT, "dashboard");
 const ROOT = storeRoot();
 ensureStore(ROOT);
 
-const ACTIONS = new Set(["discover", "audit", "score", "outreach", "scope"]);
+const ACTIONS = new Set(["discover", "audit", "rank", "outreach", "scope", "delete", "shortlist", "deepdive", "hunt"]);
+const LOG_FILE = process.env.PROSPECTOR_LOG ?? "/tmp/prospector-loop.log";
 const MIME = { ".html": "text/html", ".js": "text/javascript", ".css": "text/css", ".json": "application/json", ".png": "image/png", ".svg": "image/svg+xml" };
 
 const isLoopback = (a) => a === "127.0.0.1" || a === "::1" || a === "::ffff:127.0.0.1";
@@ -69,6 +71,23 @@ const server = createServer((req, res) => {
     const pending = readQueue(ROOT).filter((r) => !handled.has(r.id)).length;
     return sendJSON(res, 200, { pending, results: results.slice(-20) });
   }
+  if (path === "/api/activity" && req.method === "GET") {
+    const results = readResults(ROOT);
+    const handled = new Set(results.map((r) => r.reqId).filter(Boolean));
+    const queue = readQueue(ROOT).filter((r) => !handled.has(r.id))
+      .map((r) => ({ id: r.id, action: r.action, queuedAt: r.queuedAt, target: r.payload?.area ?? (r.companyIds ? `${r.companyIds.length} selected` : undefined) }));
+    const runMarker = readJSON(paths(ROOT).running);
+    const running = runMarker?.reqId && !handled.has(runMarker.reqId) ? runMarker : null;
+    let log = [];
+    try { log = readFileSync(LOG_FILE, "utf8").split("\n").filter(Boolean).slice(-80); } catch { /* no log yet */ }
+    return sendJSON(res, 200, {
+      running,
+      pending: queue.length,
+      queue,
+      results: results.slice(-40).reverse().map((r) => ({ at: r.at, action: r.action, ok: r.ok, ms: r.ms, summary: r.summary })),
+      log,
+    });
+  }
   if (path === "/api/action" && req.method === "POST") {
     let body = "";
     req.on("data", (c) => (body += c));
@@ -85,6 +104,17 @@ const server = createServer((req, res) => {
     });
     return;
   }
+  if (path === "/api/cancel" && req.method === "POST") {
+    let body = "";
+    req.on("data", (c) => (body += c));
+    req.on("end", () => {
+      let b;
+      try { b = JSON.parse(body || "{}"); } catch { return sendJSON(res, 400, { error: "bad json" }); }
+      cancelRequest({ reqId: b.reqId, all: b.all }, ROOT);
+      return sendJSON(res, 200, { ok: true });
+    });
+    return;
+  }
 
   // ---- store screenshots (placeholder if missing) ----
   if (path.startsWith("/screenshots/")) {
@@ -94,6 +124,26 @@ const server = createServer((req, res) => {
     return placeholderSVG(res, rel.split("/").pop() ?? "preview");
   }
 
+  // deep-dive report (markdown) for a company
+  if (path === "/dossier" && req.method === "GET") {
+    const id = url.searchParams.get("id") ?? "";
+    const md = readDossier(id, ROOT);
+    if (md == null) return sendJSON(res, 404, { error: "no dossier" });
+    res.writeHead(200, { "content-type": "text/markdown; charset=utf-8", "cache-control": "no-store" });
+    return res.end(md);
+  }
+
+  // hunt assessment (verdict + pitch) for a company
+  if (path === "/assessment" && req.method === "GET") {
+    const id = url.searchParams.get("id") ?? "";
+    const a = readAssessment(id, ROOT);
+    if (a == null) return sendJSON(res, 404, { error: "no assessment" });
+    res.writeHead(200, { "content-type": "application/json", "cache-control": "no-store" });
+    return res.end(JSON.stringify(a));
+  }
+
+  if (path === "/favicon.ico") { res.writeHead(204); return res.end(); }
+
   // ---- static dashboard ----
   if (req.method === "GET") {
     const rel = path === "/" ? "index.html" : normalize(path).replace(/^(\.\.(\/|\\|$))+/, "").replace(/^\//, "");
@@ -102,6 +152,35 @@ const server = createServer((req, res) => {
   return send404(res);
 });
 
+// ---- single managed loop child --------------------------------------------
+// The bridge OWNS the watch-loop: one process to start, one to stop, no orphans.
+// (Set PROSPECTOR_NO_LOOP=1 to run the loop yourself instead.)
+let loopChild = null;
+function startLoop() {
+  if (process.env.PROSPECTOR_NO_LOOP === "1") return;
+  let out = "ignore";
+  try { out = openSync(LOG_FILE, "a"); } catch { /* fall back to ignore */ }
+  loopChild = spawn("node", [join(PLUGIN_ROOT, "scripts", "loop.mjs")], { stdio: ["ignore", out, out], env: process.env });
+  loopChild.on("exit", () => { loopChild = null; });
+}
+function shutdown() {
+  try { loopChild?.kill("SIGTERM"); } catch { /* gone */ }
+  process.exit(0);
+}
+process.on("SIGTERM", shutdown);
+process.on("SIGINT", shutdown);
+
+// Re-running the dashboard skill must REUSE a live bridge, not stack a second one.
+server.on("error", (e) => {
+  if (e?.code === "EADDRINUSE") {
+    console.error(`prospector: port ${PORT} already serving — reusing the running bridge (not starting a second).`);
+    process.exit(0);
+  }
+  console.error(e);
+  process.exit(1);
+});
+
 server.listen(PORT, HOST, () => {
   console.log(`prospector bridge on http://${HOST}:${PORT}  · store=${ROOT}`);
+  startLoop();
 });

@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "prospector/assessment",
+  "title": "Hunt assessment",
+  "description": "The qualify verdict + pitch produced by the `hunt` pipeline, keyed by company id (assessments/<id>.json).",
+  "type": "object",
+  "required": ["companyId", "decision"],
+  "properties": {
+    "companyId": { "type": "string" },
+    "decision": { "enum": ["qualified", "rejected"] },
+    "leadType": {
+      "description": "How they'd be pitched; null for rejected.",
+      "enum": ["improvable-site", "no-website", "good-site", null]
+    },
+    "fit": { "type": ["number", "null"], "description": "0–1 — how good a potential client they are." },
+    "reasons": { "type": "array", "items": { "type": "string" }, "description": "Why qualified/rejected." },
+    "pitch": { "type": ["string", "null"], "description": "Markdown: a go/no-go memo AND a usable outreach base (PT)." },
+    "pitchAngle": { "enum": ["redesign", "get-a-site", "ai-upsell", "marketing-growth", null] },
+    "popularity": {
+      "type": ["object", "null"],
+      "properties": { "rating": { "type": ["number", "null"] }, "reviews": { "type": ["number", "null"] } }
+    },
+    "examinedAt": { "type": "string" }
+  }
+}

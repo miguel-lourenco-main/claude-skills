@@ -1,80 +1,115 @@
-// STUB discover — appends synthetic companies that match the active scope.
-// Next phase: replace the body with real source adapters (Google Maps, Racius, …);
-// keep the contract — read scope, write company dossiers, return the added ids.
+// Real discovery — run the enabled source adapters, merge + dedupe across them, and write
+// company dossiers. Revenue is generally unavailable from free sources, so revenueKnown is
+// set honestly (scoring then uses a neutral can-pay prior). The agent source is handled by
+// the agent (WebSearch/WebFetch), not here.
 
-import { listCompanyIds, readScope, storeRoot, writeCompany } from "../lib/store.mjs";
-import { emit, hashInt, pick, readRequest } from "./_cli.mjs";
+import { readCompany, readScope, storeRoot, writeCompany } from "../lib/store.mjs";
+import { companyId, dedupeKey, domainOf, mergeCompany } from "../lib/identity.mjs";
+import { emit, readRequest } from "./_cli.mjs";
 
-const NAMES = {
-  hospitality: ["Casa", "Quinta", "Hotel", "Estalagem", "Adega", "Solar"],
-  clinics: ["Clínica", "Centro Médico", "Consultório"],
-  legal: ["Sociedade de Advogados", "Escritório Jurídico"],
-  realEstate: ["Imobiliária", "Mediação", "Predial"],
-  trades: ["Construções", "Instalações", "Oficina"],
-  other: ["Empresa", "Serviços"],
-};
-const SUFFIX = ["do Vale", "Atlântico", "Central", "do Norte", "Real", "Moderna", "& Filhos", "Premium"];
-const CITIES = [
-  { city: "Porto", district: "Porto", lat: 41.15, lng: -8.61 },
-  { city: "Braga", district: "Braga", lat: 41.55, lng: -8.43 },
-  { city: "Coimbra", district: "Coimbra", lat: 40.21, lng: -8.43 },
-  { city: "Faro", district: "Faro", lat: 37.02, lng: -7.93 },
-  { city: "Évora", district: "Évora", lat: 38.57, lng: -7.91 },
-  { city: "Guimarães", district: "Braga", lat: 41.44, lng: -8.29 },
-];
-const CAE = { hospitality: "55119", clinics: "86230", legal: "69101", realEstate: "68311", trades: "41200", other: "70220" };
-
+const SCRIPT_SOURCES = ["osm", "wikidata", "gmaps", "paginas"];
 const root = storeRoot();
 const req = readRequest();
 const scope = readScope(root);
-const count = Math.max(1, Math.min(10, req.payload?.count ?? 3));
-const verticals = req.payload?.vertical ? [req.payload.vertical] : scope.verticals ?? ["hospitality"];
+const p = req.payload ?? {};
 
-const existing = new Set(listCompanyIds(root));
-const lo = scope.revenue?.min ?? 250000;
-const hi = scope.revenue?.max ?? 10000000;
-const added = [];
+// working scope: payload overrides for this run (area/vertical/count/sources)
+const ws = { ...scope, area: p.area ?? scope.cities?.[0], district: p.district, vertical: p.vertical, count: p.count };
+const onlyWithWebsite = !!p.onlyWithWebsite;
+const requested = p.sources ?? scope.sources?.allow ?? ["osm"];
+const runSources = requested.filter((s) => SCRIPT_SOURCES.includes(s));
+const agentRequested = requested.includes("agent");
 
-for (let i = 0; i < count; i++) {
-  const vertical = verticals[i % verticals.length];
-  const seed = `disc-${Date.now()}-${i}`;
-  const h = hashInt(seed);
-  const taxId = `5${String(10000000 + (h % 89999999)).slice(0, 8)}`;
-  const id = `pt-${taxId}`;
-  if (existing.has(id)) continue;
-  existing.add(id);
-  const name = `${pick(NAMES[vertical] ?? NAMES.other, seed + "n")} ${pick(SUFFIX, seed + "s")}, Lda`;
-  const loc = pick(CITIES, seed + "c");
-  const revenue = lo + (h % Math.max(1, hi - lo));
-  const hasWebsite = h % 5 !== 0; // ~20% social-only
-  const domain = name.toLowerCase().replace(/[^a-z]+/g, "").slice(0, 16) + ".pt";
-  const company = {
-    id,
-    name,
-    taxId,
-    sector: { cae: [CAE[vertical] ?? CAE.other], labels: [vertical], vertical },
-    description: `Discovered ${vertical} business in ${loc.city} (stub source).`,
-    location: { district: loc.district, city: loc.city, lat: loc.lat, lng: loc.lng },
-    size: {
-      employees: (scope.employees?.min ?? 5) + (h % 60),
-      revenue: { value: revenue, currency: "EUR", year: 2024 },
-      netIncome: Math.round(revenue * 0.06),
-    },
-    founded: 1990 + (h % 33),
+const today = () => new Date().toISOString().slice(0, 10);
+
+function toCompany(pc) {
+  const website = pc.contacts?.website ?? pc.website ?? null;
+  const vertical = pc.vertical || "other";
+  const size = pc.extra?.revenue
+    ? { revenue: { value: pc.extra.revenue, currency: "EUR" }, revenueKnown: true }
+    : { revenueKnown: false };
+  if (pc.extra?.employees) size.employees = pc.extra.employees;
+  return {
+    id: companyId(pc),
+    name: pc.name,
+    taxId: null,
+    sector: { cae: [], labels: [vertical], vertical },
+    description: `Discovered ${vertical}${pc.location?.city ? ` in ${pc.location.city}` : ""} via ${pc.source}.`,
+    location: { country: "PT", district: pc.location?.district ?? null, city: pc.location?.city ?? null, lat: pc.location?.lat, lng: pc.location?.lng },
+    size,
     contacts: {
-      website: hasWebsite ? `https://${domain}` : null,
-      domain: hasWebsite ? domain : null,
-      emails: [],
-      phones: [`+351 2${String(10000000 + (h % 89999999)).slice(0, 8)}`],
-      social: {},
+      website,
+      domain: domainOf(website),
+      emails: pc.contacts?.emails ?? (pc.contacts?.email ? [pc.contacts.email] : []),
+      phones: pc.contacts?.phones ?? (pc.contacts?.phone ? [pc.contacts.phone] : []),
+      social: pc.contacts?.social ?? {},
     },
-    digital: { hasWebsite, socialOnly: !hasWebsite },
-    provenance: [{ source: "stub-discover", fetchedAt: new Date().toISOString().slice(0, 10), fields: ["name", "location", "vertical"], confidence: 0.6 }],
+    digital: { hasWebsite: !!website, socialOnly: !website },
+    provenance: [{ source: pc.source, fetchedAt: today(), fields: ["name", "location", website ? "website" : "hasWebsite"], confidence: pc.sourceConfidence ?? 0.6 }],
     pipeline: { status: "candidate", leadScore: null },
     schemaVersion: 1,
   };
-  writeCompany(company, root);
-  added.push(id);
 }
 
-emit({ action: "discover", ok: true, added, count: added.length, verticals });
+// 1) run adapters
+const partials = [];
+// Cooperative cancel: stop between sources, keeping whatever was already gathered/written.
+let stopping = false;
+const onStop = () => { stopping = true; };
+process.on("SIGTERM", onStop);
+process.on("SIGINT", onStop);
+
+const errors = {};
+for (const src of runSources) {
+  if (stopping) break;
+  try {
+    const mod = await import(`../adapters/${src}.mjs`);
+    const items = await mod.discover(ws);
+    for (const it of items) {
+      if (!it?.name) continue;
+      if (onlyWithWebsite && !(it.hasWebsite || it.contacts?.website)) continue; // target improvable sites
+      partials.push(it);
+    }
+  } catch (e) {
+    errors[src] = e.message;
+  }
+}
+
+// 2) dedupe across sources, 3) merge onto existing, 4) write
+const groups = new Map();
+for (const pc of partials) {
+  const k = dedupeKey(pc);
+  if (!groups.has(k)) groups.set(k, []);
+  groups.get(k).push(pc);
+}
+
+const suppressed = new Set(scope.suppress?.domains ?? []);
+// target number of companies to ADD this run (the user's "how many"); else the scope cap.
+const cap = p.count ?? scope.maxCompanies ?? 200;
+const bySource = {};
+let added = 0, updated = 0, skipped = 0;
+
+for (const items of groups.values()) {
+  if (stopping) break;
+  let merged = toCompany(items[0]);
+  for (const it of items.slice(1)) merged = mergeCompany(merged, toCompany(it));
+  if (merged.contacts?.domain && suppressed.has(merged.contacts.domain)) { skipped++; continue; }
+  const existing = readCompany(merged.id, root);
+  if (!existing && added >= cap) { skipped++; continue; }
+  writeCompany(existing ? mergeCompany(existing, merged) : merged, root);
+  if (existing) updated++; else added++;
+  for (const it of items) bySource[it.source] = (bySource[it.source] ?? 0) + 1;
+}
+
+emit({
+  action: "discover",
+  ok: Object.keys(errors).length === 0 && !stopping,
+  added,
+  updated,
+  skipped,
+  canceled: stopping || undefined,
+  bySource,
+  errors: Object.keys(errors).length ? errors : undefined,
+  agentRequested: agentRequested || undefined,
+  note: agentRequested ? "source 'agent' requested — run the agent-research adapter (WebSearch/WebFetch) per prospect-discover." : undefined,
+});

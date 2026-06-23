@@ -12,6 +12,7 @@ import {
   readFileSync,
   writeFileSync,
   appendFileSync,
+  rmSync,
 } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -32,11 +33,35 @@ export const paths = (root = storeRoot()) => ({
   audits: join(root, "audits"),
   screenshots: join(root, "screenshots"),
   outreach: join(root, "outreach"),
+  dossiers: join(root, "dossiers"),
+  assessments: join(root, "assessments"),
   requests: join(root, "requests"),
   queue: join(root, "requests", "queue.jsonl"),
   results: join(root, "requests", "results.jsonl"),
+  cancel: join(root, "requests", "cancel.jsonl"),
+  running: join(root, "requests", "running.json"),
+  heartbeat: join(root, "requests", "agent.heartbeat"),
   leads: join(root, "leads.md"),
 });
+
+/** A live Claude session marks itself present (grading/researching) by touching this. */
+export function touchHeartbeat(root = storeRoot()) {
+  try { writeJSON(paths(root).heartbeat, { at: Date.now() }); } catch { /* ignore */ }
+}
+/** Is an agent "online"? True if the heartbeat was touched in the last ~90s. */
+export function agentOnline(root = storeRoot()) {
+  const hb = readJSON(paths(root).heartbeat);
+  return !!(hb?.at && Date.now() - hb.at < 90_000);
+}
+
+/** Delete a company and everything keyed to it (audit + screenshots). Destructive. */
+export function deleteCompany(id, root = storeRoot()) {
+  const p = paths(root);
+  for (const f of [companyFile(id, root), auditFile(id, root), join(p.outreach, `${id}.md`), dossierFile(id, root)]) {
+    try { rmSync(f); } catch { /* not present */ }
+  }
+  try { rmSync(join(p.screenshots, id), { recursive: true, force: true }); } catch { /* none */ }
+}
 
 export function readJSON(file, fallback = null) {
   try {
@@ -54,12 +79,13 @@ export function writeJSON(file, data) {
 /** Create the dir skeleton, and seed from sample-store/seed.json if there are no companies yet. */
 export function ensureStore(root = storeRoot()) {
   const p = paths(root);
-  for (const d of [p.root, p.companies, p.audits, p.screenshots, p.outreach, p.requests]) {
+  for (const d of [p.root, p.companies, p.audits, p.screenshots, p.outreach, p.dossiers, p.assessments, p.requests]) {
     mkdirSync(d, { recursive: true });
   }
-  if (!existsSync(p.scope) || listCompanyIds(root).length === 0) {
-    seedFromSample(root);
-  }
+  // Seed sample data ONLY into a truly empty store. A real, discovered store (which has
+  // companies but may not have written a scope.json yet) must NEVER get sample data mixed in.
+  if (listCompanyIds(root).length === 0) seedFromSample(root);
+  else if (!existsSync(p.scope)) writeJSON(p.scope, defaultScope());
   return root;
 }
 
@@ -89,6 +115,16 @@ export const companyFile = (id, root = storeRoot()) => join(paths(root).companie
 export const readCompany = (id, root = storeRoot()) => readJSON(companyFile(id, root));
 export const writeCompany = (c, root = storeRoot()) => writeJSON(companyFile(c.id, root), c);
 
+export const dossierFile = (id, root = storeRoot()) => join(paths(root).dossiers, `${id}.md`);
+export const hasDossier = (id, root = storeRoot()) => existsSync(dossierFile(id, root));
+export const readDossier = (id, root = storeRoot()) => { try { return readFileSync(dossierFile(id, root), "utf8"); } catch { return null; } };
+
+// Hunt assessment (the qualify verdict + pitch), keyed by company id.
+export const assessmentFile = (id, root = storeRoot()) => join(paths(root).assessments, `${id}.json`);
+export const hasAssessment = (id, root = storeRoot()) => existsSync(assessmentFile(id, root));
+export const readAssessment = (id, root = storeRoot()) => readJSON(assessmentFile(id, root));
+export const writeAssessment = (a, root = storeRoot()) => writeJSON(assessmentFile(a.companyId, root), a);
+
 export const auditFile = (id, root = storeRoot()) =>
   join(paths(root).audits, `${id}.website.json`);
 export const readAudit = (id, root = storeRoot()) => readJSON(auditFile(id, root));
@@ -104,14 +140,30 @@ export function listCompanies(root = storeRoot()) {
 export function aggregateStore(root = storeRoot()) {
   ensureStore(root);
   const scope = readScope(root);
-  const companies = listCompanies(root).map((c) => ({ ...c, audit: readAudit(c.id, root) }));
-  companies.sort((a, b) => (b.pipeline?.leadScore ?? -1) - (a.pipeline?.leadScore ?? -1));
+  const companies = listCompanies(root).map((c) => ({ ...c, audit: readAudit(c.id, root), hasDossier: hasDossier(c.id, root), assessment: readAssessment(c.id, root) }));
+  companies.sort((a, b) => (b.audit?.taste?.opportunity ?? -1) - (a.audit?.taste?.opportunity ?? -1));
+  const graded = (a) => a?.taste && !a.taste.pending && typeof a.taste.overall === "number";
+  // queued agent requests still awaiting the agent (queue ids without a result).
+  const handled = new Set(readResults(root).map((r) => r.reqId).filter(Boolean));
+  const pendingByAction = (act) => readQueue(root).filter((r) => r.action === act && !handled.has(r.id)).length;
+  const pendingDeepdive = readQueue(root).filter((r) => r.action === "deepdive" && !handled.has(r.id))
+    .flatMap((r) => r.companyIds ?? []).filter((id, i, a) => a.indexOf(id) === i).length;
   const stats = {
     total: companies.length,
-    audited: companies.filter((c) => c.audit).length,
-    highOpportunity: companies.filter((c) => (c.audit?.taste?.opportunity ?? 0) >= 0.7).length,
+    captured: companies.filter((c) => c.audit?.reachable).length,
+    graded: companies.filter((c) => graded(c.audit)).length,
+    highOpportunity: companies.filter((c) => graded(c.audit) && c.audit.taste.opportunity >= 0.7).length,
+    shortlisted: companies.filter((c) => c.pipeline?.shortlisted).length,
+    dossiers: companies.filter((c) => c.hasDossier).length,
+    qualified: companies.filter((c) => c.pipeline?.hunt?.status === "qualified").length,
+    rejected: companies.filter((c) => c.pipeline?.hunt?.status === "rejected").length,
     contacted: companies.filter((c) => c.pipeline?.status === "contacted").length,
     noWebsite: companies.filter((c) => !c.digital?.hasWebsite).length,
+    // agent-needed work + presence.
+    pendingGrading: companies.filter((c) => c.audit?.reachable && c.audit?.taste?.pending).length,
+    pendingDeepdive,
+    pendingHunt: pendingByAction("hunt"), // queued hunt requests awaiting the agent
+    agentOnline: agentOnline(root),
   };
   return { scope, companies, stats, root, generatedAt: new Date().toISOString() };
 }
@@ -148,6 +200,23 @@ export function readJsonl(file) {
 export const readQueue = (root = storeRoot()) => readJsonl(paths(root).queue);
 export const readResults = (root = storeRoot()) => readJsonl(paths(root).results);
 
+/** Record a cancellation: a specific reqId, or {all:true} to cancel everything queued up to now. */
+export function cancelRequest({ reqId, all } = {}, root = storeRoot()) {
+  ensureStore(root);
+  appendFileSync(paths(root).cancel, JSON.stringify({ reqId, all: !!all, at: Date.now() }) + "\n", "utf8");
+}
+/** → { ids:Set<reqId>, allBefore:number } — a request is canceled if its id is in ids,
+ *  or it was queued at/before allBefore (an "cancel all" cutoff). */
+export function readCancels(root = storeRoot()) {
+  const ids = new Set();
+  let allBefore = 0;
+  for (const c of readJsonl(paths(root).cancel)) {
+    if (c.reqId) ids.add(c.reqId);
+    if (c.all && c.at) allBefore = Math.max(allBefore, c.at);
+  }
+  return { ids, allBefore };
+}
+
 /** Rewrite the queue (used by the loop to mark requests done). */
 export function writeQueue(reqs, root = storeRoot()) {
   const p = paths(root);
@@ -163,16 +232,6 @@ export function appendResult(result, root = storeRoot()) {
     "utf8",
   );
 }
-
-// ---- scoring (shared so the dashboard and score.mjs agree) -----------------
-export const VERTICAL_WEIGHT = {
-  hospitality: 1.0, // storefront — website drives bookings
-  realEstate: 0.85,
-  clinics: 0.8,
-  legal: 0.7,
-  trades: 0.55,
-  other: 0.5,
-};
 
 export function defaultScope() {
   return {
@@ -190,18 +249,17 @@ export function defaultScope() {
   };
 }
 
-const clamp01 = (x) => Math.max(0, Math.min(1, x));
+/** Does this company have a trustworthy revenue figure? Unknown ≠ zero. */
+export function revenueKnown(company) {
+  const rev = company.size?.revenue?.value;
+  return company.size?.revenueKnown !== false && typeof rev === "number" && rev > 0;
+}
 
-/** 0..100 lead score = weighted blend of can-pay, site-matters, and redesign opportunity. */
-export function leadScore(company, audit, scope = defaultScope()) {
-  const w = scope.weights ?? defaultScope().weights;
-  const rev = company.size?.revenue?.value ?? 0;
-  const lo = scope.revenue?.min ?? 250000;
-  const hi = scope.revenue?.max ?? 10000000;
-  let canPay = clamp01((rev - lo) / Math.max(1, hi - lo));
-  if ((company.size?.netIncome ?? 0) <= 0) canPay *= 0.6; // unprofitable → discount ability to pay
-  const siteMatters = VERTICAL_WEIGHT[company.sector?.vertical] ?? VERTICAL_WEIGHT.other;
-  const opportunity = audit?.taste?.opportunity ?? (company.digital?.hasWebsite ? 0.4 : 0.6);
-  const score = w.canPay * canPay + w.siteMatters * siteMatters + w.opportunity * opportunity;
-  return Math.round(clamp01(score) * 100);
+/** Ranking signal: the redesign opportunity (0..1) from a graded audit, with honest priors
+ *  for not-yet-graded states. This is what the dashboard ranks by (no composite "score"). */
+export function opportunityOf(company, audit) {
+  if (audit?.taste && typeof audit.taste.opportunity === "number") return audit.taste.opportunity;
+  if (audit && audit.reachable === false) return audit.reason === "no website" ? 0.7 : 0.6;
+  if (audit?.taste?.pending) return 0.5;            // captured, awaiting grading
+  return company?.digital?.hasWebsite ? 0.4 : 0.6;  // not audited
 }

@@ -14,7 +14,7 @@
       "properties": {
         "cae": { "type": "array", "items": { "type": "string" } },
         "labels": { "type": "array", "items": { "type": "string" } },
-        "vertical": { "enum": ["hospitality", "clinics", "legal", "realEstate", "trades", "other"] }
+        "vertical": { "enum": ["restaurants", "cafes", "bars", "hotels", "beauty", "fitness", "dental", "clinics", "veterinary", "legal", "realEstate", "automotive", "photography", "events", "trades", "other", "hospitality"] }
       }
     },
     "description": { "type": "string" },
@@ -30,6 +30,7 @@
       "properties": {
         "employees": { "type": "number" },
         "revenue": { "type": "object", "properties": { "value": { "type": "number" }, "currency": { "type": "string" }, "year": { "type": "number" } } },
+        "revenueKnown": { "type": "boolean", "description": "false when revenue is unavailable (e.g. free discovery sources) — scoring then uses a neutral can-pay prior instead of treating it as zero." },
         "netIncome": { "type": "number" }
       }
     },
@@ -44,6 +45,11 @@
       }
     },
     "digital": { "type": "object", "properties": { "hasWebsite": { "type": "boolean" }, "socialOnly": { "type": "boolean" } } },
+    "popularity": {
+      "type": "object",
+      "description": "Public traction (Google/Maps), filled by the hunt research pass.",
+      "properties": { "rating": { "type": ["number", "null"] }, "reviews": { "type": ["number", "null"] } }
+    },
     "provenance": {
       "type": "array",
       "description": "Which source supplied which fields, and how confident — resolves cross-source disagreement.",
@@ -56,7 +62,18 @@
       "type": "object",
       "properties": {
         "status": { "enum": ["candidate", "outreach-ready", "contacted", "won", "dismissed"] },
-        "leadScore": { "type": ["number", "null"] }
+        "leadScore": { "type": ["number", "null"] },
+        "shortlisted": { "type": "boolean", "description": "User's 'save as a potential client' flag." },
+        "hunt": {
+          "type": "object",
+          "description": "Outcome of the opinionated `hunt` qualify pipeline.",
+          "properties": {
+            "status": { "enum": ["qualified", "rejected"] },
+            "leadType": { "type": ["string", "null"] },
+            "fit": { "type": ["number", "null"] },
+            "examinedAt": { "type": "string" }
+          }
+        }
       }
     },
     "schemaVersion": { "type": "number" }

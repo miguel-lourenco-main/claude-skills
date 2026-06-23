@@ -9,7 +9,7 @@
     "districts": { "type": "array", "items": { "type": "string" } },
     "cities": { "type": "array", "items": { "type": "string" } },
     "radius": { "type": "object", "properties": { "lat": { "type": "number" }, "lng": { "type": "number" }, "km": { "type": "number" } } },
-    "verticals": { "type": "array", "items": { "enum": ["hospitality", "clinics", "legal", "realEstate", "trades", "other"] } },
+    "verticals": { "type": "array", "items": { "enum": ["restaurants", "cafes", "bars", "hotels", "beauty", "fitness", "dental", "clinics", "veterinary", "legal", "realEstate", "automotive", "photography", "events", "trades", "other", "hospitality"] } },
     "caeCodes": { "type": "array", "items": { "type": "string" } },
     "keywords": { "type": "array", "items": { "type": "string" } },
     "revenue": { "type": "object", "properties": { "min": { "type": "number" }, "max": { "type": "number" }, "currency": { "type": "string" } } },

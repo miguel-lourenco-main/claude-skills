@@ -188,6 +188,11 @@ header.topbar {
 .bar { height: 0.32rem; border-radius: 999px; background: var(--p-surface3); overflow: hidden; }
 .bar > span { display: block; height: 100%; border-radius: 999px; background: var(--p-warn); transition: width 700ms var(--ease-expo); }
 
+/* inline live-progress bar for the running-action banner + console feed row */
+.pbar { display: inline-block; width: 7rem; height: 0.36rem; vertical-align: middle; margin: 0 0.5rem; border-radius: 999px; background: var(--p-surface3); overflow: hidden; }
+.pbar > span { display: block; height: 100%; border-radius: 999px; background: var(--p-info); box-shadow: 0 0 8px var(--p-info-glow); transition: width 700ms var(--ease-expo); }
+.act.run .a-sum { overflow: visible; white-space: normal; }
+
 input[type="checkbox"] { accent-color: var(--p-info); width: 0.95rem; height: 0.95rem; cursor: pointer; }
 .empty { padding: 2.5rem; text-align: center; color: var(--p-muted); font-size: 0.85rem; }
 

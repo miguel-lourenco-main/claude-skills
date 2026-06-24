@@ -5,7 +5,7 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { readAudit, readCompany, paths, storeRoot, writeCompany } from "../lib/store.mjs";
-import { emit, readRequest } from "./_cli.mjs";
+import { emit, progress, readRequest } from "./_cli.mjs";
 
 const root = storeRoot();
 const req = readRequest();
@@ -13,9 +13,11 @@ const ids = (req.companyIds ?? []).filter((id) => readCompany(id, root));
 const written = [];
 mkdirSync(paths(root).outreach, { recursive: true });
 
-for (const id of ids) {
+for (let i = 0; i < ids.length; i++) {
+  const id = ids[i];
   const c = readCompany(id, root);
   const a = readAudit(id, root);
+  progress({ i: i + 1, n: ids.length, item: c.name || id, phase: "drafting" });
   const signals = a?.taste?.datedSignals ?? [];
   const first = (c.name.split(/[ ,]/)[0]) || "equipa";
   const md = [

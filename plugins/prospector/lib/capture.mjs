@@ -84,9 +84,10 @@ async function prime(page, url) {
  *  scrolling and shooting the viewport (clip below the fold doesn't work in Playwright).
  *  Covers the whole page up to MAX_PAGE; the final tile may slightly overlap the previous
  *  when the page height isn't a multiple of the viewport (browser clamps the last scroll). */
-async function tilePage(page, prefix, outDir, signal) {
+async function tilePage(page, prefix, outDir, signal, onProgress) {
   const docH = Math.min(await page.evaluate(() => document.body.scrollHeight), MAX_PAGE);
   const vh = page.viewportSize().height;
+  const tiles = Math.max(1, Math.ceil(docH / vh));
   const files = [];
   let i = 0;
   for (let y = 0; y < docH; y += vh) {
@@ -94,7 +95,7 @@ async function tilePage(page, prefix, outDir, signal) {
     await page.evaluate((t) => window.scrollTo(0, t), y);
     await page.waitForTimeout(180); // let scroll settle / lazy content paint
     const name = `${prefix}-${++i}.png`;
-    try { await page.screenshot({ path: join(outDir, name) }); files.push(name); }
+    try { await page.screenshot({ path: join(outDir, name) }); files.push(name); onProgress?.(`${prefix} tile ${i}/${tiles}`); }
     catch { i--; break; }
   }
   await page.evaluate(() => window.scrollTo(0, 0)).catch(() => {});
@@ -105,7 +106,7 @@ async function tilePage(page, prefix, outDir, signal) {
  * Capture a site to <outDir>. Returns { desktop:[files], mobile:[files], thumbnail, meta }.
  * Throws only if Playwright is missing; per-page failures degrade to fewer frames.
  */
-export async function capture(url, outDir, { signal } = {}) {
+export async function capture(url, outDir, { signal, onProgress } = {}) {
   rmSync(outDir, { recursive: true, force: true }); // drop any stale frames from a prior capture
   mkdirSync(outDir, { recursive: true });
   const chromium = await loadChromium();
@@ -119,10 +120,11 @@ export async function capture(url, outDir, { signal } = {}) {
     const ctx = await browser.newContext({ viewport: { width: DESKTOP.width, height: MAX_TILE }, userAgent: UA, locale: "pt-PT", timezoneId: "Europe/Lisbon", ignoreHTTPSErrors: true, serviceWorkers: "block" });
     const page = await ctx.newPage();
     const t0 = Date.now();
+    onProgress?.("loading page");
     await prime(page, url);
     out.meta.loadMs = Date.now() - t0;
     out.meta.title = (await page.title().catch(() => "")).slice(0, 160);
-    const d = await tilePage(page, "desktop", outDir, signal);
+    const d = await tilePage(page, "desktop", outDir, signal, onProgress);
     out.desktop = d.files;
     out.meta.docHeight = d.docH;
     out.thumbnail = out.desktop[0] ?? null; // first tile = above-the-fold
@@ -133,8 +135,9 @@ export async function capture(url, outDir, { signal } = {}) {
     try {
       const mctx = await browser.newContext({ viewport: { width: MOBILE.width, height: MAX_TILE }, userAgent: "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1", isMobile: true, hasTouch: true, deviceScaleFactor: 2, locale: "pt-PT", ignoreHTTPSErrors: true });
       const mpage = await mctx.newPage();
+      onProgress?.("mobile pass");
       await prime(mpage, url);
-      const m = await tilePage(mpage, "mobile", outDir, signal);
+      const m = await tilePage(mpage, "mobile", outDir, signal, onProgress);
       out.mobile = m.files;
       await mctx.close();
     } catch { /* mobile pass best-effort */ }

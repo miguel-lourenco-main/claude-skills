@@ -17,6 +17,14 @@ export function emit(result) {
   process.stdout.write(JSON.stringify(result) + "\n");
 }
 
+/** Report mid-run progress. Goes to STDERR as tagged NDJSON so it never pollutes the single
+ *  stdout result line (the watch-loop parses these to update the live "now running" marker;
+ *  direct callers that only read stdout are unaffected).
+ *  event: { i, n, item, phase, message } — all optional. */
+export function progress(event = {}) {
+  try { process.stderr.write(JSON.stringify({ __progress: true, ...event }) + "\n"); } catch { /* ignore */ }
+}
+
 /** Tiny deterministic hash → unsigned int, so stub data is stable per company id. */
 export function hashInt(str) {
   let h = 2166136261;

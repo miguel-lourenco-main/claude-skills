@@ -6,7 +6,7 @@ import { join } from "node:path";
 import { listCompanyIds, paths, readCompany, storeRoot, writeAudit } from "../lib/store.mjs";
 import { probe } from "../lib/probe.mjs";
 import { capture } from "../lib/capture.mjs";
-import { emit, readRequest } from "./_cli.mjs";
+import { emit, progress, readRequest } from "./_cli.mjs";
 
 const root = storeRoot();
 const req = readRequest();
@@ -25,21 +25,28 @@ const stop = () => { stopping = true; ac.abort(); };
 process.on("SIGTERM", stop);
 process.on("SIGINT", stop);
 
-for (const id of ids) {
+const N = ids.length;
+for (let idx = 0; idx < ids.length; idx++) {
   if (stopping) break;
+  const id = ids[idx];
   const c = readCompany(id, root);
   const url = c.contacts?.website;
+  const item = c.name || url || id;
+  const at = { i: idx + 1, n: N, item };
 
   // 1) no website → honest record, no capture, no taste
   if (!c.digital?.hasWebsite || !url) {
+    progress({ ...at, phase: "no website" });
     writeAudit({ companyId: id, url: null, capturedAt: today(), reachable: false, reason: "no website", tech: null, screenshots: { desktop: [], mobile: [], thumbnail: null }, taste: null }, root);
     unreachable.push(id);
     continue;
   }
 
   // 2) probe (reachability gate + real tech)
+  progress({ ...at, phase: "probing" });
   const p = await probe(url);
   if (!p.reachable) {
+    progress({ ...at, phase: "unreachable", message: p.reason ?? "unreachable" });
     writeAudit({ companyId: id, url, capturedAt: today(), reachable: false, reason: p.reason ?? "unreachable", status: p.status ?? null, tech: null, screenshots: { desktop: [], mobile: [], thumbnail: null }, taste: null }, root);
     unreachable.push(id);
     continue;
@@ -50,7 +57,8 @@ for (const id of ids) {
   let shots = { desktop: [], mobile: [], thumbnail: null, meta: {} };
   let capErr = null;
   try {
-    shots = await capture(p.finalUrl ?? url, dir, { signal: ac.signal });
+    progress({ ...at, phase: "capturing" });
+    shots = await capture(p.finalUrl ?? url, dir, { signal: ac.signal, onProgress: (m) => progress({ ...at, phase: "capturing", message: m }) });
   } catch (e) {
     capErr = e.message;
     captureError = captureError ?? e.message;
@@ -71,6 +79,7 @@ for (const id of ids) {
     captureError: capErr,
     taste: capErr || !shots.desktop.length ? null : { pending: true },
   }, root);
+  progress({ ...at, phase: capErr ? "capture failed" : "captured", message: capErr || `${shots.desktop.length} tiles` });
   audited.push(id);
 }
 

@@ -185,6 +185,40 @@ function renderSelCount() {
 
 const RUN_VERB = { audit: "Auditing", discover: "Discovering", rank: "Ranking", outreach: "Drafting outreach", scope: "Updating scope", delete: "Deleting", hunt: "Hunting leads" };
 
+/** Compact human duration from ms: 45s · 3m12s · 1h04m. */
+function fmtDur(ms) {
+  if (!(ms > 0)) return "0s";
+  const s = Math.round(ms / 1000);
+  if (s < 60) return `${s}s`;
+  const m = Math.floor(s / 60), r = s % 60;
+  if (m < 60) return r ? `${m}m${String(r).padStart(2, "0")}s` : `${m}m`;
+  const h = Math.floor(m / 60);
+  return `${h}h${String(m % 60).padStart(2, "0")}m`;
+}
+
+/** The live per-item progress line + bar + elapsed/ETA for a running action (from running.json's
+ *  progress field). Returns "" when the action hasn't reported item-level progress yet. */
+function progressHtml(run) {
+  const p = run.progress;
+  const elapsed = run.startedAt ? Date.now() - run.startedAt : 0;
+  if (!p) {
+    let detail = run.label || "";
+    if (detail.startsWith(run.action)) detail = detail.slice(run.action.length).replace(/^[\s·]+/, "").trim();
+    return ` <span class="csub">${detail ? esc(detail) + " · " : ""}starting…${elapsed ? " " + fmtDur(elapsed) : ""}</span>`;
+  }
+  const where = [p.item, p.phase].filter(Boolean).map(esc).join(" — ");
+  let countPct = "";
+  let bar = "";
+  let eta = "";
+  if (p.n) {
+    const pct = Math.max(0, Math.min(1, p.i / p.n));
+    countPct = `<b>${p.i}/${p.n}</b>`;
+    bar = `<span class="pbar"><span style="width:${(pct * 100).toFixed(1)}%"></span></span>`;
+    if (p.i > 0 && p.i < p.n && elapsed > 0) eta = ` · ~${fmtDur((elapsed / p.i) * (p.n - p.i))} left`;
+  }
+  return ` <span class="csub">${countPct}${countPct && where ? " · " : ""}${where}</span>${bar}<span class="csub">${fmtDur(elapsed)} elapsed${eta}</span>`;
+}
+
 function renderBanner() {
   const s = state.store?.stats ?? {};
   const el = $("#banner");
@@ -193,11 +227,9 @@ function renderBanner() {
   const run = state.activity?.running;
   if (run) {
     const verb = RUN_VERB[run.action] || `Running ${run.action}`;
-    let detail = run.label || "";
-    if (detail.startsWith(run.action)) detail = detail.slice(run.action.length).replace(/^[\s·]+/, "").trim();
     el.hidden = false;
     el.className = "banner info";
-    el.innerHTML = `<span class="bdot live"></span> <b>${esc(verb)}…</b>${detail ? ` <span class="csub">${esc(detail)}</span>` : ""} <span class="csub">· working in the background</span>${run.reqId ? ` <button class="banner-stop" data-stop="${esc(run.reqId)}" title="Stop this action">⏹ Stop</button>` : ""}`;
+    el.innerHTML = `<span class="bdot live"></span> <b>${esc(verb)}…</b>${progressHtml(run)}${run.reqId ? ` <button class="banner-stop" data-stop="${esc(run.reqId)}" title="Stop this action">⏹ Stop</button>` : ""}`;
     return;
   }
 
@@ -641,7 +673,7 @@ async function loadActivity() {
   // or the two pollers (different intervals) flip its text back and forth ("1" ↔ "1 queued").
 
   const parts = [];
-  if (d.running) parts.push(`<div class="act run"><span class="a-act">${esc(d.running.action)}</span><span class="a-sum">${esc(d.running.label || "")}</span><span class="a-meta">${d.running.reqId ? `<button class="stopbtn" data-stop="${esc(d.running.reqId)}">⏹ Stop</button>` : "running…"}</span></div>`);
+  if (d.running) parts.push(`<div class="act run"><span class="a-act">${esc(d.running.action)}</span><span class="a-sum">${progressHtml(d.running) || esc(d.running.label || "")}</span><span class="a-meta">${d.running.reqId ? `<button class="stopbtn" data-stop="${esc(d.running.reqId)}">⏹ Stop</button>` : "running…"}</span></div>`);
   for (const q of d.queue) parts.push(`<div class="act queued"><span class="a-act">${esc(q.action)}</span><span class="a-sum">${esc(q.target || "")}</span><span class="a-meta">${q.id ? `<button class="stopbtn" data-stop="${esc(q.id)}">✕</button>` : "queued"}</span></div>`);
   for (const r of d.results) parts.push(actRow(r.ok ? "" : "fail", r.action, r.summary || "", r.ms != null ? `${r.ms}ms` : ""));
   $("#paneFeed").innerHTML = parts.join("") || '<div class="console-empty">No activity yet. Trigger an action (Discover, Audit, Score…).</div>';

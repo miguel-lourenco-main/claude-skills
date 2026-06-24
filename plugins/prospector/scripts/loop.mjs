@@ -36,10 +36,40 @@ const done = new Set(readResults(root).map((r) => r.reqId).filter(Boolean));
 const summarize = (result) =>
   result ? Object.entries(result).filter(([k]) => !["ok", "action"].includes(k)).map(([k, v]) => `${k}=${Array.isArray(v) ? v.length : v}`).join(" ") || "ok" : "(no output)";
 
-/** Marker the bridge reads for the "now running" indicator in the Activity console. */
+/** Marker the bridge reads for the "now running" indicator in the Activity console. Held in
+ *  memory too so per-item progress can be merged in without re-reading the file. */
+let runningMarker = null;
 function setRunning(req) {
   const label = req ? `${req.action}${req.companyIds?.length ? ` (${req.companyIds.length})` : req.payload?.area ? ` · ${req.payload.area}` : ""}` : null;
-  writeJSON(paths(root).running, req ? { reqId: req.id, action: req.action, label, startedAt: Date.now() } : { running: null });
+  runningMarker = req ? { reqId: req.id, action: req.action, label, startedAt: Date.now() } : null;
+  writeJSON(paths(root).running, runningMarker ?? { running: null });
+}
+
+/** Merge a per-item progress event (from a child's stderr) into the live running marker. */
+function setProgress(p) {
+  if (!runningMarker) return;
+  runningMarker.progress = { i: p.i, n: p.n, item: p.item, phase: p.phase, message: p.message, updatedAt: Date.now() };
+  writeJSON(paths(root).running, runningMarker);
+  const n = p.n != null ? `/${p.n}` : "";
+  const head = p.i != null ? `${p.i}${n} ` : "";
+  console.log(`  · ${head}${p.item ?? ""}${p.phase ? ` — ${p.phase}` : ""}${p.message ? `: ${p.message}` : ""}`.trimEnd());
+}
+
+/** Feed a child's stderr chunk through a line buffer: progress lines update the marker; any
+ *  other stderr is kept (bounded) for the result's error slice. Returns the leftover buffer. */
+function consumeStderr(c, chunk) {
+  c.errBuf += chunk.toString();
+  let nl;
+  while ((nl = c.errBuf.indexOf("\n")) >= 0) {
+    const line = c.errBuf.slice(0, nl);
+    c.errBuf = c.errBuf.slice(nl + 1);
+    const t = line.trim();
+    if (!t) continue;
+    if (t.startsWith("{") && t.includes("__progress")) {
+      try { const o = JSON.parse(t); if (o.__progress) { setProgress(o); continue; } } catch { /* not progress → keep */ }
+    }
+    if (c.err.length < 4000) c.err += line + "\n"; // real stderr, bounded
+  }
 }
 
 // One request runs at a time. Async (not spawnSync) so the loop can react to a cancel
@@ -78,9 +108,9 @@ function startReq(req) {
   if (!script) { appendResult({ reqId: req.id, action: req.action, ok: false, summary: "unknown action" }, root); return; }
   setRunning(req);
   const child = spawn("node", [join(PLUGIN_ROOT, "scripts", script), JSON.stringify(req)], { detached: true, stdio: ["ignore", "pipe", "pipe"] });
-  current = { req, child, startedAt: Date.now(), queuedAtMs: qMs(req), out: "", err: "", canceling: false };
+  current = { req, child, startedAt: Date.now(), queuedAtMs: qMs(req), out: "", err: "", errBuf: "", canceling: false };
   child.stdout.on("data", (d) => (current.out += d.toString()));
-  child.stderr.on("data", (d) => (current.err += d.toString()));
+  child.stderr.on("data", (d) => consumeStderr(current, d));
   child.on("exit", (_code, signal) => onExit(req, signal));
   child.on("error", () => onExit(req, "error"));
 }

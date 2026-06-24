@@ -3,10 +3,12 @@
 
 import { writeFileSync } from "node:fs";
 import { listCompanies, opportunityOf, paths, readAudit, revenueKnown, storeRoot } from "../lib/store.mjs";
-import { emit } from "./_cli.mjs";
+import { emit, progress } from "./_cli.mjs";
 
 const root = storeRoot();
-const ranked = listCompanies(root)
+const all = listCompanies(root);
+progress({ phase: "ranking", message: `${all.length} companies by opportunity` });
+const ranked = all
   .map((c) => { const a = readAudit(c.id, root); return { c, a, opp: opportunityOf(c, a) }; })
   .sort((p, q) => q.opp - p.opp);
 
@@ -26,6 +28,7 @@ const md = [
   ...rows,
   "",
 ].join("\n");
+progress({ phase: "writing", message: "leads.md" });
 writeFileSync(paths(root).leads, md, "utf8");
 
 emit({ action: "rank", ok: true, ranked: ranked.length, top: ranked[0]?.c.name });

@@ -5,7 +5,7 @@
 
 import { readCompany, readScope, storeRoot, writeCompany } from "../lib/store.mjs";
 import { companyId, dedupeKey, domainOf, mergeCompany } from "../lib/identity.mjs";
-import { emit, readRequest } from "./_cli.mjs";
+import { emit, progress, readRequest } from "./_cli.mjs";
 
 const SCRIPT_SOURCES = ["osm", "wikidata", "gmaps", "paginas"];
 const root = storeRoot();
@@ -60,18 +60,24 @@ process.on("SIGTERM", onStop);
 process.on("SIGINT", onStop);
 
 const errors = {};
-for (const src of runSources) {
+for (let s = 0; s < runSources.length; s++) {
   if (stopping) break;
+  const src = runSources[s];
+  progress({ i: s + 1, n: runSources.length, item: src, phase: "querying", message: ws.area });
   try {
     const mod = await import(`../adapters/${src}.mjs`);
     const items = await mod.discover(ws);
+    let kept = 0;
     for (const it of items) {
       if (!it?.name) continue;
       if (onlyWithWebsite && !(it.hasWebsite || it.contacts?.website)) continue; // target improvable sites
       partials.push(it);
+      kept++;
     }
+    progress({ i: s + 1, n: runSources.length, item: src, phase: "found", message: `${kept} candidates` });
   } catch (e) {
     errors[src] = e.message;
+    progress({ i: s + 1, n: runSources.length, item: src, phase: "error", message: e.message });
   }
 }
 
@@ -88,9 +94,13 @@ const suppressed = new Set(scope.suppress?.domains ?? []);
 const cap = p.count ?? scope.maxCompanies ?? 200;
 const bySource = {};
 let added = 0, updated = 0, skipped = 0;
+const G = groups.size;
+let gi = 0;
+progress({ phase: "merging", message: `${G} unique of ${partials.length} raw` });
 
 for (const items of groups.values()) {
   if (stopping) break;
+  progress({ i: ++gi, n: G, item: items[0]?.name ?? "—", phase: "saving" });
   let merged = toCompany(items[0]);
   for (const it of items.slice(1)) merged = mergeCompany(merged, toCompany(it));
   if (merged.contacts?.domain && suppressed.has(merged.contacts.domain)) { skipped++; continue; }

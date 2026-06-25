@@ -16,6 +16,7 @@ import {
 } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { domainOf, mergeCompany } from "./identity.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 /** The prospector plugin root (…/plugins/prospector), where sample-store lives. */
@@ -40,6 +41,8 @@ export const paths = (root = storeRoot()) => ({
   results: join(root, "requests", "results.jsonl"),
   cancel: join(root, "requests", "cancel.jsonl"),
   running: join(root, "requests", "running.json"),
+  agentRunning: join(root, "requests", "agent-running.json"),
+  logs: join(root, "requests", "logs"),
   heartbeat: join(root, "requests", "agent.heartbeat"),
   leads: join(root, "leads.md"),
 });
@@ -79,7 +82,7 @@ export function writeJSON(file, data) {
 /** Create the dir skeleton, and seed from sample-store/seed.json if there are no companies yet. */
 export function ensureStore(root = storeRoot()) {
   const p = paths(root);
-  for (const d of [p.root, p.companies, p.audits, p.screenshots, p.outreach, p.dossiers, p.assessments, p.requests]) {
+  for (const d of [p.root, p.companies, p.audits, p.screenshots, p.outreach, p.dossiers, p.assessments, p.requests, p.logs]) {
     mkdirSync(d, { recursive: true });
   }
   // Seed sample data ONLY into a truly empty store. A real, discovered store (which has
@@ -262,4 +265,50 @@ export function opportunityOf(company, audit) {
   if (audit && audit.reachable === false) return audit.reason === "no website" ? 0.7 : 0.6;
   if (audit?.taste?.pending) return 0.5;            // captured, awaiting grading
   return company?.digital?.hasWebsite ? 0.4 : 0.6;  // not audited
+}
+
+/** Canonical URL identity for a company: prefer the audit's redirect-RESOLVED url host (audit.url
+ *  is the finalUrl for a reachable site), else the discovered website domain. Two companies sharing
+ *  this key are the same site reached two ways (e.g. geocasa.com.pt → geocasa.pt). Null when no URL
+ *  is known — a company with no website is never a URL duplicate of another. */
+export function urlKey(company, audit) {
+  const host = domainOf(audit?.url) || company?.contacts?.domain || domainOf(company?.contacts?.website);
+  return host ? `d:${host}` : null;
+}
+
+/** Redirect-deduplication: collapse companies that resolve to the SAME url into one entry.
+ *  Groups every company by its canonical url key; for any group >1, keeps a single survivor and
+ *  merges + deletes the rest. Survivor preference: reachable audit > has audit > more provenance
+ *  (so the kept id/audit/screenshots are the canonical destination's). The shortlisted flag is
+ *  OR-ed across the group so a flag on a soon-to-be-deleted twin isn't lost. Idempotent: a store
+ *  with no url-twins is left untouched. Returns the collapses performed (for reporting). */
+export function dedupeByUrl(root = storeRoot()) {
+  const entries = listCompanies(root).map((c) => ({ c, a: readAudit(c.id, root) }));
+  const groups = new Map();
+  for (const e of entries) {
+    const k = urlKey(e.c, e.a);
+    if (!k) continue;
+    if (!groups.has(k)) groups.set(k, []);
+    groups.get(k).push(e);
+  }
+  const score = ({ c, a }) =>
+    (a?.reachable === true ? 4 : 0) +
+    (a ? 2 : 0) +
+    Math.min(1, (c.provenance?.length ?? 0) / 10) +
+    (c.pipeline?.hunt?.status === "qualified" ? 0.5 : 0);
+  const collapses = [];
+  for (const [key, members] of groups) {
+    if (members.length < 2) continue;
+    members.sort((x, y) => score(y) - score(x));
+    const survivor = members[0];
+    const losers = members.slice(1);
+    let merged = survivor.c;
+    for (const l of losers) merged = mergeCompany(merged, l.c); // survivor wins scalars; unions contacts/provenance
+    merged.id = survivor.c.id;                                  // keep survivor id → its audit + screenshots stay valid
+    merged.pipeline = { ...merged.pipeline, shortlisted: members.some((m) => m.c.pipeline?.shortlisted) };
+    writeCompany(merged, root);
+    for (const l of losers) deleteCompany(l.c.id, root);        // removes the twin + its audit/screenshots/dossier
+    collapses.push({ key, survivor: survivor.c.id, merged: losers.map((l) => l.c.id) });
+  }
+  return collapses;
 }

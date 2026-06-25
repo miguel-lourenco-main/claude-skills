@@ -3,14 +3,18 @@
 // agent to grade; a no-website or unreachable site gets reachable:false and taste:null.
 
 import { join } from "node:path";
-import { listCompanyIds, paths, readCompany, storeRoot, writeAudit } from "../lib/store.mjs";
+import { dedupeByUrl, listCompanyIds, paths, readCompany, storeRoot, writeAudit } from "../lib/store.mjs";
 import { probe } from "../lib/probe.mjs";
 import { capture } from "../lib/capture.mjs";
 import { emit, progress, readRequest } from "./_cli.mjs";
 
 const root = storeRoot();
 const req = readRequest();
-const ids = (req.companyIds && req.companyIds.length ? req.companyIds : listCompanyIds(root)).filter((id) => readCompany(id, root));
+// A full pass (no explicit ids) runs as ONE process — safe to collapse url-twins afterwards. A
+// targeted run (e.g. a hunt's per-company subagents) may be one of MANY concurrent audit processes;
+// a store-wide merge+delete there could race a sibling, so targeted runs skip dedupe (discover does it).
+const fullPass = !(req.companyIds && req.companyIds.length);
+const ids = (fullPass ? listCompanyIds(root) : req.companyIds).filter((id) => readCompany(id, root));
 
 const today = () => new Date().toISOString().slice(0, 10);
 const audited = [];       // captured, taste pending
@@ -83,6 +87,22 @@ for (let idx = 0; idx < ids.length; idx++) {
   audited.push(id);
 }
 
+// Now that audits have resolved each site's final (post-redirect) URL, collapse any companies
+// that turned out to be the same site reached two ways. Full pass only (see fullPass note above),
+// and not on a canceled (partial) run.
+let deduped;
+if (fullPass && !stopping) {
+  try {
+    const collapses = dedupeByUrl(root);
+    if (collapses.length) {
+      deduped = collapses.reduce((n, c) => n + c.merged.length, 0);
+      progress({ phase: "deduped", message: `merged ${deduped} url-duplicate${deduped === 1 ? "" : "s"}` });
+    }
+  } catch (e) {
+    progress({ phase: "dedupe error", message: e.message });
+  }
+}
+
 emit({
   action: "audit",
   ok: !captureError && !stopping,
@@ -91,6 +111,7 @@ emit({
   pending: audited.length,
   count: audited.length + unreachable.length,
   total: ids.length,
+  deduped,
   canceled: stopping || undefined,
   captureError,
 });

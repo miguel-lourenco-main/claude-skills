@@ -118,7 +118,9 @@ header.topbar {
 .act { display: grid; grid-template-columns: 5.5rem 1fr auto; gap: 0.5rem; align-items: baseline; padding: 0.3rem 0; border-bottom: 1px solid var(--p-border); font-size: 0.8rem; }
 .act .a-act { font-weight: 600; }
 .act .a-sum { color: var(--p-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.act .a-meta { font-size: 0.7rem; color: var(--p-faint); font-variant-numeric: tabular-nums; }
+.act .a-meta { font-size: 0.7rem; color: var(--p-faint); font-variant-numeric: tabular-nums; display: inline-flex; gap: 0.4rem; align-items: baseline; }
+.loglink { color: var(--p-info); text-decoration: none; font-size: 0.7rem; opacity: 0.85; }
+.loglink:hover { text-decoration: underline; opacity: 1; }
 .act.run .a-act { color: var(--p-info); }
 .act.fail .a-act { color: var(--p-danger); }
 .act.queued { opacity: 0.65; }
@@ -160,7 +162,7 @@ header.topbar {
 .table { border: 1px solid var(--p-border); border-radius: 0.6rem; overflow: hidden; background: var(--p-surface); }
 .trow {
   display: grid;
-  grid-template-columns: 2.5rem 1.7fr 0.9fr 0.8fr 0.7fr 0.6fr 0.7fr 1.2fr 0.9fr;
+  grid-template-columns: 2.5rem 1.7fr 0.9fr 0.8fr 0.7fr 0.6fr 0.7fr 1.2fr 0.9fr 0.9fr 1.3fr;
   align-items: center; gap: 0.5rem; padding: 0.55rem 0.85rem;
 }
 .thead { font-size: 0.66rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--p-faint); border-bottom: 1px solid var(--p-border); background: var(--p-surface2); }

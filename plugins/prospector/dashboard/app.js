@@ -47,7 +47,9 @@ const COLS = [
   { key: "site", label: "Site", sortable: true },
   { key: "taste", label: "Taste", sortable: true, tip: "Visual quality of the site, 1 (worst)–5 (best), graded from the screenshots." },
   { key: "opportunity", label: "Opportunity", sortable: true, tip: "How much a redesign would help THIS site (0–1), from the taste grade. Leads are ranked by this — higher = better prospect." },
+  { key: "angle", label: "Angle", sortable: true, tip: "The kind of opportunity the hunt identified for a qualified lead: redesign, get-a-site, AI upsell, or growth." },
   { key: "status", label: "Status", sortable: true },
+  { key: "discovered", label: "Discovered", sortable: true, tip: "When this lead first entered the store (earliest source fetch date)." },
 ];
 
 const VTONE = {
@@ -63,10 +65,12 @@ function val(c, key) {
     case "vertical": return c.sector?.vertical ?? "";
     case "revenue": return c.size?.revenue?.value ?? 0;
     case "employees": return c.size?.employees ?? 0;
-    case "site": return c.digital?.hasWebsite ? 1 : 0;
+    case "site": return c.audit?.reachable === false && c.audit?.reason !== "no website" ? 0.5 : c.digital?.hasWebsite ? 1 : 0;
     case "taste": return c.audit?.taste?.overall ?? -1;
     case "opportunity": return c.audit?.taste?.opportunity ?? -1;
+    case "angle": return opportunityType(c) ?? "";
     case "status": return c.pipeline?.status ?? "";
+    case "discovered": return discoveredAt(c) ?? "";
     default: return "";
   }
 }
@@ -120,6 +124,18 @@ function rows() {
 }
 
 function tasteTone(v) { return v < 0 ? "muted" : v < 2.2 ? "danger" : v < 3.4 ? "warn" : "accent"; }
+/** When this lead first entered the store: the full discoveredAt timestamp if present (new records),
+ *  else the earliest provenance fetchedAt (legacy/seed records — date-only, no time available). */
+function discoveredAt(c) { return c.discoveredAt ?? (c.provenance ?? []).map((p) => p.fetchedAt).filter(Boolean).sort()[0] ?? null; }
+/** "24 Jun" for a date-only value; "24 Jun 14:32:07" when the value carries a time (full ISO). The
+ *  full ISO string belongs in the title attribute. Seconds show only for records that stored a time. */
+function fmtDate(d) {
+  const dt = new Date(d);
+  if (isNaN(dt)) return d;
+  const date = dt.toLocaleDateString(undefined, { day: "2-digit", month: "short" });
+  const hasTime = typeof d === "string" && d.length > 10; // "YYYY-MM-DD" has no time; full ISO does
+  return hasTime ? `${date} ${dt.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false })}` : date;
+}
 const revKnown = (c) => c.size?.revenueKnown !== false && typeof c.size?.revenue?.value === "number" && c.size.revenue.value > 0;
 
 /** Honest taste + opportunity cells from the real audit state — never a fabricated number. */
@@ -130,12 +146,28 @@ function auditCells(c) {
     const lbl = a.reason === "no website" ? "no site" : a.reason || "unreachable";
     return { taste: `<span class="pill warn" title="${esc(a.reason ?? "")}">${esc(lbl)}</span>`, opp: '<span class="csub">—</span>' };
   }
+  // Reachable but NO real screenshots → not a trustworthy audit (parked page, bot-protection, or a
+  // failed/fabricated capture). Never surface a taste grade that isn't backed by captured tiles.
+  if (!(a.screenshots?.desktop?.length > 0)) {
+    return { taste: '<span class="pill warn" title="site responded but no screenshots were captured — re-audit to verify">no capture</span>', opp: '<span class="csub">—</span>' };
+  }
   if (a.taste?.pending) return { taste: '<span class="pill info">grading…</span>', opp: '<span class="csub">captured</span>' };
   if (a.taste && typeof a.taste.overall === "number") {
     const t = a.taste.overall, o = a.taste.opportunity;
     return { taste: `<span class="pill ${tasteTone(t)}">${t}</span>`, opp: `<div class="bar" title="${o}"><span style="width:${Math.round(o * 100)}%"></span></div>` };
   }
   return { taste: '<span class="csub">—</span>', opp: '<span class="csub">—</span>' };
+}
+
+/** The Site-column cell. Surfaces a real audit verdict: an audited site that didn't resolve shows
+ *  "unreachable" (with the reason/status on hover), not the bare "yes" of having a URL on record. */
+function websiteCell(c) {
+  const a = c.audit;
+  if (a && a.reachable === false && a.reason !== "no website") {
+    const why = `${a.reason || "unreachable"}${a.status ? ` · http ${a.status}` : ""}`;
+    return `<span class="pill danger" title="site unreachable: ${esc(why)}">unreachable</span>`;
+  }
+  return c.digital?.hasWebsite ? '<span class="pill muted">yes</span>' : '<span class="pill warn">none</span>';
 }
 
 const LEADTYPE_LABEL = { "improvable-site": "redesign", "no-website": "get-a-site", "good-site": "AI upsell" };
@@ -148,6 +180,34 @@ function huntBadge(c) {
   const lt = LEADTYPE_LABEL[h.leadType] ?? h.leadType ?? "lead";
   return ` <span class="pill accent" title="hunt-qualified · ${esc(lt)}${fit ? " · fit " + fit : ""}">✓ ${esc(fit || "lead")}</span>`;
 }
+
+// The "kind of opportunity" identified by the hunt — its pitch angle. The stored pitchAngle is
+// free-text (sometimes a whole sentence), so we normalize to a canonical label, falling back to the
+// angle implied by the leadType. marketing-growth is checked first (it overrides the base type).
+const ANGLE_MATCH = [
+  [/marketing-growth|\bgrowth\b|visibilit|reach/, "growth"],
+  [/ai-upsell|ai\/|ai upsell|automation|chatbot/, "AI upsell"],
+  [/get-a-site|get a site|standalone|no[- ]website/, "get-a-site"],
+  [/redesign|improvable|revamp|modern/, "redesign"],
+];
+const ANGLE_TONE = { redesign: "info", "get-a-site": "warn", "AI upsell": "accent", growth: "info" };
+const ANGLE_SHORT = { redesign: "redesign", "get-a-site": "site", "AI upsell": "AI", growth: "growth" };
+/** Opportunity/pitch angles for a hunt-qualified lead, PRIMARY first (ordered by position in the stored
+ *  pitchAngle so a compound like "redesign+ai-upsell" keeps redesign primary), deduped, capped at 2.
+ *  Empty for non-qualified leads. Falls back to the leadType's implied angle when no token is recognized. */
+function opportunityAngles(c) {
+  const h = c.pipeline?.hunt;
+  if (!h || h.status !== "qualified") return [];
+  const raw = `${h.pitchAngle ?? ""} ${c.assessment?.pitchAngle ?? ""}`.toLowerCase();
+  const hits = [];
+  for (const [re, label] of ANGLE_MATCH) { const m = raw.match(re); if (m) hits.push([m.index, label]); }
+  const uniq = [...new Set(hits.sort((a, b) => a[0] - b[0]).map((x) => x[1]))].slice(0, 2);
+  if (uniq.length) return uniq;
+  const lt = LEADTYPE_LABEL[h.leadType];
+  return lt ? [lt] : [];
+}
+/** Primary angle (for sorting / single-value uses). */
+function opportunityType(c) { return opportunityAngles(c)[0] ?? null; }
 
 function renderTable() {
   const list = rows();
@@ -169,10 +229,12 @@ function renderTable() {
       <div><span class="pill ${VTONE[c.sector?.vertical] ?? "muted"}">${esc(c.sector?.vertical ?? "—")}</span></div>
       <div class="num">${revKnown(c) ? eur(c.size.revenue.value) : '<span class="csub" title="revenue unknown — neutral can-pay prior">?</span>'}</div>
       <div class="num">${c.size?.employees ?? "—"}</div>
-      <div>${c.digital?.hasWebsite ? '<span class="pill muted">yes</span>' : '<span class="pill warn">none</span>'}</div>
+      <div>${websiteCell(c)}</div>
       <div>${cells.taste}</div>
       <div>${cells.opp}</div>
+      <div>${(() => { const A = opportunityAngles(c); if (!A.length) return '<span class="csub">—</span>'; const sec = A[1] ? `<span class="csub" title="${esc(A.join(" + "))}"> +${esc(ANGLE_SHORT[A[1]] ?? A[1])}</span>` : ""; return `<span class="pill ${ANGLE_TONE[A[0]] ?? "muted"}" title="${esc(A.join(" + "))}">${esc(A[0])}</span>${sec}`; })()}</div>
       <div><span class="pill ${c.pipeline?.status === "contacted" ? "accent" : c.pipeline?.status === "outreach-ready" ? "info" : "muted"}">${esc(c.pipeline?.status ?? "—")}</span></div>
+      <div class="csub">${(() => { const d = discoveredAt(c); return d ? `<span title="${esc(d)}">${esc(fmtDate(d))}</span>` : "—"; })()}</div>
     </div>`;
   }).join("");
   updateSelAll();
@@ -318,6 +380,10 @@ function renderAuditSection(c) {
       : `Site unreachable (${esc(a.reason || "error")}${a.status ? `, http ${a.status}` : ""}). No screenshots, no taste score — by design.`;
     return `<h3>Website audit</h3><div class="issue ${a.reason === "no website" ? "medium" : "high"}">${msg}</div>`;
   }
+  // Reachable but nothing captured: show an honest note (no taste, no broken screenshot tiles).
+  if (!(a.screenshots?.desktop?.length > 0)) {
+    return `<h3>Website audit</h3><div class="issue high">Site responded${a.status ? ` (http ${a.status})` : ""} but <b>no screenshots were captured</b> — usually bot-protection, a parked page, or a failed capture${a.captureError ? `: ${esc(a.captureError)}` : ""}. No taste grade is shown — <b>re-audit</b> to verify the site is really live.</div>${techRows(a)}`;
+  }
   let taste = "";
   if (a.taste?.pending) {
     taste = `<div class="issue medium">Captured — awaiting visual grading. The taste pass (the agent reads these screenshots and grades them vs the ui-ux rubric) fills the scores.</div>`;
@@ -458,7 +524,7 @@ async function loadStore() {
     const r = await fetch("/api/store", { cache: "no-store" });
     const store = await r.json();
     setLive(true, `${store.stats.total} companies · store ok`);
-    const sig = JSON.stringify((store.companies ?? []).map((c) => [c.id, c.audit?.taste?.overall, c.audit?.taste?.opportunity, c.audit?.taste?.pending, c.pipeline?.status, c.digital?.hasWebsite])) + JSON.stringify(store.scope);
+    const sig = JSON.stringify((store.companies ?? []).map((c) => [c.id, c.audit?.taste?.overall, c.audit?.taste?.opportunity, c.audit?.taste?.pending, c.audit?.reachable, c.pipeline?.status, c.pipeline?.hunt?.status, c.pipeline?.hunt?.leadType, c.pipeline?.shortlisted, c.digital?.hasWebsite])) + JSON.stringify(store.scope);
     state.store = store;
     renderBanner(); // refresh each poll — agent online/offline changes without store data changing
     if (sig !== state.sig) {
@@ -661,8 +727,9 @@ function setConsoleTab(t) {
   $("#paneFeed").classList.toggle("on", t === "feed");
   $("#paneLog").classList.toggle("on", t === "log");
 }
-const actRow = (cls, action, sum, meta) =>
-  `<div class="act ${cls}"><span class="a-act">${esc(action)}</span><span class="a-sum">${esc(sum)}</span><span class="a-meta">${esc(meta)}</span></div>`;
+const logLink = (reqId) => reqId ? `<a class="loglink" href="/log?reqId=${encodeURIComponent(reqId)}" target="_blank" rel="noopener" title="Full action log / claude transcript">log ↗</a>` : "";
+const actRow = (cls, action, sum, meta, reqId) =>
+  `<div class="act ${cls}"><span class="a-act">${esc(action)}</span><span class="a-sum">${esc(sum)}</span><span class="a-meta">${logLink(reqId)}${meta ? `<span class="csub"> ${esc(meta)}</span>` : ""}</span></div>`;
 
 async function loadActivity() {
   let d;
@@ -673,9 +740,9 @@ async function loadActivity() {
   // or the two pollers (different intervals) flip its text back and forth ("1" ↔ "1 queued").
 
   const parts = [];
-  if (d.running) parts.push(`<div class="act run"><span class="a-act">${esc(d.running.action)}</span><span class="a-sum">${progressHtml(d.running) || esc(d.running.label || "")}</span><span class="a-meta">${d.running.reqId ? `<button class="stopbtn" data-stop="${esc(d.running.reqId)}">⏹ Stop</button>` : "running…"}</span></div>`);
+  if (d.running) parts.push(`<div class="act run"><span class="a-act">${esc(d.running.action)}</span><span class="a-sum">${progressHtml(d.running) || esc(d.running.label || "")}</span><span class="a-meta">${logLink(d.running.reqId)}${d.running.reqId ? `<button class="stopbtn" data-stop="${esc(d.running.reqId)}">⏹ Stop</button>` : "running…"}</span></div>`);
   for (const q of d.queue) parts.push(`<div class="act queued"><span class="a-act">${esc(q.action)}</span><span class="a-sum">${esc(q.target || "")}</span><span class="a-meta">${q.id ? `<button class="stopbtn" data-stop="${esc(q.id)}">✕</button>` : "queued"}</span></div>`);
-  for (const r of d.results) parts.push(actRow(r.ok ? "" : "fail", r.action, r.summary || "", r.ms != null ? `${r.ms}ms` : ""));
+  for (const r of d.results) parts.push(actRow(r.ok ? "" : "fail", r.action, r.summary || "", `${r.ms != null ? `${r.ms}ms` : ""}${r.costUSD ? ` · $${r.costUSD.toFixed(2)}` : ""}`, r.reqId));
   $("#paneFeed").innerHTML = parts.join("") || '<div class="console-empty">No activity yet. Trigger an action (Discover, Audit, Score…).</div>';
 
   const log = $("#paneLog");
@@ -713,8 +780,10 @@ $("#tbody").addEventListener("click", (e) => {
   const star = e.target.closest("[data-star]");
   if (star) {
     const id = star.dataset.star;
-    const cur = company(id)?.pipeline?.shortlisted;
-    postAction({ action: "shortlist", companyIds: [id], payload: { value: !cur } });
+    const c = company(id);
+    const next = !c?.pipeline?.shortlisted;
+    if (c) { c.pipeline = { ...(c.pipeline ?? {}), shortlisted: next }; renderTable(); renderShortlistChip(); } // optimistic; poll confirms
+    postAction({ action: "shortlist", companyIds: [id], payload: { value: next } });
     return;
   }
   const check = e.target.closest("[data-check]");

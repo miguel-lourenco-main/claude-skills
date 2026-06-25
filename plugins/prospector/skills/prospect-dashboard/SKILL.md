@@ -5,10 +5,15 @@ description: Open the Prospector dashboard — a local HTML console to view disc
 
 # Prospector dashboard
 
-Serves the Prospector console and starts the **watch-loop** that turns the dashboard's button
-clicks into real work. Architecture: the browser only reads the store and enqueues actions; a
-background loop drains the queue by running the action scripts and mutating the filesystem store,
-which the page re-reads every ~2s.
+Serves the Prospector console and starts the two **background workers** that turn the dashboard's
+button clicks into real work. Architecture: the browser only reads the store and enqueues actions;
+a `loop.mjs` worker drains the deterministic actions (discover/audit/rank/…) and an `agent-runner.mjs`
+worker drains the open-ended ones (hunt/deep-dive) by spawning a **headless `claude` CLI** — so the
+app is **standalone** and needs no separate Claude session. The page re-reads the store every ~2s.
+
+> **Standalone launch (recommended):** `npm start` (from the plugin dir) boots the bridge + both
+> workers and opens the dashboard. Everything below is what that launcher automates; you only need
+> the manual steps when embedding the dashboard inside an existing Claude session.
 
 > The store is the database, the skills are functions over it, and the bridge is a clickable remote.
 > Companies, audits and scope live under the **store root** (not in the plugin), so your data persists
@@ -31,12 +36,20 @@ dashboard is never empty.
 
 ## 1 · Serve + open
 
-Start **only the bridge** — it owns and manages the watch-loop as a child, so there is exactly ONE
-process to start and stop (no orphaned shells). If a bridge is already serving, reuse it.
+Prefer `npm start` (it boots the bridge + both workers and self-heals a stale bridge). To launch
+manually, start **only the bridge** — it owns and manages BOTH workers (the watch-loop and the
+headless-claude agent-runner) as children. **Reuse a running bridge only if it's the CURRENT build:**
+a leftover *pre-standalone* bridge (no `standalone` flag in `/api/status`) never started the
+agent-runner, so hunt/deep-dive would silently fall back to a human session — replace it.
 
 ```bash
 PORT="${PROSPECTOR_PORT:-8092}"
-if ! curl -s "http://127.0.0.1:$PORT/api/status" >/dev/null 2>&1; then
+STATUS="$(curl -s "http://127.0.0.1:$PORT/api/status" 2>/dev/null)"
+if [ -n "$STATUS" ] && ! printf '%s' "$STATUS" | grep -q '"standalone"'; then
+  echo "stale pre-standalone bridge on $PORT — replacing it"
+  pkill -f "bridge/server.mjs"; pkill -f "scripts/loop.mjs"; pkill -f "scripts/agent-runner.mjs"; sleep 1; STATUS=""
+fi
+if [ -z "$STATUS" ]; then
   ( cd "$PLUGIN" && PROSPECTOR_PORT="$PORT" PROSPECTOR_LOG=/tmp/prospector-loop.log \
       nohup node bridge/server.mjs >/tmp/prospector-bridge.log 2>&1 & )
   sleep 1
@@ -47,7 +60,8 @@ xdg-open "$URL" >/dev/null 2>&1 || true   # best-effort open
 ```
 
 Tell the user the URL, that it runs in the background, and how to stop it — killing the bridge stops its
-loop child too: `pkill -f "bridge/server.mjs"` (add `; pkill -f scripts/loop.mjs` only to clean strays).
+worker children too: `pkill -f "bridge/server.mjs"` (add `; pkill -f scripts/loop.mjs; pkill -f
+scripts/agent-runner.mjs` only to clean strays).
 
 ## 2 · The watch-loop
 
@@ -63,10 +77,17 @@ tail -n 20 /tmp/prospector-loop.log
 To drain the queue once without a standing loop (e.g. you're babysitting it yourself):
 `PROSPECTOR_ROOT="$PROSPECTOR_ROOT" node "$PLUGIN/scripts/loop.mjs" --once`.
 
-## 2.5 · Supervise (the agent's part of the loop)
+The bridge also spawns `scripts/agent-runner.mjs`, which drains the **agent actions** (`hunt`,
+`deepdive`) by spawning a headless `claude` per request (model `PROSPECTOR_CLAUDE_MODEL`, default
+`opus`; curated tool allowlist, or `PROSPECTOR_CLAUDE_BYPASS=1` to skip permission checks). This is
+what makes the app standalone — the dashboard's 🎯 Find clients and ★ Deep-dive buttons now complete
+on their own, no human-run skill needed. Its results land in `results.jsonl` like any other action.
 
-The node loop runs the **mechanical** steps. Two steps need **you** (a vision/judgement-capable agent),
-so check for them after actions run — that's what makes the dashboard's buttons fully "live":
+## 2.5 · Supervise (optional — when you ARE the agent)
+
+In standalone mode the agent-runner handles hunt/deep-dive for you. If instead you're driving the
+dashboard from inside a Claude session (or want to do the judgement steps yourself), these are the
+parts that need a vision/judgement-capable agent — check for them after actions run:
 
 - **Taste grading** — after an `audit`, the captured sites sit at `taste:{pending}`. Run
   `node "$PLUGIN/scripts/pending.mjs"`, **Read** each item's screenshots, grade them, and persist with

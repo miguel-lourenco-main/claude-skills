@@ -10,7 +10,7 @@
 // matching prospect-* skill instead — same request contract.
 
 import { spawn } from "node:child_process";
-import { existsSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
+import { appendFileSync, existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { appendResult, ensureStore, paths, readCancels, readQueue, readResults, storeRoot, writeJSON, PLUGIN_ROOT } from "../lib/store.mjs";
 
@@ -24,8 +24,9 @@ const SCRIPTS = {
   shortlist: "shortlist.mjs",
 };
 
-// Actions the LOOP must NOT run — they need the agent (open-ended LLM research). They stay
-// pending in the queue until a Claude session drains them via the matching skill.
+// Actions the LOOP must NOT run — they need open-ended LLM research. The companion worker
+// scripts/agent-runner.mjs drains these by spawning a headless `claude` (the standalone app runs
+// both workers). This loop simply leaves them for that worker so neither double-processes.
 const AGENT_ACTIONS = new Set(["deepdive", "hunt"]);
 
 const root = storeRoot();
@@ -108,9 +109,14 @@ function startReq(req) {
   if (!script) { appendResult({ reqId: req.id, action: req.action, ok: false, summary: "unknown action" }, root); return; }
   setRunning(req);
   const child = spawn("node", [join(PLUGIN_ROOT, "scripts", script), JSON.stringify(req)], { detached: true, stdio: ["ignore", "pipe", "pipe"] });
+  // Per-request detailed log: full stdout + stderr of the action script (mirrors the agent-runner's
+  // transcript for the deterministic actions). Opened fresh each run.
+  let logFile = null;
+  try { mkdirSync(paths(root).logs, { recursive: true }); logFile = join(paths(root).logs, `${req.id}.log`); writeFileSync(logFile, `# ${req.action} ${req.id} · ${new Date().toISOString()}\n# ${JSON.stringify(req)}\n\n`); } catch { /* best-effort */ }
+  const logAppend = (s) => { if (logFile) try { appendFileSync(logFile, s); } catch { /* ignore */ } };
   current = { req, child, startedAt: Date.now(), queuedAtMs: qMs(req), out: "", err: "", errBuf: "", canceling: false };
-  child.stdout.on("data", (d) => (current.out += d.toString()));
-  child.stderr.on("data", (d) => consumeStderr(current, d));
+  child.stdout.on("data", (d) => { current.out += d.toString(); logAppend(d.toString()); });
+  child.stderr.on("data", (d) => { consumeStderr(current, d); logAppend(d.toString()); });
   child.on("exit", (_code, signal) => onExit(req, signal));
   child.on("error", () => onExit(req, "error"));
 }

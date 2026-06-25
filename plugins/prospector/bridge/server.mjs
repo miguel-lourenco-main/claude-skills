@@ -16,6 +16,9 @@ const PORT = Number(process.env.PROSPECTOR_PORT ?? 8092);
 const DASH = join(PLUGIN_ROOT, "dashboard");
 const ROOT = storeRoot();
 ensureStore(ROOT);
+// Version marker so a launcher can tell a CURRENT (standalone, agent-runner-capable) bridge apart
+// from a stale pre-refactor one still squatting on the port — and replace it instead of reusing it.
+const VERSION = (() => { try { return JSON.parse(readFileSync(join(PLUGIN_ROOT, ".claude-plugin", "plugin.json"), "utf8")).version; } catch { return null; } })();
 
 const ACTIONS = new Set(["discover", "audit", "rank", "outreach", "scope", "delete", "shortlist", "deepdive", "hunt"]);
 const LOG_FILE = process.env.PROSPECTOR_LOG ?? "/tmp/prospector-loop.log";
@@ -53,6 +56,32 @@ function placeholderSVG(res, label) {
   res.end(svg);
 }
 
+/** Render an agent-action transcript (logs/<id>.jsonl of raw claude stream events) into a readable
+ *  log: prompt, every assistant message + tool call, tool results, stderr, and the final verdict. */
+function renderTranscript(jsonl) {
+  const out = [];
+  const trunc = (s, n) => { s = String(s ?? ""); return s.length > n ? `${s.slice(0, n)}… (+${s.length - n} chars)` : s; };
+  const textOf = (content) => Array.isArray(content) ? content.map((b) => (typeof b === "string" ? b : b.text ?? b.content ?? "")).join("") : String(content ?? "");
+  for (const raw of jsonl.split("\n")) {
+    if (!raw.trim()) continue;
+    let e; try { e = JSON.parse(raw); } catch { continue; }
+    if (e.type === "meta") out.push(`# ${e.action} · ${e.reqId} · model ${e.model} · ${new Date(e.startedAt).toISOString()}\n`);
+    else if (e.type === "prompt") out.push(`── prompt fed to claude ───────\n${trunc(e.text, 4000)}\n───────────────────────────────\n`);
+    else if (e.type === "system" && e.subtype === "init") out.push(`● session ${e.session_id ?? ""} · ${e.model ?? ""}`);
+    else if (e.type === "assistant" && Array.isArray(e.message?.content)) {
+      const who = e.parent_tool_use_id ? "subagent" : "claude";
+      for (const b of e.message.content) {
+        if (b.type === "text" && b.text?.trim()) out.push(`\n🧠 ${who}: ${b.text.trim()}`);
+        else if (b.type === "tool_use") out.push(`🔧 ${who} → ${b.name}(${trunc(JSON.stringify(b.input ?? {}), 400)})`);
+      }
+    } else if (e.type === "user" && Array.isArray(e.message?.content)) {
+      for (const b of e.message.content) if (b.type === "tool_result") out.push(`↩  ${trunc(textOf(b.content), 1500)}`);
+    } else if (e.type === "stderr") out.push(`⚠ ${String(e.text).trimEnd()}`);
+    else if (e.type === "result") out.push(`\n${e.is_error ? "❌" : "✅"} ${e.subtype} · ${e.num_turns ?? "?"} turns · $${(e.total_cost_usd ?? 0).toFixed(4)}${e.result ? `\n${trunc(e.result, 1000)}` : ""}`);
+  }
+  return out.join("\n");
+}
+
 const server = createServer((req, res) => {
   if (!isLoopback(req.socket.remoteAddress)) {
     res.writeHead(403);
@@ -69,22 +98,30 @@ const server = createServer((req, res) => {
     const results = readResults(ROOT);
     const handled = new Set(results.map((r) => r.reqId).filter(Boolean));
     const pending = readQueue(ROOT).filter((r) => !handled.has(r.id)).length;
-    return sendJSON(res, 200, { pending, results: results.slice(-20) });
+    // `standalone` + `version` let a launcher detect this is the CURRENT bridge (with the headless
+    // agent-runner) vs. a stale one; `workers` reports how many background workers are alive.
+    return sendJSON(res, 200, { pending, results: results.slice(-20), standalone: true, version: VERSION, workers: workers.length });
   }
   if (path === "/api/activity" && req.method === "GET") {
     const results = readResults(ROOT);
     const handled = new Set(results.map((r) => r.reqId).filter(Boolean));
     const queue = readQueue(ROOT).filter((r) => !handled.has(r.id))
       .map((r) => ({ id: r.id, action: r.action, queuedAt: r.queuedAt, target: r.payload?.area ?? (r.companyIds ? `${r.companyIds.length} selected` : undefined) }));
-    const runMarker = readJSON(paths(ROOT).running);
-    const running = runMarker?.reqId && !handled.has(runMarker.reqId) ? runMarker : null;
+    // Two workers can be busy at once (loop.mjs on a script action, agent-runner.mjs on a headless
+    // hunt/deepdive) — each keeps its own marker. Surface the agent run first (it's the headline,
+    // long-running task) and keep the script run as a fallback for the single-slot banner.
+    const active = (m) => (m?.reqId && !handled.has(m.reqId) ? m : null);
+    const scriptRun = active(readJSON(paths(ROOT).running));
+    const agentRun = active(readJSON(paths(ROOT).agentRunning));
+    const running = agentRun ?? scriptRun;
     let log = [];
     try { log = readFileSync(LOG_FILE, "utf8").split("\n").filter(Boolean).slice(-80); } catch { /* no log yet */ }
     return sendJSON(res, 200, {
       running,
+      runs: [agentRun, scriptRun].filter(Boolean), // both, if two workers are busy
       pending: queue.length,
       queue,
-      results: results.slice(-40).reverse().map((r) => ({ at: r.at, action: r.action, ok: r.ok, ms: r.ms, summary: r.summary })),
+      results: results.slice(-40).reverse().map((r) => ({ at: r.at, action: r.action, ok: r.ok, ms: r.ms, summary: r.summary, reqId: r.reqId, costUSD: r.costUSD })),
       log,
     });
   }
@@ -102,6 +139,13 @@ const server = createServer((req, res) => {
       const req2 = enqueue(action, ROOT);
       return sendJSON(res, 200, { ok: true, queued: req2 });
     });
+    return;
+  }
+  // Graceful self-shutdown (loopback-only, like everything here) so a launcher can replace a running
+  // bridge with fresh code without needing to find + kill its pid.
+  if (path === "/api/shutdown" && req.method === "POST") {
+    sendJSON(res, 200, { ok: true, bye: true });
+    setTimeout(shutdown, 100); // flush the response, then tear down workers + exit
     return;
   }
   if (path === "/api/cancel" && req.method === "POST") {
@@ -122,6 +166,21 @@ const server = createServer((req, res) => {
     const file = join(paths(ROOT).screenshots, rel);
     if (existsSync(file)) return sendFile(res, file);
     return placeholderSVG(res, rel.split("/").pop() ?? "preview");
+  }
+
+  // per-action transcript: agent actions render the full claude stream (logs/<id>.jsonl); script
+  // actions serve their raw stdout/stderr log (logs/<id>.log). ?raw=1 returns the unrendered jsonl.
+  if (path === "/log" && req.method === "GET") {
+    const id = (url.searchParams.get("reqId") ?? "").replace(/[^A-Za-z0-9_-]/g, ""); // no path traversal
+    const raw = url.searchParams.get("raw") === "1";
+    const jsonl = join(paths(ROOT).logs, `${id}.jsonl`);
+    const plain = join(paths(ROOT).logs, `${id}.log`);
+    let body = null;
+    if (id && existsSync(jsonl)) body = raw ? readFileSync(jsonl, "utf8") : renderTranscript(readFileSync(jsonl, "utf8"));
+    else if (id && existsSync(plain)) body = readFileSync(plain, "utf8");
+    if (body == null) { res.writeHead(404, { "content-type": "text/plain" }); return res.end("no log for this request yet"); }
+    res.writeHead(200, { "content-type": "text/plain; charset=utf-8", "cache-control": "no-store" });
+    return res.end(body);
   }
 
   // deep-dive report (markdown) for a company
@@ -152,19 +211,28 @@ const server = createServer((req, res) => {
   return send404(res);
 });
 
-// ---- single managed loop child --------------------------------------------
-// The bridge OWNS the watch-loop: one process to start, one to stop, no orphans.
-// (Set PROSPECTOR_NO_LOOP=1 to run the loop yourself instead.)
-let loopChild = null;
-function startLoop() {
+// ---- single managed worker children ----------------------------------------
+// The bridge OWNS both background workers — start one process, stop one process, no orphans:
+//   loop.mjs         runs the deterministic action scripts (discover/audit/rank/…)
+//   agent-runner.mjs spawns a headless `claude` for the open-ended actions (hunt/deepdive),
+//                    making the app self-contained — no separate Claude session needed.
+// (Set PROSPECTOR_NO_LOOP=1 to run the workers yourself instead.)
+const workers = [];
+function startWorkers() {
   if (process.env.PROSPECTOR_NO_LOOP === "1") return;
   let out = "ignore";
   try { out = openSync(LOG_FILE, "a"); } catch { /* fall back to ignore */ }
-  loopChild = spawn("node", [join(PLUGIN_ROOT, "scripts", "loop.mjs")], { stdio: ["ignore", out, out], env: process.env });
-  loopChild.on("exit", () => { loopChild = null; });
+  // The agent-runner is the standalone autonomous drainer. Set PROSPECTOR_NO_AGENT=1 to omit it and
+  // fall back to draining hunt/deepdive from a human Claude session (e.g. when no `claude` CLI is available).
+  const scripts = process.env.PROSPECTOR_NO_AGENT === "1" ? ["loop.mjs"] : ["loop.mjs", "agent-runner.mjs"];
+  for (const script of scripts) {
+    const child = spawn("node", [join(PLUGIN_ROOT, "scripts", script)], { stdio: ["ignore", out, out], env: process.env });
+    child.on("exit", () => { const i = workers.indexOf(child); if (i >= 0) workers.splice(i, 1); });
+    workers.push(child);
+  }
 }
 function shutdown() {
-  try { loopChild?.kill("SIGTERM"); } catch { /* gone */ }
+  for (const w of workers) { try { w.kill("SIGTERM"); } catch { /* gone */ } }
   process.exit(0);
 }
 process.on("SIGTERM", shutdown);
@@ -182,5 +250,5 @@ server.on("error", (e) => {
 
 server.listen(PORT, HOST, () => {
   console.log(`prospector bridge on http://${HOST}:${PORT}  · store=${ROOT}`);
-  startLoop();
+  startWorkers();
 });

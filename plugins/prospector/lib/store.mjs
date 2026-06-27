@@ -60,7 +60,7 @@ export function agentOnline(root = storeRoot()) {
 /** Delete a company and everything keyed to it (audit + screenshots). Destructive. */
 export function deleteCompany(id, root = storeRoot()) {
   const p = paths(root);
-  for (const f of [companyFile(id, root), auditFile(id, root), join(p.outreach, `${id}.md`), dossierFile(id, root)]) {
+  for (const f of [companyFile(id, root), auditFile(id, root), join(p.outreach, `${id}.md`), outreachFile(id, root), dossierFile(id, root)]) {
     try { rmSync(f); } catch { /* not present */ }
   }
   try { rmSync(join(p.screenshots, id), { recursive: true, force: true }); } catch { /* none */ }
@@ -128,6 +128,12 @@ export const hasAssessment = (id, root = storeRoot()) => existsSync(assessmentFi
 export const readAssessment = (id, root = storeRoot()) => readJSON(assessmentFile(id, root));
 export const writeAssessment = (a, root = storeRoot()) => writeJSON(assessmentFile(a.companyId, root), a);
 
+// Outreach package (email + text + researched contacts + send state), keyed by company id.
+export const outreachFile = (id, root = storeRoot()) => join(paths(root).outreach, `${id}.json`);
+export const hasOutreach = (id, root = storeRoot()) => existsSync(outreachFile(id, root));
+export const readOutreach = (id, root = storeRoot()) => readJSON(outreachFile(id, root));
+export const writeOutreach = (o, root = storeRoot()) => writeJSON(outreachFile(o.companyId, root), o);
+
 export const auditFile = (id, root = storeRoot()) =>
   join(paths(root).audits, `${id}.website.json`);
 export const readAudit = (id, root = storeRoot()) => readJSON(auditFile(id, root));
@@ -143,7 +149,7 @@ export function listCompanies(root = storeRoot()) {
 export function aggregateStore(root = storeRoot()) {
   ensureStore(root);
   const scope = readScope(root);
-  const companies = listCompanies(root).map((c) => ({ ...c, audit: readAudit(c.id, root), hasDossier: hasDossier(c.id, root), assessment: readAssessment(c.id, root) }));
+  const companies = listCompanies(root).map((c) => ({ ...c, audit: readAudit(c.id, root), hasDossier: hasDossier(c.id, root), assessment: readAssessment(c.id, root), outreach: readOutreach(c.id, root) }));
   companies.sort((a, b) => (b.audit?.taste?.opportunity ?? -1) - (a.audit?.taste?.opportunity ?? -1));
   const graded = (a) => a?.taste && !a.taste.pending && typeof a.taste.overall === "number";
   // queued agent requests still awaiting the agent (queue ids without a result).
@@ -162,6 +168,11 @@ export function aggregateStore(root = storeRoot()) {
     rejected: companies.filter((c) => c.pipeline?.hunt?.status === "rejected").length,
     contacted: companies.filter((c) => c.pipeline?.status === "contacted").length,
     noWebsite: companies.filter((c) => !c.digital?.hasWebsite).length,
+    // outreach pipeline (one outreach record per company)
+    outreachDrafts: companies.filter((c) => c.outreach?.status === "draft").length,
+    outreachReady: companies.filter((c) => c.outreach && ["validated", "bundled"].includes(c.outreach.status)).length,
+    bundled: companies.filter((c) => c.outreach?.status === "bundled").length,
+    outreachSent: companies.filter((c) => c.outreach?.status === "sent").length,
     // agent-needed work + presence.
     pendingGrading: companies.filter((c) => c.audit?.reachable && c.audit?.taste?.pending).length,
     pendingDeepdive,

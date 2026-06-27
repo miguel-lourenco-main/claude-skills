@@ -18,16 +18,20 @@ const SCRIPTS = {
   discover: "discover.mjs",
   audit: "audit.mjs",
   rank: "rank.mjs",
-  outreach: "outreach.mjs",
   scope: "scope.mjs",
   delete: "delete.mjs",
   shortlist: "shortlist.mjs",
+  setstatus: "setstatus.mjs",
+  "outreach-save": "outreach-save.mjs", // persist operator edits / validation / status (no agent, no cost)
+  send: "send.mjs",                     // send one validated email via SMTP (a bundle = many of these)
 };
 
 // Actions the LOOP must NOT run — they need open-ended LLM research. The companion worker
 // scripts/agent-runner.mjs drains these by spawning a headless `claude` (the standalone app runs
 // both workers). This loop simply leaves them for that worker so neither double-processes.
-const AGENT_ACTIONS = new Set(["deepdive", "hunt"]);
+// `outreach` is agent-driven (research contacts + draft email/text); `outreach-save`/`send` are the
+// deterministic follow-ups the loop DOES run.
+const AGENT_ACTIONS = new Set(["deepdive", "hunt", "outreach"]);
 
 const root = storeRoot();
 ensureStore(root);

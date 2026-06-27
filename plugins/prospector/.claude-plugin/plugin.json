@@ -1,6 +1,6 @@
 {
   "name": "prospector",
-  "description": "Lead-generation system for a web-redesign business: gather companies within a defined scope, store rich dossiers (sector, revenue, employees — not website quality), capture + taste-audit their websites, score the money×bad-site×site-matters opportunity, and prep outreach. Runs as a standalone local app (`npm start`): an HTML dashboard over a filesystem store, a watch-loop for deterministic actions, and a headless `claude` agent-runner that drains hunt/deep-dive autonomously — no separate Claude session required.",
-  "version": "0.3.0",
+  "description": "Lead-generation system for a web-redesign business: gather companies within a defined scope, store rich dossiers (sector, revenue, employees — not website quality), capture + taste-audit their websites, score the money×bad-site×site-matters opportunity, and run an outreach workspace (agent-drafted email + copy-paste text → validate the contact → send now or as a bundle via SMTP). Runs locally (`npm start`, loopback) or hosted in a container with shared-password auth (set PROSPECTOR_PASSWORD; see DEPLOY.md): an HTML dashboard over a filesystem store, a watch-loop for deterministic actions (incl. outreach-save/send), and a headless `claude` agent-runner that drains hunt/deep-dive/outreach autonomously — no separate Claude session required.",
+  "version": "0.4.0",
   "author": { "name": "migaloco", "email": "migasoulou@gmail.com" }
 }

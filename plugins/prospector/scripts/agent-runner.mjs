@@ -17,7 +17,7 @@ import { appendResult, ensureStore, paths, readCancels, readQueue, readResults, 
 
 // action → the skill whose SKILL.md drives the headless claude (the skill stays the single source
 // of truth for the agent's procedure; we just feed it in non-interactively, scoped to one reqId).
-const AGENT_SKILLS = { hunt: "prospect-hunt", deepdive: "prospect-deepdive" };
+const AGENT_SKILLS = { hunt: "prospect-hunt", deepdive: "prospect-deepdive", outreach: "prospect-outreach" };
 const MODEL = process.env.PROSPECTOR_CLAUDE_MODEL || "opus";
 const CLAUDE_BIN = process.env.PROSPECTOR_CLAUDE_BIN || "claude";
 const BYPASS = process.env.PROSPECTOR_CLAUDE_BYPASS === "1";
@@ -58,7 +58,7 @@ function buildPrompt(req) {
     `ALWAYS run \`export PROSPECTOR_ROOT="${root}"\` before invoking the plugin's node scripts.`,
     `Process ONLY the queued request reqId="${req.id}" (action="${req.action}"). Ignore every other`,
     "pending/queued request — do not start work on, or resolve, any other reqId.",
-    req.action === "deepdive" && req.companyIds?.length ? `Target companyIds: ${JSON.stringify(req.companyIds)}.` : "",
+    (req.action === "deepdive" || req.action === "outreach") && req.companyIds?.length ? `Target companyIds: ${JSON.stringify(req.companyIds)}.` : "",
     "Follow the skill below to completion, run its resolve/save step for this reqId, then print a",
     "single final line summarizing the outcome (e.g. \"qualified 10/10 · examined 15\").",
     "",

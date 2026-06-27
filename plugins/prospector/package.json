@@ -4,11 +4,14 @@
   "private": true,
   "description": "Prospector plugin runtime deps (Playwright for real website capture). Run `npm install --prefix .` once; uses system Google Chrome via channel:'chrome' (no Chromium download).",
   "type": "module",
-  "bin": { "prospector": "scripts/start.mjs" },
+  "bin": {
+    "prospector": "scripts/start.mjs"
+  },
   "scripts": {
     "start": "node scripts/start.mjs"
   },
   "dependencies": {
+    "nodemailer": "^6.10.1",
     "playwright": "^1.49.0"
   }
 }

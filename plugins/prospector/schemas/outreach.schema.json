@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "prospector/outreach",
+  "title": "Outreach record",
+  "description": "Per-company outreach package, keyed by company id (outreach/<id>.json). Drafted by the prospect-outreach agent (email + a copy-paste text + researched contacts to validate), then edited / validated / sent by a human in the dashboard. Email is the only channel the app sends (via SMTP); text is copy-paste only.",
+  "type": "object",
+  "required": ["companyId", "status"],
+  "properties": {
+    "companyId": { "type": "string" },
+    "email": {
+      "type": "object",
+      "description": "The auto-sendable channel.",
+      "properties": {
+        "subject": { "type": "string" },
+        "body": { "type": "string", "description": "Plain-text email body (PT, humanized)." }
+      }
+    },
+    "text": {
+      "type": "object",
+      "description": "A short channel-agnostic message the operator COPIES into WhatsApp/IG/SMS. Never auto-sent.",
+      "properties": {
+        "body": { "type": "string" }
+      }
+    },
+    "contacts": {
+      "type": "array",
+      "description": "Contacts the agent researched, for the operator to validate before use. NEVER fabricated — empty if none found.",
+      "items": {
+        "type": "object",
+        "required": ["type", "value"],
+        "properties": {
+          "type": { "enum": ["email", "phone", "instagram", "facebook", "linkedin", "whatsapp", "other"] },
+          "value": { "type": "string" },
+          "source": { "type": "string", "description": "Where it was found (URL / 'website contact page' / 'discovery')." },
+          "confidence": { "type": "number", "description": "0..1 — how sure the agent is this reaches a decision-maker." },
+          "validation": { "enum": ["pending", "valid", "invalid", "corrected"], "description": "Operator's verdict." },
+          "correctedValue": { "type": ["string", "null"], "description": "The fixed value when validation==='corrected'." }
+        }
+      }
+    },
+    "chosenRecipient": { "type": ["string", "null"], "description": "The email address the operator picked to send to (a contact value or correctedValue)." },
+    "pitchAngle": { "type": ["string", "null"], "description": "Carried from the hunt assessment: redesign | get-a-site | ai-upsell | marketing-growth | compound." },
+    "status": {
+      "enum": ["draft", "validated", "bundled", "sending", "sent", "failed"],
+      "description": "draft (agent wrote it) → validated (operator checked it) → bundled (queued in a send bundle) → sending → sent | failed."
+    },
+    "emailSentAt": { "type": ["string", "null"] },
+    "textMarkedAt": { "type": ["string", "null"], "description": "When the operator marked the text message as sent (manually, elsewhere)." },
+    "messageId": { "type": ["string", "null"], "description": "SMTP message id of the sent email." },
+    "error": { "type": ["string", "null"], "description": "Send failure reason when status==='failed'." },
+    "draftedAt": { "type": ["string", "null"] },
+    "updatedAt": { "type": ["string", "null"] },
+    "history": {
+      "type": "array",
+      "description": "Append-only audit trail of status transitions / sends.",
+      "items": {
+        "type": "object",
+        "properties": { "at": { "type": "string" }, "event": { "type": "string" }, "detail": { "type": "string" } }
+      }
+    }
+  }
+}

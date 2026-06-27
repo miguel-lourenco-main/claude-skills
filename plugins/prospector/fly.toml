@@ -1,0 +1,28 @@
+# Fly.io deploy config for Prospector (run `fly deploy` from this directory).
+# Single instance ONLY — the file store + lock files assume one process (do not scale out).
+app = "prospector-leadgen"      # must be globally unique — change if `fly launch` says it's taken
+primary_region = "mad"          # Madrid, close to Portugal
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  PROSPECTOR_ROOT = "/data/.prospector"
+  PROSPECTOR_NO_OPEN = "1"
+  PORT = "8092"
+
+[http_service]
+  internal_port = 8092
+  force_https = true
+  auto_stop_machines = false    # keep it up — the watch-loop + agent-runner must stay running
+  auto_start_machines = true
+  min_machines_running = 1
+  max_machines_running = 1       # never run two — they'd double-process the queue + split state
+
+[[mounts]]
+  source = "prospector_data"     # persistent volume → /data (companies, audits, screenshots, outreach)
+  destination = "/data"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "2048mb"              # Playwright/Chromium + the headless claude need headroom

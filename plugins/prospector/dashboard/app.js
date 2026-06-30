@@ -467,7 +467,7 @@ function renderActionBar() {
   bar.innerHTML = `<span class="ab-count">${ids.length} selected</span>${btns}<button class="abtn ab-clear" id="selClear" aria-label="Clear selection">${ic("x", 13)}</button>`;
 }
 
-const RUN_VERB = { audit: "Auditing", discover: "Discovering", rank: "Ranking", outreach: "Drafting outreach", scope: "Updating scope", delete: "Deleting", hunt: "Hunting leads" };
+const RUN_VERB = { audit: "Auditing", discover: "Discovering", rank: "Ranking", outreach: "Drafting outreach", scope: "Updating scope", delete: "Deleting", hunt: "Hunting leads", import: "Importing leads" };
 
 /** Compact human duration from ms: 45s · 3m12s · 1h04m. */
 function fmtDur(ms) {
@@ -1049,6 +1049,22 @@ function setLive(ok, text) {
   $("#statusText").textContent = text;
 }
 
+// ---- local-worker connection status (Part B) ----
+async function loadWorkers() {
+  const el = $("#workerPill");
+  if (!el) return;
+  let d;
+  try { d = await (await fetch("/api/workers", { cache: "no-store" })).json(); } catch { return; }
+  if (!d.enabled || d.state === "off") { el.hidden = true; return; } // worker mode disabled on the server
+  el.hidden = false;
+  el.className = `worker-pill ${d.state}`;
+  const label = d.state === "working" ? "Local worker · running" : d.state === "connected" ? "Local worker connected" : "Local worker offline";
+  const tip = d.state === "disconnected" ? "Cloud agent (paid) is handling work. Run /prospector:prospect-worker locally to take over for free." : "A local Claude session is draining the queue off your subscription.";
+  const recon = d.state === "disconnected" ? ` <button class="wp-reconnect" data-worker-reconnect>Reconnect</button>` : "";
+  el.title = tip;
+  el.innerHTML = `<span class="wp-dot"></span> ${label}${recon}`;
+}
+
 // ---- actions ---------------------------------------------------------------
 async function postAction(action) {
   try {
@@ -1391,6 +1407,34 @@ $("#kpis").addEventListener("click", (e) => { const k = e.target.closest("[data-
 document.querySelectorAll("[data-view]").forEach((b) => b.addEventListener("click", () => { state.view = b.dataset.view; renderView(); syncUrl(); }));
 window.addEventListener("resize", sizeBoard);
 $("#editScope").addEventListener("click", openScope);
+// ---- import / export the store bundle ----
+$("#exportBtn").addEventListener("click", () => {
+  const a = document.createElement("a"); a.href = "/api/export"; a.download = ""; // Content-Disposition forces the download
+  document.body.appendChild(a); a.click(); a.remove();
+  toast("preparing export…", "ok");
+});
+$("#importBtn").addEventListener("click", () => $("#importFile").click());
+$("#importFile").addEventListener("change", async (e) => {
+  const file = e.target.files?.[0];
+  e.target.value = ""; // reset so the same file can be re-picked
+  if (!file) return;
+  toast(`uploading ${file.name}…`, "ok");
+  try {
+    const r = await fetch("/api/import", { method: "POST", headers: { "content-type": "application/gzip" }, body: file });
+    const out = await r.json();
+    if (!r.ok || out.error) return toast(out.error ?? "import failed", "err");
+    toast(`import queued (${(out.bytes / 1048576).toFixed(1)} MB) — merging…`, "ok");
+    loadStatus();
+  } catch { toast("upload failed — is the app reachable?", "err"); }
+});
+$("#workerPill").addEventListener("click", async (e) => {
+  if (!e.target.closest("[data-worker-reconnect]")) return;
+  try {
+    const out = await (await fetch("/api/worker/reset", { method: "POST", headers: { "content-type": "application/json" }, body: "{}" })).json();
+    toast(out.reconnect || "freed stuck jobs — run /prospector:prospect-worker locally to reconnect", "ok");
+    loadWorkers();
+  } catch { toast("reconnect failed", "err"); }
+});
 $("#scopeCancel").addEventListener("click", closeScope);
 $("#scopeSave").addEventListener("click", saveScope);
 $("#scrim").addEventListener("click", closePanel);
@@ -1485,4 +1529,6 @@ loadStore().then(() => { if (state.detailId && company(state.detailId)) openPane
 loadStatus();
 setInterval(loadStore, 2000);
 setInterval(loadStatus, 2000);
+loadWorkers();
+setInterval(loadWorkers, 3000);
 setInterval(() => { if (state.console.open) loadActivity(); }, 1500);

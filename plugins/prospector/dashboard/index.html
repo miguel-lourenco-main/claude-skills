@@ -17,6 +17,7 @@
       <span class="spacer"></span>
       <input class="filter" id="filter" placeholder="Filter companies…" />
       <button class="btn" id="activityBtn" title="Show agent activity + logs"><svg class="ic" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h4l3 8 4-16 3 8h4"/></svg> Activity <span class="badge" id="pending" hidden>0</span></button>
+      <span class="worker-pill" id="workerPill" hidden></span>
       <span class="status"><span class="live off" id="live"></span><span id="statusText">connecting…</span></span>
     </header>
 
@@ -35,6 +36,9 @@
         <span class="spacer"></span>
         <button class="btn" id="paletteBtn" title="Command palette (⌘K)"><kbd>⌘K</kbd></button>
         <button class="btn" id="editScope"><svg class="ic" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h8M16 7h4M4 12h4M12 12h8M4 17h6M14 17h6"/><circle cx="14" cy="7" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="12" cy="17" r="2"/></svg> Scope</button>
+        <button class="btn" id="importBtn" title="Import a store bundle (.tar.gz) — merges leads + all their data"><svg class="ic" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V3M8 7l4-4 4 4"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg> Import</button>
+        <button class="btn" id="exportBtn" title="Download the whole store as a .tar.gz (back up / move to local)"><svg class="ic" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M8 11l4 4 4-4"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg> Export</button>
+        <input type="file" id="importFile" accept=".gz,.tgz,.tar.gz,application/gzip" hidden>
       </div>
 
       <section class="kpis" id="kpis"></section>

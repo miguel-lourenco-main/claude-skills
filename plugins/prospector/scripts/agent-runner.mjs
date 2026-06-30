@@ -13,7 +13,7 @@
 import { spawn } from "node:child_process";
 import { appendFileSync, existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { appendResult, ensureStore, paths, readCancels, readQueue, readResults, storeRoot, writeJSON, PLUGIN_ROOT } from "../lib/store.mjs";
+import { appendResult, ensureStore, leaseLive, leaseState, paths, readCancels, readQueue, readResults, RECLAIM_GRACE_MS, storeRoot, workerPresent, WORKER_DIBS_MS, writeJSON, PLUGIN_ROOT } from "../lib/store.mjs";
 
 // action → the skill whose SKILL.md drives the headless claude (the skill stays the single source
 // of truth for the agent's procedure; we just feed it in non-interactively, scoped to one reqId).
@@ -195,10 +195,18 @@ function refreshCancels() {
 /** Start the next runnable AGENT request if idle; drop canceled queued ones. */
 function pump() {
   if (current || claudeUnavailable) return; // claude missing → leave agent actions for a human session
+  // Local-first: defer to a remote worker (a local Claude session draining off the user's subscription)
+  // and only fall back to the metered cloud API after its lease expires + a grace period.
+  const ls = leaseState(root);
+  const present = workerPresent(root);
   for (const req of readQueue(root)) {
     if (done.has(req.id)) continue;
     if (!AGENT_SKILLS[req.action]) continue; // not ours — loop.mjs handles script actions
     if (canceled.has(req.id)) { done.add(req.id); appendResult({ reqId: req.id, action: req.action, ok: false, canceled: true, summary: "canceled" }, root); console.log(`▸ ${req.action} ${req.id} → CANCELED (queued)`); continue; }
+    const e = ls.get(req.id);
+    if (leaseLive(e)) continue;                                                        // a worker owns it → defer
+    if (e && e.type !== "release" && (e.expiresAt + RECLAIM_GRACE_MS) > Date.now()) continue; // lease expired, still in grace → wait before stealing
+    if (present && !e && (Date.now() - qMs(req)) < WORKER_DIBS_MS) continue;            // fresh request + worker connected → first dibs (bounded)
     startReq(req);
     return;
   }

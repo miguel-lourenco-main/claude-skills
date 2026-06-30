@@ -24,6 +24,7 @@ const SCRIPTS = {
   setstatus: "setstatus.mjs",
   "outreach-save": "outreach-save.mjs", // persist operator edits / validation / status (no agent, no cost)
   send: "send.mjs",                     // send one validated email via SMTP (a bundle = many of these)
+  import: "import.mjs",                 // merge an uploaded store bundle (.tar.gz) into the store
 };
 
 // Actions the LOOP must NOT run — they need open-ended LLM research. The companion worker

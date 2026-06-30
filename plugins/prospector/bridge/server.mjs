@@ -8,11 +8,11 @@
 // store and appends to the request queue (the workers run the actions).
 
 import { createServer } from "node:http";
-import { spawn } from "node:child_process";
-import { existsSync, openSync, readFileSync } from "node:fs";
+import { spawn, spawnSync } from "node:child_process";
+import { createWriteStream, existsSync, mkdirSync, openSync, readFileSync, rmSync } from "node:fs";
 import { extname, join, normalize } from "node:path";
 import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
-import { aggregateStore, cancelRequest, enqueue, ensureStore, paths, readAssessment, readDossier, readJSON, readOutreach, readQueue, readResults, PLUGIN_ROOT, storeRoot } from "../lib/store.mjs";
+import { aggregateStore, AGENT_ACTIONS, appendLease, appendResult, bundleDirs, cancelRequest, enqueue, ensureStore, leaseLive, leaseState, LEASE_TTL_MS, paths, readAssessment, readCancels, readDossier, readJSON, readOutreach, readQueue, readResults, readWorker, RECLAIM_GRACE_MS, touchWorker, workerPresent, writeJSON, writeWorker, WORKER_PRESENCE_MS, PLUGIN_ROOT, storeRoot } from "../lib/store.mjs";
 
 // Auth posture: if PROSPECTOR_PASSWORD is set, the bridge runs in ONLINE mode — it binds 0.0.0.0 and
 // gates every data route behind a shared-password cookie (for the hosted app). If it's unset, the
@@ -24,6 +24,12 @@ const SECRET = process.env.SESSION_SECRET || (PASSWORD ? `prospector:${PASSWORD}
 const SESSION_TTL_MS = 1000 * 60 * 60 * 24 * 30; // 30 days
 const COOKIE = "prospector_session";
 
+// Remote-worker auth (Part B): a local Claude session running /prospector:prospect-worker drains the
+// agent queue off the user's subscription. It authenticates with this bearer token (separate from the
+// dashboard password). Unset → the whole worker feature is dormant and the /api/worker/* routes 404.
+const WORKER_TOKEN = process.env.PROSPECTOR_WORKER_TOKEN || "";
+const WORKER_ON = !!WORKER_TOKEN;
+
 const HOST = AUTH_ON ? "0.0.0.0" : "127.0.0.1";
 const PORT = Number(process.env.PORT ?? process.env.PROSPECTOR_PORT ?? 8092);
 const DASH = join(PLUGIN_ROOT, "dashboard");
@@ -33,7 +39,7 @@ ensureStore(ROOT);
 // from a stale pre-refactor one still squatting on the port — and replace it instead of reusing it.
 const VERSION = (() => { try { return JSON.parse(readFileSync(join(PLUGIN_ROOT, ".claude-plugin", "plugin.json"), "utf8")).version; } catch { return null; } })();
 
-const ACTIONS = new Set(["discover", "audit", "rank", "outreach", "outreach-save", "send", "scope", "delete", "shortlist", "setstatus", "deepdive", "hunt"]);
+const ACTIONS = new Set(["discover", "audit", "rank", "outreach", "outreach-save", "send", "scope", "delete", "shortlist", "setstatus", "deepdive", "hunt", "import"]);
 const LOG_FILE = process.env.PROSPECTOR_LOG ?? "/tmp/prospector-loop.log";
 const MIME = { ".html": "text/html", ".js": "text/javascript", ".css": "text/css", ".json": "application/json", ".png": "image/png", ".svg": "image/svg+xml" };
 
@@ -70,6 +76,23 @@ const setCookie = (req, token, maxAge) => {
 // Data routes that must answer 401 (not an HTML redirect) when unauthenticated, so the dashboard's
 // fetches can detect the lapsed session and bounce to /login.
 const isApiPath = (p) => p.startsWith("/api/") || p === "/log" || p === "/dossier" || p === "/assessment" || p === "/outreach";
+
+// ---- remote worker bearer auth (Part B) ----
+function isWorker(req) {
+  if (!WORKER_ON) return false;
+  const m = /^Bearer\s+(.+)$/.exec(req.headers.authorization || "");
+  return !!m && eq(m[1], WORKER_TOKEN);
+}
+/** Mirror a remote-worker run into the agent-running marker so the dashboard banner shows it
+ *  (the worker has no in-container process; the bridge synthesizes the marker on lease, clears on
+ *  complete). */
+function setRemoteRunMarker(reqObj) {
+  const m = reqObj
+    ? { reqId: reqObj.id, action: reqObj.action, agent: true, remote: true, startedAt: Date.now(),
+        label: `${reqObj.action}${reqObj.companyIds?.length ? ` (${reqObj.companyIds.length})` : reqObj.payload?.area ? ` · ${reqObj.payload.area}` : ""} · local worker` }
+    : { running: null };
+  try { writeJSON(paths(ROOT).agentRunning, m); } catch { /* best-effort */ }
+}
 
 function sendJSON(res, code, data) {
   const body = JSON.stringify(data);
@@ -158,6 +181,126 @@ function renderTranscript(jsonl) {
   }).join("\n");
 }
 
+function readJsonBody(req, cb) {
+  let b = "";
+  req.on("data", (c) => (b += c));
+  req.on("end", () => { let j = null; try { j = JSON.parse(b || "{}"); } catch { /* bad json */ } cb(j); });
+  req.on("error", () => cb(null));
+}
+
+/** Atomically grant a lease on the next runnable agent request (or a specific `wantId`). The single
+ *  bridge process serializes this, so two workers never get the same reqId. Returns {reqId,req,
+ *  expiresAt} / null (nothing) / {error}. */
+function workerLeaseNext(workerId, wantId) {
+  const done = new Set(readResults(ROOT).map((r) => r.reqId).filter(Boolean));
+  const ls = leaseState(ROOT);
+  const { ids: cancelIds, allBefore } = readCancels(ROOT);
+  const qms = (r) => (r.queuedAt ? new Date(r.queuedAt).getTime() : Date.now());
+  for (const r of readQueue(ROOT)) {
+    if (wantId && r.id !== wantId) continue;
+    const bail = (error) => (wantId ? { error } : null);
+    if (done.has(r.id)) { if (wantId) return bail("already done"); continue; }
+    if (!AGENT_ACTIONS.has(r.action)) { if (wantId) return bail("not an agent action"); continue; }
+    if (cancelIds.has(r.id) || (allBefore && qms(r) <= allBefore)) { if (wantId) return bail("canceled"); continue; }
+    const e = ls.get(r.id);
+    if (leaseLive(e) && e.workerId !== workerId) { if (wantId) return bail("leased by another worker"); continue; }
+    const expiresAt = Date.now() + LEASE_TTL_MS;
+    appendLease({ type: "lease", reqId: r.id, workerId, expiresAt }, ROOT);
+    setRemoteRunMarker(r);
+    return { reqId: r.id, req: r, expiresAt };
+  }
+  return wantId ? { error: "not found in queue" } : null;
+}
+
+/** The bearer-authed /api/worker/* endpoints (the remote-worker session protocol). */
+function handleWorker(path, req, res) {
+  const sub = path.slice("/api/worker/".length);
+
+  if (sub === "heartbeat" && req.method === "POST") {
+    return readJsonBody(req, (b) => {
+      if (!b?.workerId) return sendJSON(res, 400, { error: "workerId required" });
+      const held = Array.isArray(b.leases) ? b.leases : [];
+      touchWorker(b.workerId, { claudeAvailable: b.claudeAvailable, leases: held }, ROOT);
+      const ls = leaseState(ROOT);
+      const done = new Set(readResults(ROOT).map((r) => r.reqId).filter(Boolean));
+      const { ids: cancelIds, allBefore } = readCancels(ROOT);
+      const queue = readQueue(ROOT);
+      const canceled = [], revoked = [];
+      for (const reqId of held) {
+        if (done.has(reqId)) { revoked.push(reqId); continue; }                        // finished (by the cloud fallback)
+        const e = ls.get(reqId);
+        if (e && e.type !== "release" && e.workerId !== b.workerId) { revoked.push(reqId); continue; } // reassigned
+        const r = queue.find((q) => q.id === reqId);
+        const qms = r?.queuedAt ? new Date(r.queuedAt).getTime() : 0;
+        if (cancelIds.has(reqId) || (allBefore && qms && qms <= allBefore)) canceled.push(reqId);
+        appendLease({ type: "renew", reqId, workerId: b.workerId, expiresAt: Date.now() + LEASE_TTL_MS }, ROOT); // renew
+      }
+      sendJSON(res, 200, { ok: true, now: Date.now(), canceled, revoked });
+    });
+  }
+
+  if (sub === "lease" && req.method === "POST") {
+    return readJsonBody(req, (b) => {
+      if (!b?.workerId) return sendJSON(res, 400, { error: "workerId required" });
+      const out = workerLeaseNext(b.workerId, b.reqId);
+      if (out == null) { res.writeHead(204); return res.end(); }     // nothing to lease
+      if (out.error) return sendJSON(res, 409, out);
+      touchWorker(b.workerId, { claudeAvailable: true, leases: [out.reqId] }, ROOT);
+      return sendJSON(res, 200, out);
+    });
+  }
+
+  if (sub === "pull" && req.method === "GET") {
+    const names = bundleDirs(ROOT, { screenshots: false }); // JSON-only — the agent never needs screenshots as input
+    res.writeHead(200, { "content-type": "application/gzip", "cache-control": "no-store" });
+    const tar = names.length
+      ? spawn("tar", ["czf", "-", "-C", ROOT, ...names], { stdio: ["ignore", "pipe", "ignore"] })
+      : spawn("tar", ["czf", "-", "-T", "/dev/null"], { stdio: ["ignore", "pipe", "ignore"] }); // empty store → empty archive
+    tar.stdout.pipe(res);
+    tar.on("error", () => { try { res.destroy(); } catch { /* gone */ } });
+    req.on("close", () => { try { tar.kill("SIGKILL"); } catch { /* gone */ } });
+    return;
+  }
+
+  if (sub === "push" && req.method === "POST") {
+    const dir = paths(ROOT).imports;
+    try { mkdirSync(dir, { recursive: true }); } catch { /* ignore */ }
+    const file = join(dir, `push-${Date.now()}-${Math.floor(Math.random() * 1e4)}.tar.gz`);
+    const out = createWriteStream(file);
+    const MAX = Number(process.env.PROSPECTOR_IMPORT_MAX ?? 1024 * 1024 * 1024);
+    let bytes = 0, aborted = false;
+    const abort = (code, error) => { if (aborted) return; aborted = true; try { req.destroy(); } catch { /* */ } try { out.destroy(); } catch { /* */ } try { rmSync(file); } catch { /* */ } sendJSON(res, code, { error }); };
+    req.on("data", (c) => { bytes += c.length; if (bytes > MAX) return abort(413, "bundle too large"); out.write(c); });
+    req.on("error", () => abort(400, "upload error"));
+    req.on("end", () => {
+      if (aborted) return;
+      out.end(() => {
+        if (!bytes) { try { rmSync(file); } catch { /* */ } return sendJSON(res, 400, { error: "empty upload" }); }
+        if (spawnSync("tar", ["tzf", file], { stdio: "ignore" }).status !== 0) { try { rmSync(file); } catch { /* */ } return sendJSON(res, 400, { error: "invalid archive" }); }
+        const queued = enqueue({ action: "import", payload: { file, mode: "overwrite" } }, ROOT); // worker push = incoming wins
+        sendJSON(res, 200, { ok: true, queued, bytes });
+      });
+    });
+    return;
+  }
+
+  if (sub === "complete" && req.method === "POST") {
+    return readJsonBody(req, (b) => {
+      if (!b?.reqId) return sendJSON(res, 400, { error: "reqId required" });
+      const done = new Set(readResults(ROOT).map((r) => r.reqId).filter(Boolean));
+      if (done.has(b.reqId)) { appendLease({ type: "release", reqId: b.reqId, workerId: b.workerId }, ROOT); return sendJSON(res, 200, { ok: true, alreadyDone: true }); }
+      const action = b.action || readQueue(ROOT).find((r) => r.id === b.reqId)?.action || "agent";
+      appendResult({ reqId: b.reqId, action, ok: b.ok !== false, canceled: b.canceled || undefined, summary: b.summary ?? "done (local worker)", costUSD: b.costUSD, turns: b.turns, worker: true }, ROOT);
+      appendLease({ type: "release", reqId: b.reqId, workerId: b.workerId }, ROOT);
+      const m = readJSON(paths(ROOT).agentRunning);
+      if (m?.reqId === b.reqId) setRemoteRunMarker(null); // clear the banner marker
+      sendJSON(res, 200, { ok: true });
+    });
+  }
+
+  return sendJSON(res, 404, { error: "unknown worker endpoint" });
+}
+
 const server = createServer((req, res) => {
   const url = new URL(req.url, `http://${req.headers.host || `${HOST}:${PORT}`}`);
   const path = url.pathname;
@@ -182,6 +325,13 @@ const server = createServer((req, res) => {
   }
   if (path === "/login" || path === "/login.html") return sendFile(res, join(DASH, "login.html"));
   if (path === "/favicon.ico") { res.writeHead(204); return res.end(); }
+
+  // ---- remote-worker data endpoints: bearer-auth, BEFORE the cookie gate (these aren't browser
+  //      routes). /api/worker/reset + /api/workers are operator routes and stay cookie-gated below.
+  if (path.startsWith("/api/worker/") && path !== "/api/worker/reset") {
+    if (!isWorker(req)) return sendJSON(res, WORKER_ON ? 401 : 404, { error: WORKER_ON ? "unauthorized" : "worker mode disabled" });
+    return handleWorker(path, req, res);
+  }
 
   if (AUTH_ON) {
     if (!isAuthed(req)) {
@@ -260,6 +410,71 @@ const server = createServer((req, res) => {
       try { b = JSON.parse(body || "{}"); } catch { return sendJSON(res, 400, { error: "bad json" }); }
       cancelRequest({ reqId: b.reqId, all: b.all }, ROOT);
       return sendJSON(res, 200, { ok: true });
+    });
+    return;
+  }
+
+  // ---- worker status (operator/cookie): drives the dashboard connection pill ----
+  if (path === "/api/workers" && req.method === "GET") {
+    const m = readWorker(ROOT);
+    const done = new Set(readResults(ROOT).map((r) => r.reqId).filter(Boolean));
+    const live = [...leaseState(ROOT).values()].filter((e) => leaseLive(e) && !done.has(e.reqId));
+    const fresh = Object.entries(m.workers ?? {})
+      .map(([id, w]) => ({ id, at: w?.at, claudeAvailable: w?.claudeAvailable }))
+      .filter((w) => w.at && Date.now() - w.at < WORKER_PRESENCE_MS && w.claudeAvailable);
+    const state = !WORKER_ON ? "off" : fresh.length ? (live.length ? "working" : "connected") : "disconnected";
+    return sendJSON(res, 200, {
+      enabled: WORKER_ON, state, workers: fresh,
+      leases: live.map((e) => ({ reqId: e.reqId, workerId: e.workerId, expiresAt: e.expiresAt })),
+      fallback: { agentRunnerAlive: workers.length > 1 },
+    });
+  }
+  // ---- Reconnect (operator/cookie): release stale leases + expire presence so the cloud fallback
+  //      resumes NOW, and return the reminder of how to relaunch the local worker session. ----
+  if (path === "/api/worker/reset" && req.method === "POST") {
+    return readJsonBody(req, () => {
+      let released = 0;
+      for (const e of leaseState(ROOT).values()) if (leaseLive(e)) { appendLease({ type: "release", reqId: e.reqId, workerId: e.workerId, reason: "reset" }, ROOT); released++; }
+      writeWorker({ workers: {} }, ROOT);
+      setRemoteRunMarker(null);
+      sendJSON(res, 200, { ok: true, released, reconnect: "Open a local Claude Code session and run /prospector:prospect-worker (with PROSPECTOR_BRIDGE_URL + PROSPECTOR_WORKER_TOKEN set)." });
+    });
+  }
+
+  // ---- export: stream the whole store as a .tar.gz (companies + audits + assessments + dossiers +
+  //      outreach + screenshots + scope). Lets you back up the cloud or pull leads down to a local store.
+  if (path === "/api/export" && req.method === "GET") {
+    const names = bundleDirs(ROOT);
+    if (!names.length) return sendJSON(res, 404, { error: "store is empty" });
+    const stamp = new Date().toISOString().slice(0, 10);
+    res.writeHead(200, { "content-type": "application/gzip", "cache-control": "no-store", "content-disposition": `attachment; filename="prospector-${stamp}.tar.gz"` });
+    const tar = spawn("tar", ["czf", "-", "-C", ROOT, ...names], { stdio: ["ignore", "pipe", "ignore"] });
+    tar.stdout.pipe(res);
+    tar.on("error", () => { try { res.destroy(); } catch { /* gone */ } });
+    req.on("close", () => { try { tar.kill("SIGKILL"); } catch { /* gone */ } }); // client aborted → reap tar
+    return;
+  }
+  // ---- import: upload a .tar.gz bundle (raw body) → stream to a temp file → enqueue the `import`
+  //      action which extracts + merges it (fill-gaps by default). Streamed to disk, NOT buffered in
+  //      memory (a full store is ~280 MB); capped to keep a runaway upload from filling the volume.
+  if (path === "/api/import" && req.method === "POST") {
+    const MAX = Number(process.env.PROSPECTOR_IMPORT_MAX ?? 1024 * 1024 * 1024); // 1 GB cap
+    const dir = paths(ROOT).imports;
+    try { mkdirSync(dir, { recursive: true }); } catch { /* ignore */ }
+    const file = join(dir, `up-${Date.now()}-${Math.floor(Math.random() * 1e4)}.tar.gz`);
+    const out = createWriteStream(file);
+    let bytes = 0, aborted = false;
+    const abort = (code, error) => { if (aborted) return; aborted = true; try { req.destroy(); } catch { /* */ } try { out.destroy(); } catch { /* */ } try { rmSync(file); } catch { /* */ } sendJSON(res, code, { error }); };
+    req.on("data", (c) => { bytes += c.length; if (bytes > MAX) return abort(413, "bundle too large"); out.write(c); });
+    req.on("error", () => abort(400, "upload error"));
+    req.on("end", () => {
+      if (aborted) return;
+      out.end(() => {
+        if (!bytes) return sendJSON(res, 400, { error: "empty upload" });
+        const mode = (url.searchParams.get("mode") === "overwrite") ? "overwrite" : "fill-gaps";
+        const queued = enqueue({ action: "import", payload: { file, mode } }, ROOT);
+        sendJSON(res, 200, { ok: true, queued, bytes });
+      });
     });
     return;
   }

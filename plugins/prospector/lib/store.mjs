@@ -44,8 +44,20 @@ export const paths = (root = storeRoot()) => ({
   agentRunning: join(root, "requests", "agent-running.json"),
   logs: join(root, "requests", "logs"),
   heartbeat: join(root, "requests", "agent.heartbeat"),
+  imports: join(root, "requests", "imports"),        // uploaded import bundles (temp)
+  worker: join(root, "requests", "worker.json"),     // remote-worker presence map (Part B)
+  leases: join(root, "requests", "leases.jsonl"),    // append-only agent-request lease log (Part B)
   leads: join(root, "leads.md"),
 });
+
+/** The store entries that make up an export/sync bundle (only those that exist), relative to `root`.
+ *  Full (with screenshots) for export + the worker push; JSON-only (`{screenshots:false}`) for the
+ *  worker pull — the agent never needs the screenshots as input, and they are 95% of the bytes. */
+export function bundleDirs(root = storeRoot(), { screenshots = true } = {}) {
+  const names = ["scope.json", "leads.md", "companies", "audits", "assessments", "dossiers", "outreach"];
+  if (screenshots) names.push("screenshots");
+  return names.filter((n) => existsSync(join(root, n)));
+}
 
 /** A live Claude session marks itself present (grading/researching) by touching this. */
 export function touchHeartbeat(root = storeRoot()) {
@@ -136,6 +148,7 @@ export const writeOutreach = (o, root = storeRoot()) => writeJSON(outreachFile(o
 
 export const auditFile = (id, root = storeRoot()) =>
   join(paths(root).audits, `${id}.website.json`);
+export const hasAudit = (id, root = storeRoot()) => existsSync(auditFile(id, root));
 export const readAudit = (id, root = storeRoot()) => readJSON(auditFile(id, root));
 export const writeAudit = (a, root = storeRoot()) => writeJSON(auditFile(a.companyId, root), a);
 
@@ -246,6 +259,43 @@ export function appendResult(result, root = storeRoot()) {
     "utf8",
   );
 }
+
+// ---- remote-worker presence + agent-request leases (Part B) -----------------
+// The agent actions a remote worker (a local Claude session) can drain off the user's subscription.
+export const AGENT_ACTIONS = new Set(["deepdive", "hunt", "outreach"]);
+// Timing knobs (one source of truth, shared by the bridge + agent-runner):
+export const WORKER_PRESENCE_MS = 60_000;    // a worker counts as "connected" if it heartbeat within this
+export const LEASE_TTL_MS = 5 * 60_000;      // a lease is live until expiresAt; the worker renews via heartbeat
+export const RECLAIM_GRACE_MS = 2 * 60_000;  // the cloud waits this long past expiry before reclaiming
+export const WORKER_DIBS_MS = 30_000;        // a present worker gets first dibs on a fresh request for this long
+
+export const readWorker = (root = storeRoot()) => readJSON(paths(root).worker, { workers: {} });
+export const writeWorker = (map, root = storeRoot()) => writeJSON(paths(root).worker, map);
+/** Record/refresh one worker's presence (heartbeat). Returns the worker entry. */
+export function touchWorker(workerId, info = {}, root = storeRoot()) {
+  const m = readWorker(root); m.workers = m.workers ?? {};
+  m.workers[workerId] = { at: Date.now(), claudeAvailable: info.claudeAvailable !== false, leases: info.leases ?? [] };
+  writeWorker(m, root);
+  return m.workers[workerId];
+}
+/** At least one remote worker connected AND able to run claude (so the cloud should defer to it). */
+export function workerPresent(root = storeRoot()) {
+  const m = readWorker(root);
+  return Object.values(m.workers ?? {}).some((w) => w?.at && Date.now() - w.at < WORKER_PRESENCE_MS && w.claudeAvailable);
+}
+/** Append-only lease log entry: {type:'lease'|'renew'|'release', reqId, workerId, expiresAt}. */
+export function appendLease(entry, root = storeRoot()) {
+  mkdirSync(paths(root).requests, { recursive: true });
+  appendFileSync(paths(root).leases, JSON.stringify({ at: Date.now(), ...entry }) + "\n", "utf8");
+}
+/** Fold leases.jsonl to the latest entry per reqId. */
+export function leaseState(root = storeRoot()) {
+  const m = new Map();
+  for (const e of readJsonl(paths(root).leases)) if (e.reqId) m.set(e.reqId, e);
+  return m;
+}
+/** Is this lease entry currently held (not released, not expired)? */
+export const leaseLive = (e) => !!e && e.type !== "release" && (e.expiresAt ?? 0) > Date.now();
 
 export function defaultScope() {
   return {

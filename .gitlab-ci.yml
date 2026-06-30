@@ -1,18 +1,24 @@
-# GitLab Pages — publish the UI Reference Gallery SHELL (static, no data).
-# The vault is intentionally NOT shipped: the hosted gallery lets each visitor load
-# their own vault folder in the browser. So this just copies the gallery assets to
-# public/ — no build, no Node, no Git LFS, nothing from the vault.
+# GitLab Pages — publish the marketplace HUB at the root + the UI Reference Gallery
+# SHELL under /gallery/ (both static, no data). The hub (site/) is the front door:
+# it lists every plugin from .claude-plugin/marketplace.json and launches the ones
+# with a UI. The gallery vault is intentionally NOT shipped — the hosted gallery lets
+# each visitor load their own vault folder in the browser. No build, no Node, no LFS.
 pages:
   stage: deploy
   image: alpine:latest
   rules:
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
       changes:
+        - site/**/*
         - ui-ux-references/gallery/src/**/*
+        - .claude-plugin/marketplace.json
         - .gitlab-ci.yml
   script:
     - mkdir -p public
-    - cp -r ui-ux-references/gallery/src/. public/
+    - cp -r site/. public/                                  # hub / index at the root
+    - mkdir -p public/gallery
+    - cp -r ui-ux-references/gallery/src/. public/gallery/   # gallery served from /gallery/
+    - cp .claude-plugin/marketplace.json public/marketplace.json  # data source for the hub
   artifacts:
     paths:
       - public

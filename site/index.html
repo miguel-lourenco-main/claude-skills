@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>claude-skills · marketplace</title>
+    <meta name="description" content="A hub for the claude-skills marketplace — launch the visual apps that ship with the skills and plugins, and browse the full plugin catalog." />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="aurora" aria-hidden="true"></div>
+
+    <header class="hero">
+      <nav class="topbar">
+        <span class="wordmark"><span class="dot"></span> claude-skills</span>
+        <a class="ghost-link" href="https://gitlab.com" target="_blank" rel="noreferrer">marketplace repo ↗</a>
+      </nav>
+      <div class="hero-copy">
+        <h1>The claude-skills marketplace.</h1>
+        <p class="lede">
+          A monorepo of personal Claude Code skills &amp; plugins. The ones that ship a visual app
+          are launchable right here — the rest run from the CLI.
+        </p>
+        <div class="hero-stats">
+          <span><b id="stat-apps">—</b> apps</span>
+          <span class="sep">·</span>
+          <span><b id="stat-plugins">—</b> plugins</span>
+        </div>
+      </div>
+    </header>
+
+    <main>
+      <section class="block" id="apps-block" hidden>
+        <div class="block-head">
+          <h2>Featured UIs</h2>
+          <p>Visual apps bundled with the marketplace — click to launch.</p>
+        </div>
+        <div id="apps" class="cards"></div>
+      </section>
+
+      <section class="block" id="market-block" hidden>
+        <div class="block-head">
+          <h2>Full marketplace</h2>
+          <p>Every plugin in <code>.claude-plugin/marketplace.json</code>.</p>
+        </div>
+        <ul id="market" class="rows"></ul>
+      </section>
+
+      <p id="error" class="error" hidden></p>
+    </main>
+
+    <footer class="foot">
+      <span>Built from <code>.claude-plugin/marketplace.json</code> · static GitLab Pages</span>
+    </footer>
+
+    <script src="app.js" type="module"></script>
+  </body>
+</html>

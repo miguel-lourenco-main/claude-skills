@@ -1,0 +1,22 @@
+{
+  "apps": [
+    {
+      "name": "UI Reference Gallery",
+      "plugin": "ui-ux-studio",
+      "monogram": "UI",
+      "accent": "#5e6ad2",
+      "host": "Bundled here",
+      "href": "gallery/",
+      "description": "Browse the curated library of real production interfaces — screenshots, palettes, typography, and full design teardowns. Load your own reference vault in the browser."
+    },
+    {
+      "name": "Prospector Console",
+      "plugin": "prospector",
+      "monogram": "P",
+      "accent": "#c6ff3a",
+      "host": "Fly.io ↗",
+      "href": "https://prospector-leadgen.fly.dev",
+      "description": "Lead-generation dashboard: discover companies, capture and taste-audit their sites, score the redesign opportunity, and prep outreach — driven by Claude Code skills."
+    }
+  ]
+}

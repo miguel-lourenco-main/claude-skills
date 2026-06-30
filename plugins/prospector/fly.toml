@@ -1,7 +1,7 @@
 # Fly.io deploy config for Prospector (run `fly deploy` from this directory).
 # Single instance ONLY — the file store + lock files assume one process (do not scale out).
 app = "prospector-leadgen"      # must be globally unique — change if `fly launch` says it's taken
-primary_region = "mad"          # Madrid, close to Portugal
+primary_region = "cdg"          # Paris — closest available Fly region to Portugal (no Madrid/Lisbon)
 
 [build]
   dockerfile = "Dockerfile"

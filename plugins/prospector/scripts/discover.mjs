@@ -3,7 +3,7 @@
 // set honestly (scoring then uses a neutral can-pay prior). The agent source is handled by
 // the agent (WebSearch/WebFetch), not here.
 
-import { readCompany, readScope, storeRoot, writeCompany } from "../lib/store.mjs";
+import { dedupeByUrl, readCompany, readScope, storeRoot, writeCompany } from "../lib/store.mjs";
 import { companyId, dedupeKey, domainOf, mergeCompany } from "../lib/identity.mjs";
 import { emit, progress, readRequest } from "./_cli.mjs";
 
@@ -32,6 +32,7 @@ function toCompany(pc) {
   return {
     id: companyId(pc),
     name: pc.name,
+    discoveredAt: new Date().toISOString(), // full timestamp of store-entry; preserved across re-discovery
     taxId: null,
     sector: { cae: [], labels: [vertical], vertical },
     description: `Discovered ${vertical}${pc.location?.city ? ` in ${pc.location.city}` : ""} via ${pc.source}.`,
@@ -106,9 +107,26 @@ for (const items of groups.values()) {
   if (merged.contacts?.domain && suppressed.has(merged.contacts.domain)) { skipped++; continue; }
   const existing = readCompany(merged.id, root);
   if (!existing && added >= cap) { skipped++; continue; }
-  writeCompany(existing ? mergeCompany(existing, merged) : merged, root);
+  let record = merged;
+  if (existing) {
+    record = mergeCompany(existing, merged);
+    // First discovery wins. Keep the original timestamp; never stamp a re-discovery time over it,
+    // and don't backfill legacy records (no original time → leave the field off; UI falls back to date).
+    if (existing.discoveredAt) record.discoveredAt = existing.discoveredAt; else delete record.discoveredAt;
+  }
+  writeCompany(record, root);
   if (existing) updated++; else added++;
   for (const it of items) bySource[it.source] = (bySource[it.source] ?? 0) + 1;
+}
+
+// Collapse any url-twins now in the store (e.g. a record whose audit resolved to a domain another
+// record already owns). Single-process here, so it's race-free. Skip on a canceled (partial) run.
+let deduped;
+if (!stopping) {
+  try {
+    const collapses = dedupeByUrl(root);
+    if (collapses.length) deduped = collapses.reduce((n, c) => n + c.merged.length, 0);
+  } catch { /* dedupe is best-effort cleanup; never fail the discover on it */ }
 }
 
 emit({
@@ -117,6 +135,7 @@ emit({
   added,
   updated,
   skipped,
+  deduped,
   canceled: stopping || undefined,
   bySource,
   errors: Object.keys(errors).length ? errors : undefined,

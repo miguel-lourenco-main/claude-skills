@@ -1,0 +1,8 @@
+node_modules
+.prospector
+.git
+.gitignore
+sample-store
+*.log
+npm-debug.log*
+.claude

@@ -18,3 +18,25 @@ pages:
       - public
   environment:
     name: pages
+
+# Auto-deploy the Prospector app to Fly.io on commits to the default branch that
+# touch plugins/prospector. Requires the CI/CD variable FLY_API_TOKEN — a Fly deploy
+# token (`flyctl tokens create deploy -a prospector-leadgen`) set as PROTECTED
+# (the token contains a space, so GitLab can't mask it; protected limits it to the
+# protected default branch, which is where this job runs). flyctl reads it from the env.
+deploy_prospector:
+  stage: deploy
+  image: alpine:latest
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      changes:
+        - plugins/prospector/**/*
+  script:
+    - apk add --no-cache curl
+    - curl -L https://fly.io/install.sh | sh
+    - export FLYCTL_INSTALL="/root/.fly"; export PATH="$FLYCTL_INSTALL/bin:$PATH"
+    - cd plugins/prospector
+    - flyctl deploy --remote-only -a prospector-leadgen
+  environment:
+    name: prospector-production
+    url: https://prospector-leadgen.fly.dev

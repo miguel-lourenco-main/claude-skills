@@ -71,11 +71,32 @@ Spawn a subagent per candidate with this job. Give it the `companyId`, the compa
 > - `dead` site → **reject** (not a target type).
 > - `none` (no website) → accept as **no-website** ONLY if `"no-website"` in leadTypes (and `requireSocial`
 >   satisfied); else reject.
-> - `weak` site → accept as **improvable-site** if `"improvable-site"` in leadTypes; else reject.
-> - `good` site → accept as **good-site** if `"good-site"` in leadTypes; else (excludeGoodSites) reject.
+> - site WITH a website → judge it against the **redesign bar** below to choose the angle(s). Accept only
+>   if at least one angle whose leadType is in `leadTypes` genuinely applies; else reject.
+> - `good` site → **good-site** (ai-upsell) if `"good-site"` in leadTypes; else (excludeGoodSites) reject.
 > - If `requireSocial` and no social found → reject. If a popularity number is known and falls outside
 >   `[popularityMin, popularityMax]` → reject. (Low popularity WITHIN range is fine — it becomes a
 >   marketing-growth angle.)
+>
+> **The redesign bar — a redesign costs the client real money, so only sell it when it clearly pays back.**
+> Map a site to **`improvable-site`** (the redesign angle) ONLY when it has a SUBSTANTIAL, money-losing
+> problem — at least one of:
+> - **Dated style or tech**: looks ~10+ years old (fixed-width / table layout, clip-art, dated type &
+>   colour, no real photography), OR no HTTPS, OR broken / not responsive on mobile.
+> - **Missing content or sections** a business like this needs to convert: no services / menu / pricing,
+>   no booking or contact path, no real photos, a thin one-pager where customers expect substance.
+> - **Serious UX failures** that demonstrably cost conversions: broken nav / links / images, unreadable
+>   contrast, no clear CTA, a content-blocking modal with no escape.
+>
+> A site that is merely **undifferentiated, on a decent modern template, or has one minor nitpick** (a
+> single dismissible modal, a slightly generic hero, "could look nicer") does **NOT** clear the bar — a
+> redesign alone is not worth their spend, and pitching one reads as lackluster. For those sites, DON'T
+> sell a standalone redesign:
+> - low popularity / weak marketing → **marketing-growth**, and/or
+> - otherwise → **ai-upsell** (add AI booking / chat / triage / lead capture), and/or
+> - **compound** angles so the value adds up past the cost — e.g. `redesign+ai-upsell` or
+>   `marketing-growth+redesign`. If no angle (alone or compounded) clears a worthwhile bar, give it a
+>   **low `fit`** or reject rather than manufacture a weak case.
 >
 > **If REJECT:** save and stop (fast):
 > `node "$PLUGIN/scripts/hunt-save.mjs" '{"companyId":"<id>","assessment":{"decision":"rejected","reasons":["..."]}}'`
@@ -88,13 +109,19 @@ Spawn a subagent per candidate with this job. Give it the `companyId`, the compa
 >    `node "$PLUGIN/scripts/grade.mjs" '{"companyId":"<id>","taste":{"scores":{...},"opportunity":0..1,"datedSignals":[...],"issues":[...],"effortEstimate":"S|M|L"}}'`.
 > 2. Research: `WebFetch` the site + `WebSearch` reviews/social/decision-maker/competitors → write a
 >    dossier `dossiers/<id>.md` (the `prospect-deepdive` format: min-info header + organized sections).
-> 3. Compute `fit` (0–1) and write the **pitch** — a short markdown that is BOTH a go/no-go memo AND a
->    usable outreach opener (Portuguese). **Adapt the angle:**
->    - improvable-site → `redesign` (their site is dated/loses customers).
+> 3. Compute `fit` (0–1) **honestly** — it measures "how worth-it is this for the client to PAY for",
+>    not "could it look nicer". A marginal single-angle case is LOW fit; a strong problem or a genuinely
+>    compounding multi-angle case is high. Then write the **pitch** (Portuguese) — BOTH a go/no-go memo
+>    AND a usable outreach opener — and set **`pitchAngle`**:
+>    - redesign-worthy site (clears the bar above) → `redesign` — name the specific problems costing them.
 >    - no-website → `get-a-site` (active business, no site = lost discovery/bookings).
->    - good-site → `ai-upsell` (solid site; pitch AI features / smarter usage).
->    - **low popularity (few reviews/visits)** → `marketing-growth` — a modern site to grow their
->      visibility/reach/marketing, regardless of base type.
+>    - solid / good site → `ai-upsell` (pitch AI features / smarter usage).
+>    - **low popularity** (few reviews/visits) → `marketing-growth` — a modern site to grow their reach.
+>    - **mix when one angle is marginal** → a compound like `redesign+ai-upsell` (write the PRIMARY angle
+>      first). In the pitch, show how the angles **compound** — each reason reinforces the next so the
+>      combined payback clears the redesign cost (e.g. "a modern site *and* an AI booking assistant
+>      together lift bookings enough to justify it"). Don't pad: 1–2 strong, compounding points beat five
+>      lackluster ones a client would never pay to fix.
 > 4. Save — pass **`enrich`** with everything you LEARNED so the company record stops being a bare
 >    discovery stub (research wins over the generic stub; contacts are unioned). Include the social
 >    handles/URLs you found, any phone/email, and a real one-line description:

@@ -34,10 +34,10 @@
     },
     {
       "name": "prospector",
-      "description": "Lead-generation system for a web-redesign business: gather companies within a defined scope, store rich dossiers (sector, revenue, employees), capture + taste-audit their websites, score the money×bad-site×site-matters opportunity, and prep outreach. Runs as Claude Code skills over a filesystem store, driven from a local HTML dashboard.",
+      "description": "Lead-generation system for a web-redesign business: gather companies within a defined scope, store rich dossiers (sector, revenue, employees), capture + taste-audit their websites, score the money×bad-site×site-matters opportunity, and run an outreach workspace (agent-drafted email + copy-paste text → validate the contact → send). Runs locally as a dashboard over a filesystem store, or hosted in a container with shared-password auth; a headless claude agent-runner drains hunt/deep-dive/outreach (cloud API), or a local Claude session can drain it off your subscription via the prospect-worker skill. Import/export the whole store as a bundle.",
       "source": "./plugins/prospector",
       "category": "business",
-      "version": "0.2.0",
+      "version": "0.5.0",
       "author": { "name": "migaloco", "email": "migasoulou@gmail.com" }
     }
   ]

@@ -1049,20 +1049,68 @@ function setLive(ok, text) {
   $("#statusText").textContent = text;
 }
 
-// ---- local-worker connection status (Part B) ----
+// ---- local-worker connection component (Part B): always-visible status pill + a click-through
+//      detail panel (status, the exact connect command, Reconnect) — useful in every state. ----
+const WORKER_LABEL = { working: "Local worker · running", connected: "Local worker connected", disconnected: "Local worker offline", off: "Local worker · off" };
 async function loadWorkers() {
   const el = $("#workerPill");
   if (!el) return;
   let d;
-  try { d = await (await fetch("/api/workers", { cache: "no-store" })).json(); } catch { return; }
-  if (!d.enabled || d.state === "off") { el.hidden = true; return; } // worker mode disabled on the server
-  el.hidden = false;
-  el.className = `worker-pill ${d.state}`;
-  const label = d.state === "working" ? "Local worker · running" : d.state === "connected" ? "Local worker connected" : "Local worker offline";
-  const tip = d.state === "disconnected" ? "Cloud agent (paid) is handling work. Run /prospector:prospect-worker locally to take over for free." : "A local Claude session is draining the queue off your subscription.";
-  const recon = d.state === "disconnected" ? ` <button class="wp-reconnect" data-worker-reconnect>Reconnect</button>` : "";
-  el.title = tip;
-  el.innerHTML = `<span class="wp-dot"></span> ${label}${recon}`;
+  try { d = await (await fetch("/api/workers", { cache: "no-store" })).json(); } catch { d = { enabled: false, state: "off" }; }
+  state.workers = d;
+  const st = WORKER_LABEL[d.state] ? d.state : "off";
+  el.hidden = false; // always visible so the feature is discoverable (even when disabled)
+  el.className = `worker-pill ${st}`;
+  el.title = "Local-first agent worker — click for status + how to connect";
+  el.innerHTML = `<span class="wp-dot"></span> ${WORKER_LABEL[st]}`;
+  if (document.getElementById("workerPanel")) renderWorkerPanel(); // keep an open panel live
+}
+
+const WORKER_STATUS = {
+  working: "A local Claude session is running agent work off your subscription (the cloud isn't paying).",
+  connected: "A local Claude session is connected and idle, ready to take agent work.",
+  disconnected: "No local session connected — the cloud agent (metered API) is handling agent work.",
+  off: "Worker mode is disabled on the server.",
+};
+function renderWorkerPanel() {
+  const panel = document.getElementById("workerPanel");
+  if (!panel) return;
+  const d = state.workers ?? { enabled: false, state: "off" };
+  const st = WORKER_LABEL[d.state] ? d.state : "off";
+  const origin = location.origin;
+  const cmd = `export PROSPECTOR_BRIDGE_URL="${origin}"\nexport PROSPECTOR_WORKER_TOKEN="<your token>"`;
+  const enableNote = !d.enabled
+    ? `<p class="wpn-note">To enable, set <code>PROSPECTOR_WORKER_TOKEN</code> on the server (e.g. <code>flyctl secrets set PROSPECTOR_WORKER_TOKEN=…</code>). Then a local Claude Code session can run the agent work (hunt / deep-dive / outreach) off your subscription, with the cloud's metered API as the fallback.</p>`
+    : "";
+  const connectSec = d.enabled
+    ? `<div class="wpn-sec">
+         <div class="wpn-h">Connect a local worker</div>
+         <p class="wpn-note">In a Claude Code session logged in with your <b>subscription</b>, set these then run <code>/prospector:prospect-worker</code>:</p>
+         <pre class="wpn-cmd" id="wpnCmd">${esc(cmd)}</pre>
+         <div class="wpn-actions">
+           <button class="btn" data-worker-copy>Copy</button>
+           <button class="btn btn-primary" data-worker-reconnect title="Free any stuck job + fail over to the cloud now">Reconnect</button>
+         </div>
+       </div>`
+    : "";
+  const stat = (d.workers?.length)
+    ? `<div class="wpn-sec csub">${d.workers.length} session(s) connected${d.leases?.length ? ` · ${d.leases.length} job(s) running` : ""}</div>`
+    : "";
+  panel.innerHTML = `
+    <div class="wpn-head"><span class="wp-dot ${st}"></span> <b>Local worker</b></div>
+    <p class="wpn-note">${esc(WORKER_STATUS[st])}</p>
+    ${enableNote}${connectSec}${stat}`;
+}
+function toggleWorkerPanel() {
+  const existing = document.getElementById("workerPanel");
+  if (existing) { existing.remove(); return; }
+  const panel = document.createElement("div");
+  panel.className = "worker-panel"; panel.id = "workerPanel";
+  document.body.appendChild(panel);
+  renderWorkerPanel();
+  const r = $("#workerPill").getBoundingClientRect();
+  panel.style.top = `${r.bottom + 6}px`;
+  panel.style.right = `${Math.max(8, window.innerWidth - r.right)}px`;
 }
 
 // ---- actions ---------------------------------------------------------------
@@ -1427,13 +1475,25 @@ $("#importFile").addEventListener("change", async (e) => {
     loadStatus();
   } catch { toast("upload failed — is the app reachable?", "err"); }
 });
-$("#workerPill").addEventListener("click", async (e) => {
-  if (!e.target.closest("[data-worker-reconnect]")) return;
-  try {
-    const out = await (await fetch("/api/worker/reset", { method: "POST", headers: { "content-type": "application/json" }, body: "{}" })).json();
-    toast(out.reconnect || "freed stuck jobs — run /prospector:prospect-worker locally to reconnect", "ok");
-    loadWorkers();
-  } catch { toast("reconnect failed", "err"); }
+$("#workerPill").addEventListener("click", (e) => { e.stopPropagation(); toggleWorkerPanel(); });
+document.addEventListener("click", async (e) => {
+  // close the worker panel on any outside click
+  const panel = document.getElementById("workerPanel");
+  if (panel && !e.target.closest("#workerPanel") && !e.target.closest("#workerPill")) panel.remove();
+  // copy the connect command
+  if (e.target.closest("[data-worker-copy]")) {
+    const cmd = document.getElementById("wpnCmd")?.textContent ?? "";
+    navigator.clipboard?.writeText(cmd).then(() => toast("connect command copied", "ok"), () => toast("copy failed", "err"));
+    return;
+  }
+  // reconnect: free stuck leases + fail over to the cloud now
+  if (e.target.closest("[data-worker-reconnect]")) {
+    try {
+      const out = await (await fetch("/api/worker/reset", { method: "POST", headers: { "content-type": "application/json" }, body: "{}" })).json();
+      toast(out.reconnect || "freed stuck jobs — run /prospector:prospect-worker locally to reconnect", "ok");
+      loadWorkers();
+    } catch { toast("reconnect failed", "err"); }
+  }
 });
 $("#scopeCancel").addEventListener("click", closeScope);
 $("#scopeSave").addEventListener("click", saveScope);

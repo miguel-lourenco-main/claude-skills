@@ -14,6 +14,12 @@ import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { hostname } from "node:os";
 import { join } from "node:path";
 
+// Convenience: auto-load a `.env` from the directory you launched from, so PROSPECTOR_BRIDGE_URL /
+// PROSPECTOR_WORKER_TOKEN can live in a file instead of being exported by hand. Real environment vars
+// still win over the file. (Node >=20.12 has process.loadEnvFile; --env-file / `set -a; source .env`
+// also work. Gitignore your .env — it holds a secret.)
+try { if (existsSync(".env") && typeof process.loadEnvFile === "function") process.loadEnvFile(".env"); } catch { /* ignore */ }
+
 const BASE = (process.env.PROSPECTOR_BRIDGE_URL || "").replace(/\/$/, "");
 const TOKEN = process.env.PROSPECTOR_WORKER_TOKEN || "";
 const WORKER_ID = process.env.PROSPECTOR_WORKER_ID || `${hostname()}-${process.pid}`;

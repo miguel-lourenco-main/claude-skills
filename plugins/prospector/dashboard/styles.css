@@ -76,7 +76,7 @@ body {
 :focus-visible { outline: 2px solid var(--p-accent); outline-offset: 2px; border-radius: 6px; }
 
 /* ---- layout ---- */
-.shell { position: relative; z-index: 1; margin: 0 auto; padding: 0 1.25rem 1.25rem; }
+.shell { position: relative; z-index: 1; margin: 0 auto; padding: 0 1.25rem 1.25rem}
 
 header.topbar {
   position: sticky; top: 0; z-index: 20;
@@ -104,6 +104,25 @@ header.topbar {
 .wp-reconnect { font-family: var(--font-ui); font-size: 0.68rem; color: var(--p-accent-ink); background: var(--p-accent);
   border: none; border-radius: 0.4rem; padding: 0.12rem 0.45rem; margin-left: 0.15rem; cursor: pointer; }
 .wp-reconnect:hover { background: color-mix(in srgb, var(--p-accent) 88%, white); }
+.worker-pill { cursor: pointer; }
+.worker-pill.off { color: var(--p-faint); }
+
+/* worker detail popover (opened from the pill) */
+.worker-panel { position: fixed; z-index: 40; width: 22rem; max-width: calc(100vw - 1rem);
+  background: var(--p-surface); border: 1px solid var(--p-border-strong); border-radius: 0.7rem;
+  box-shadow: var(--p-pop); padding: 0.85rem 0.9rem; }
+.worker-panel .wpn-head { display: flex; align-items: center; gap: 0.4rem; font-size: 0.9rem; margin-bottom: 0.4rem; }
+.worker-panel .wp-dot { width: 0.5rem; height: 0.5rem; border-radius: 50%; background: var(--p-faint); flex: none; }
+.worker-panel .wp-dot.connected { background: var(--p-info); box-shadow: 0 0 8px var(--p-info-glow); }
+.worker-panel .wp-dot.working { background: var(--p-accent); box-shadow: 0 0 8px var(--p-accent-glow); }
+.worker-panel .wp-dot.disconnected { background: var(--p-warn); }
+.wpn-note { margin: 0.35rem 0; font-size: 0.76rem; color: var(--p-muted); line-height: 1.45; }
+.wpn-note code { font-family: var(--font-mono); font-size: 0.72rem; color: var(--p-fg); background: var(--p-surface2); padding: 0.05rem 0.3rem; border-radius: 0.3rem; }
+.wpn-sec { margin-top: 0.6rem; padding-top: 0.6rem; border-top: 1px solid var(--p-border); }
+.wpn-h { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--p-muted); margin-bottom: 0.3rem; }
+.wpn-cmd { font-family: var(--font-mono); font-size: 0.72rem; color: var(--p-fg); background: var(--p-bg);
+  border: 1px solid var(--p-border); border-radius: 0.5rem; padding: 0.5rem 0.6rem; margin: 0.35rem 0; white-space: pre-wrap; word-break: break-all; }
+.wpn-actions { display: flex; gap: 0.5rem; margin-top: 0.4rem; }
 .spacer { flex: 1; }
 .filter {
   font-family: var(--font-ui); background: var(--p-surface); border: 1px solid var(--p-border); color: var(--p-fg);
@@ -479,9 +498,9 @@ input[type="checkbox"] { accent-color: var(--p-accent); width: 0.95rem; height: 
 /* pipeline board */
 /* height is set precisely by sizeBoard() in JS (so the board fits the viewport and its horizontal
    scrollbar stays on-screen). The calc() is only a pre-JS fallback. */
-.board { display: flex; gap: 0.75rem; overflow-x: auto; padding-bottom: 0.5rem; align-items: stretch; height: calc(100vh - 22rem); min-height: 18rem; }
+.board { display: flex;  justify-items: center; gap: 0.75rem; overflow-x: auto; padding-bottom: 0.5rem; align-items: stretch; height: calc(100vh - 22rem); min-height: 18rem; }
 .board.focused .col { flex: 0 0 26rem; }
-.col { flex: 0 0 18.5rem; min-width: 0; display: flex; flex-direction: column; max-height: 100%;
+.col {width: 100%;min-width: 0; display: flex; flex-direction: column; max-height: 100%;
   background: color-mix(in srgb, var(--p-surface) 65%, transparent); border: 1px solid var(--p-border); border-radius: 0.85rem; transition: border-color 140ms, box-shadow 140ms; }
 .col-body, .card, .card-top { min-width: 0; }
 .col.drop { border-color: var(--p-accent); box-shadow: 0 0 0 1px var(--p-accent-glow), 0 0 30px -10px var(--p-accent-glow); }

@@ -17,6 +17,11 @@ node_modules/
 # vault per-user (folder picker); locally it fetches from this dir directly.
 ui-ux-references/vault/
 
+# Secrets — never commit (e.g. PROSPECTOR_WORKER_TOKEN for the prospect-worker skill)
+.env
+.env.*
+!.env.example
+
 # Misc
 *.log
 .DS_Store

@@ -72,6 +72,12 @@ function renderMarket(plugins, apps) {
     const accent = accentFor(p.name, apps);
     const row = el("li", "row");
 
+    // --- clickable header: click/Enter/Space expands the row to show full info ---
+    const head = el("div", "row-head");
+    head.setAttribute("role", "button");
+    head.tabIndex = 0;
+    head.setAttribute("aria-expanded", "false");
+
     const mono = el("div", "row-mono", esc(app?.monogram || monoFor(p.name)));
     mono.setAttribute("style", tileBg(accent));
 
@@ -90,15 +96,72 @@ function renderMarket(plugins, apps) {
       const launch = el("a", "row-launch", `Launch ${ext ? "↗" : "→"}`);
       launch.href = app.href;
       if (ext) { launch.target = "_blank"; launch.rel = "noreferrer"; }
+      launch.addEventListener("click", (e) => e.stopPropagation()); // don't toggle
       side.append(launch);
     }
     // External (url-sourced) plugins carry no local version.
     if (p.version) side.append(el("span", "row-ver", `v${esc(p.version)}`));
+    side.append(el("span", "chevron",
+      '<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="m6 9 6 6 6-6"/></svg>'));
 
-    row.append(mono, main, side);
+    head.append(mono, main, side);
+
+    // --- expandable detail: all the repository info from marketplace.json ---
+    const detail = el("div", "row-detail");
+    detail.hidden = true;
+    detail.append(buildDetail(p, app));
+
+    const toggle = () => {
+      const open = row.classList.toggle("open");
+      head.setAttribute("aria-expanded", String(open));
+      detail.hidden = !open;
+    };
+    head.addEventListener("click", toggle);
+    head.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggle(); }
+    });
+
+    row.append(head, detail);
     list.append(row);
   }
   $("#market-block").hidden = plugins.length === 0;
+}
+
+// Source can be a string path ("./plugins/x") or an object ({source:"url", url, sha}).
+function sourceField(src) {
+  if (!src) return null;
+  if (typeof src === "string") return { html: `<code>${esc(src)}</code>` };
+  if (src.url) {
+    const sha = src.sha ? ` <span class="mono faint">@ ${esc(src.sha.slice(0, 7))}</span>` : "";
+    return { html: `<a href="${esc(src.url)}" target="_blank" rel="noreferrer">${esc(src.url)}</a>${sha}` };
+  }
+  return { html: `<code>${esc(JSON.stringify(src))}</code>` };
+}
+
+function buildDetail(p, app) {
+  const dl = el("dl", "detail-grid");
+  const field = (label, html) => {
+    if (html == null) return;
+    dl.append(el("dt", null, esc(label)), el("dd", null, html));
+  };
+
+  field("Description", esc(p.description || "—"));
+  field("Category", p.category ? esc(p.category) : null);
+  field("Version", p.version ? `v${esc(p.version)}` : "external / upstream");
+  const src = sourceField(p.source);
+  field("Source", src ? src.html : null);
+  if (p.author) {
+    const a = p.author;
+    const email = a.email ? ` <span class="faint">· ${esc(a.email)}</span>` : "";
+    field("Author", `${esc(a.name || "—")}${email}`);
+  }
+  if (app) {
+    const ext = isExternal(app.href);
+    field("UI", `<a href="${esc(app.href)}"${ext ? ' target="_blank" rel="noreferrer"' : ""}>` +
+      `${esc(app.name)} — launch ${ext ? "↗" : "→"}</a>` +
+      (app.host ? ` <span class="faint">(${esc(app.host)})</span>` : ""));
+  }
+  return dl;
 }
 
 async function main() {

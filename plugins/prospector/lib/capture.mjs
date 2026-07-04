@@ -11,7 +11,14 @@ import { mkdirSync, rmSync } from "node:fs";
 import { join } from "node:path";
 
 export const UA = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
-export const MOBILE_UA = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1";
+// Android Chrome (not iPhone Safari): headless Chrome always sends Chromium client hints, and an
+// iPhone-Safari UA next to Chrome hints is a WAF-bait mismatch. Android Chrome keeps them consistent.
+export const MOBILE_UA = "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36";
+// Headless Chrome's client hints advertise "HeadlessChrome" — WAFs (e.g. Hostinger's hcdn) key on
+// exactly that and 429 the capture while the site works fine in a real browser. Override the hints
+// to match the UA we claim. Spread into every newContext's extraHTTPHeaders.
+export const DESKTOP_CH = { "sec-ch-ua": '"Google Chrome";v="124", "Chromium";v="124", "Not-A.Brand";v="99"', "sec-ch-ua-mobile": "?0", "sec-ch-ua-platform": '"Linux"' };
+export const MOBILE_CH = { "sec-ch-ua": '"Google Chrome";v="124", "Chromium";v="124", "Not-A.Brand";v="99"', "sec-ch-ua-mobile": "?1", "sec-ch-ua-platform": '"Android"' };
 export const DESKTOP = { width: 1440, height: 900 };
 export const MOBILE = { width: 390, height: 844 };
 // Tile height = the render viewport height too (scroll-and-shoot), so keep it screen-realistic
@@ -30,10 +37,11 @@ export async function loadChromium() {
 
 export async function launch(chromium) {
   // Prefer the system Chrome (already installed); fall back to a downloaded chromium.
+  const opts = { args: ["--disable-blink-features=AutomationControlled"] }; // drop navigator.webdriver — another WAF tell
   try {
-    return await chromium.launch({ channel: "chrome" });
+    return await chromium.launch({ channel: "chrome", ...opts });
   } catch {
-    return await chromium.launch();
+    return await chromium.launch(opts);
   }
 }
 
@@ -70,11 +78,19 @@ export async function autoScroll(page) {
 }
 
 export async function prime(page, url) {
-  await page.goto(url, { waitUntil: "commit", timeout: 40000 }).catch(() => {});
+  const resp = await page.goto(url, { waitUntil: "commit", timeout: 40000 }).catch(() => null);
   await page.waitForLoadState("domcontentloaded", { timeout: 20000 }).catch(() => {});
   await page.waitForLoadState("load", { timeout: 15000 }).catch(() => {});
   await page.waitForLoadState("networkidle", { timeout: 8000 }).catch(() => {});
   if (!page.url() || page.url() === "about:blank") throw new Error("navigation did not commit");
+  // A 4xx/5xx main document is a FAILED load (WAF block, dead page) — capturing the browser's
+  // error page as if it were the site would poison the audit with false screenshots. When goto
+  // itself threw (resp null), Chrome may still be showing its own error page — detect that too.
+  if (resp && resp.status() >= 400) throw new Error(`http ${resp.status()}`);
+  if (!resp) {
+    const netErr = await page.evaluate(() => !!document.querySelector("body.neterror, #main-frame-error")).catch(() => false);
+    if (netErr) throw new Error("navigation failed (browser error page)");
+  }
   await dismissConsent(page);
   await autoScroll(page);
   await page.waitForLoadState("networkidle", { timeout: 5000 }).catch(() => {});
@@ -157,14 +173,16 @@ export async function capture(url, outDir, { signal, onProgress } = {}) {
   try {
     if (signal?.aborted) throw new Error("aborted");
     // ---- desktop: top→bottom tiles ----
-    const ctx = await browser.newContext({ viewport: { width: DESKTOP.width, height: MAX_TILE }, userAgent: UA, locale: "pt-PT", timezoneId: "Europe/Lisbon", ignoreHTTPSErrors: true, serviceWorkers: "block" });
+    const ctx = await browser.newContext({ viewport: { width: DESKTOP.width, height: MAX_TILE }, userAgent: UA, extraHTTPHeaders: DESKTOP_CH, locale: "pt-PT", timezoneId: "Europe/Lisbon", ignoreHTTPSErrors: true, serviceWorkers: "block" });
     const page = await ctx.newPage();
     const runtime = observeRuntime(page); // console errors / failed requests / weight — real measurements
     const t0 = Date.now();
     onProgress?.("loading page");
     await prime(page, url);
     out.meta.loadMs = Date.now() - t0;
+    out.meta.finalUrl = page.url();
     out.meta.title = (await page.title().catch(() => "")).slice(0, 160);
+    out.meta.html = (await page.content().catch(() => "")).slice(0, 600_000); // rendered HTML — lets callers derive tech when the plain probe was bot-walled
     out.meta.jsLibs = await detectJsLibs(page);
     Object.assign(out.meta, runtime.snapshot());
     const d = await tilePage(page, "desktop", outDir, signal, onProgress);
@@ -176,7 +194,7 @@ export async function capture(url, outDir, { signal, onProgress } = {}) {
 
     // ---- mobile pass (responsiveness is the biggest "dated" tell), same tiling ----
     try {
-      const mctx = await browser.newContext({ viewport: { width: MOBILE.width, height: MAX_TILE }, userAgent: MOBILE_UA, isMobile: true, hasTouch: true, deviceScaleFactor: 2, locale: "pt-PT", ignoreHTTPSErrors: true });
+      const mctx = await browser.newContext({ viewport: { width: MOBILE.width, height: MAX_TILE }, userAgent: MOBILE_UA, extraHTTPHeaders: MOBILE_CH, isMobile: true, hasTouch: true, deviceScaleFactor: 2, locale: "pt-PT", ignoreHTTPSErrors: true });
       const mpage = await mctx.newPage();
       onProgress?.("mobile pass");
       await prime(mpage, url);

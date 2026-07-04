@@ -21,8 +21,8 @@
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { paths, readAudit, readCompany, storeRoot } from "../lib/store.mjs";
-import { probe } from "../lib/probe.mjs";
-import { detectJsLibs, launch, loadChromium, MAX_TILE, MOBILE, MOBILE_UA, observeRuntime, prime, tilePage, DESKTOP, UA } from "../lib/capture.mjs";
+import { probe, techFromHtml } from "../lib/probe.mjs";
+import { DESKTOP_CH, detectJsLibs, launch, loadChromium, MAX_TILE, MOBILE, MOBILE_CH, MOBILE_UA, observeRuntime, prime, tilePage, DESKTOP, UA } from "../lib/capture.mjs";
 import { emit, progress, readRequest } from "./_cli.mjs";
 
 const MAX_PAGES = Number(process.env.PROSPECTOR_BP_PAGES ?? 8);
@@ -144,8 +144,11 @@ mkdirSync(pagesDir, { recursive: true });
 
 progress({ phase: "probing", item: url });
 const p = await probe(url);
-if (!p.reachable) { emit({ action: "blueprint", ok: false, error: `unreachable: ${p.reason ?? "?"}`, url }); process.exit(0); }
-const baseUrl = p.finalUrl ?? url;
+// A bot-walled probe (WAF 403/429 to Node's fetch) is not proof the site is dead — the real
+// browser below is the arbiter. Only a plain unreachable (DNS/timeout/4xx-not-waf) bails here.
+if (!p.reachable && !p.botBlocked) { emit({ action: "blueprint", ok: false, error: `unreachable: ${p.reason ?? "?"}`, url }); process.exit(0); }
+const baseUrl = p.finalUrl ?? (/^https?:/i.test(url) ? url : `https://${url}`);
+let tech = p.reachable ? p.tech : null; // botBlocked → derived from the rendered home page below
 
 const chromium = await loadChromium();
 const browser = await launch(chromium);
@@ -182,7 +185,7 @@ try {
 
     // ---- desktop: analyze + tiles + rendered DOM ----
     try {
-      const ctx = await browser.newContext({ viewport: { width: DESKTOP.width, height: MAX_TILE }, userAgent: UA, locale: "pt-PT", timezoneId: "Europe/Lisbon", ignoreHTTPSErrors: true, serviceWorkers: "block" });
+      const ctx = await browser.newContext({ viewport: { width: DESKTOP.width, height: MAX_TILE }, userAgent: UA, extraHTTPHeaders: DESKTOP_CH, locale: "pt-PT", timezoneId: "Europe/Lisbon", ignoreHTTPSErrors: true, serviceWorkers: "block" });
       const page = await ctx.newPage();
       const runtime = observeRuntime(page);
       const t0 = Date.now();
@@ -198,6 +201,7 @@ try {
         const dom = await page.content();
         writeFileSync(join(dir, "dom.html"), dom.slice(0, MAX_DOM_BYTES), "utf8");
         entry.dom = "dom.html";
+        if (!tech) tech = { ...(await techFromHtml(dom.slice(0, 600_000), { finalUrl: page.url() })), fetchBlocked: p.reason };
       } catch { /* dom save best-effort */ }
       entry.runtime = runtime.snapshot();
       // grow the crawl queue: nav links first (they define the IA), then body links
@@ -218,7 +222,7 @@ try {
     // ---- mobile: tiles + (home only) menu interaction probe ----
     if (!stopping && !entry.error) {
       try {
-        const mctx = await browser.newContext({ viewport: { width: MOBILE.width, height: MAX_TILE }, userAgent: MOBILE_UA, isMobile: true, hasTouch: true, deviceScaleFactor: 2, locale: "pt-PT", ignoreHTTPSErrors: true });
+        const mctx = await browser.newContext({ viewport: { width: MOBILE.width, height: MAX_TILE }, userAgent: MOBILE_UA, extraHTTPHeaders: MOBILE_CH, isMobile: true, hasTouch: true, deviceScaleFactor: 2, locale: "pt-PT", ignoreHTTPSErrors: true });
         const mpage = await mctx.newPage();
         progress({ ...at, phase: "mobile" });
         await prime(mpage, pageUrl);
@@ -235,16 +239,32 @@ try {
     if (pages.length === 1) for (const u of sitemapUrls) if (!seen.has(u)) { seen.add(u); queue.push(u); }
   }
 
-  // ---- broken internal links (plain fetch over links we did NOT crawl) ----
+  // ---- broken internal links, over links we did NOT crawl. Plain fetch normally; when the site
+  // bot-walls Node's fetch, every plain check would 429 (all-false-positives) — go through the
+  // browser instead (slower, so a lower cap). ----
   if (!stopping) {
-    const toCheck = [...allInternalHrefs].filter((u) => !pages.some((pg) => pg.url === u)).slice(0, MAX_LINKCHECK);
-    progress({ phase: "link check", message: `${toCheck.length} internal links` });
-    for (const u of toCheck) {
-      if (stopping) break;
-      try {
-        const res = await fetch(u, { method: "GET", redirect: "follow", headers: { "user-agent": UA }, signal: AbortSignal.timeout(8000) });
-        if (res.status >= 400) site.brokenLinks.push({ url: u, status: res.status });
-      } catch { site.brokenLinks.push({ url: u, status: null }); }
+    const cap = p.botBlocked ? Math.min(MAX_LINKCHECK, 15) : MAX_LINKCHECK;
+    const toCheck = [...allInternalHrefs].filter((u) => !pages.some((pg) => pg.url === u)).slice(0, cap);
+    progress({ phase: "link check", message: `${toCheck.length} internal links${p.botBlocked ? " (via browser — fetch is bot-walled)" : ""}` });
+    if (p.botBlocked) {
+      const lctx = await browser.newContext({ viewport: { width: DESKTOP.width, height: 600 }, userAgent: UA, extraHTTPHeaders: DESKTOP_CH, ignoreHTTPSErrors: true });
+      const lpage = await lctx.newPage();
+      for (const u of toCheck) {
+        if (stopping) break;
+        try {
+          const res = await lpage.goto(u, { waitUntil: "commit", timeout: 15000 });
+          if (res && res.status() >= 400) site.brokenLinks.push({ url: u, status: res.status() });
+        } catch { site.brokenLinks.push({ url: u, status: null }); }
+      }
+      await lctx.close().catch(() => {});
+    } else {
+      for (const u of toCheck) {
+        if (stopping) break;
+        try {
+          const res = await fetch(u, { method: "GET", redirect: "follow", headers: { "user-agent": UA }, signal: AbortSignal.timeout(8000) });
+          if (res.status >= 400) site.brokenLinks.push({ url: u, status: res.status });
+        } catch { site.brokenLinks.push({ url: u, status: null }); }
+      }
     }
   }
 } finally {
@@ -256,13 +276,19 @@ site.fonts = [...new Set(pages.flatMap((pg) => pg.analysis?.fonts ?? []))].slice
 site.colors = [...new Set(pages.flatMap((pg) => pg.analysis?.colors ?? []))].slice(0, 32);
 const consoleErrors = pages.reduce((n, pg) => n + (pg.runtime?.consoleErrors?.length ?? 0), 0);
 
+// bot-walled AND the browser couldn't load anything either → honestly unreachable
+if (!pages.some((pg) => pg.desktop.length)) {
+  emit({ action: "blueprint", ok: false, error: `unreachable: ${p.reason ?? "browser could not load the site"}`, url: baseUrl });
+  process.exit(0);
+}
+
 const captureJson = {
   companyId: req.companyId ?? null,
   id,
   url: baseUrl,
   capturedAt: new Date().toISOString(),
   canceled: stopping || undefined,
-  tech: p.tech,
+  tech,
   site,
   pages: pages.map(({ ...pg }) => pg),
   totals: {

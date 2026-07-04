@@ -77,9 +77,31 @@ function copyrightYear(html) {
   return String(Math.max(...years));
 }
 
+/** Derive the tech signals from an HTML document (however it was obtained — plain fetch or a
+ *  rendered browser page). Shared by probe() and the browser fallback for bot-walled sites. */
+export async function techFromHtml(html, { headers = new Headers(), finalUrl = "" } = {}) {
+  const host = (() => { try { return new URL(finalUrl).hostname.replace(/^www\./, ""); } catch { return null; } })();
+  return {
+    https: finalUrl.startsWith("https://"),
+    mobileFriendly: /<meta[^>]+name=["']viewport["'][^>]*content=["'][^"']*width\s*=\s*device-width/i.test(html),
+    cms: detectCms(html, headers),
+    lastModified: headers.get("last-modified") ?? copyrightYear(html),
+    domainAge: host ? await domainAge(host) : null,
+    htmlKB: Math.round(html.length / 1024),
+    ...pageSignals(html),
+    lighthousePerf: null, // not measured here; never faked
+  };
+}
+
+// Statuses a bot-wall/WAF returns to non-browser clients (Node fetch has a giveaway TLS/header
+// fingerprint) while the site works fine in a real browser. Callers with a browser at hand
+// should treat botBlocked:true as "verify with the browser", NOT as dead.
+const BOT_BLOCK = new Set([403, 406, 429, 503]);
+
 /**
  * Probe a site. Returns { reachable, ...tech } — taste is decided elsewhere (by the agent),
- * never here. On any failure to reach the site, reachable:false and tech fields stay null.
+ * never here. On any failure to reach the site, reachable:false and tech fields stay null;
+ * botBlocked:true flags WAF-style rejections a real browser may get past.
  */
 export async function probe(rawUrl) {
   if (!rawUrl) return { reachable: false, reason: "no website", status: null };
@@ -94,7 +116,7 @@ export async function probe(rawUrl) {
     }
   }
   if (!res) return { reachable: false, reason: "unreachable", status: null };
-  if (res.status >= 400) return { reachable: false, reason: `http ${res.status}`, status: res.status, finalUrl: res.url };
+  if (res.status >= 400) return { reachable: false, reason: `http ${res.status}`, status: res.status, finalUrl: res.url, botBlocked: BOT_BLOCK.has(res.status) };
 
   let html = "";
   try {
@@ -103,20 +125,10 @@ export async function probe(rawUrl) {
   } catch { /* keep empty */ }
 
   const finalUrl = res.url || url;
-  const host = (() => { try { return new URL(finalUrl).hostname.replace(/^www\./, ""); } catch { return null; } })();
   return {
     reachable: true,
     status: res.status,
     finalUrl,
-    tech: {
-      https: finalUrl.startsWith("https://"),
-      mobileFriendly: /<meta[^>]+name=["']viewport["'][^>]*content=["'][^"']*width\s*=\s*device-width/i.test(html),
-      cms: detectCms(html, res.headers),
-      lastModified: res.headers.get("last-modified") ?? copyrightYear(html),
-      domainAge: host ? await domainAge(host) : null,
-      htmlKB: Math.round(html.length / 1024),
-      ...pageSignals(html),
-      lighthousePerf: null, // not measured here; never faked
-    },
+    tech: await techFromHtml(html, { headers: res.headers, finalUrl }),
   };
 }

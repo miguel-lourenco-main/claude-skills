@@ -4,7 +4,7 @@
 
 import { join } from "node:path";
 import { dedupeByUrl, listCompanyIds, paths, readAudit, readCompany, storeRoot, writeAudit } from "../lib/store.mjs";
-import { probe } from "../lib/probe.mjs";
+import { probe, techFromHtml } from "../lib/probe.mjs";
 import { capture } from "../lib/capture.mjs";
 import { emit, progress, readRequest } from "./_cli.mjs";
 
@@ -66,10 +66,11 @@ for (let idx = 0; idx < ids.length; idx++) {
     continue;
   }
 
-  // 2) probe (reachability gate + real tech)
+  // 2) probe (reachability gate + real tech). A bot-walled response (WAF 403/429 to Node's fetch
+  // fingerprint) is NOT proof the site is dead — fall through and let the real browser decide.
   progress({ ...at, phase: "probing" });
   const p = await probe(url);
-  if (!p.reachable) {
+  if (!p.reachable && !p.botBlocked) {
     progress({ ...at, phase: "unreachable", message: p.reason ?? "unreachable" });
     writeAudit({ companyId: id, url, capturedAt: today(), reachable: false, reason: p.reason ?? "unreachable", status: p.status ?? null, tech: null, screenshots: { desktop: [], mobile: [], thumbnail: null }, taste: null }, root);
     unreachable.push(id);
@@ -89,8 +90,19 @@ for (let idx = 0; idx < ids.length; idx++) {
   }
   if (stopping) break; // aborted mid-capture → skip writing a partial record for this one
 
+  // 3b) bot-walled probe + browser ALSO failed → honestly unreachable (with the WAF status)
+  if (!p.reachable && (capErr || !shots.desktop.length)) {
+    progress({ ...at, phase: "unreachable", message: `${p.reason} · browser: ${capErr ?? "no tiles"}` });
+    writeAudit({ companyId: id, url, capturedAt: today(), reachable: false, reason: p.reason ?? "unreachable", status: p.status ?? null, captureError: capErr, tech: null, screenshots: { desktop: [], mobile: [], thumbnail: null }, taste: null }, root);
+    unreachable.push(id);
+    continue;
+  }
+
   // 4) write audit — taste PENDING (agent grades it), or null if capture failed (nothing to grade)
-  const tech = { ...p.tech };
+  // Bot-walled probe but the browser got in → tech from the RENDERED page, flagged fetchBlocked.
+  const tech = p.reachable
+    ? { ...p.tech }
+    : { ...(await techFromHtml(shots.meta?.html ?? "", { finalUrl: shots.meta?.finalUrl ?? url })), fetchBlocked: p.reason };
   if (shots.meta?.loadMs != null) tech.loadMs = shots.meta.loadMs;
   // runtime signals measured during capture (never fabricated — absent when capture failed)
   for (const k of ["jsLibs", "consoleErrors", "failedRequests", "requestCount", "pageBytes"]) {
@@ -98,10 +110,10 @@ for (let idx = 0; idx < ids.length; idx++) {
   }
   writeAudit({
     companyId: id,
-    url: p.finalUrl ?? url,
+    url: (p.reachable ? p.finalUrl : shots.meta?.finalUrl) ?? url,
     capturedAt: today(),
     reachable: true,
-    status: p.status,
+    status: p.reachable ? p.status : null,
     tech,
     screenshots: { desktop: shots.desktop, mobile: shots.mobile, thumbnail: shots.thumbnail },
     captureError: capErr,

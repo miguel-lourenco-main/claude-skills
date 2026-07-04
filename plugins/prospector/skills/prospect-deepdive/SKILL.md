@@ -20,13 +20,17 @@ export PROSPECTOR_ROOT="${PROSPECTOR_ROOT:-$PWD/.prospector}"
 Two entry points:
 - **From the dashboard queue** (the user clicked *Deep dive*): list what's waiting —
   `node "$PLUGIN/scripts/deepdive-pending.mjs"` → `items[]` with `reqId`, `companyId`, name, website, etc.
-- **Direct**: the user names a company — find its id with
-  `node "$PLUGIN/scripts/discover.mjs"`-style data, or read `companies/<id>.json` (grep the name).
+- **Direct**: the user names a company — resolve its id:
+  `node "$PLUGIN/scripts/find.mjs" '{"q":"<name / domain / city fragment>"}'` → matches with their
+  audit state, dossier/assessment flags. Ambiguous match → ask, don't guess.
 
 ## 1 · Gather (everything you can)
 
 Start from the stored record (`companies/<id>.json` + `audits/<id>.website.json`), then **research live**
-with WebSearch / WebFetch. Cast wide; pull whatever exists:
+with WebSearch / WebFetch. If the audit captured screenshots (`screenshots/<id>/`), **Read a few tiles**
+(desktop + mobile hero at least) — a dossier that talks about "their website" without having looked at
+it reads hollow, and the visual state often IS the pitch. Reuse the audit's `taste.summary`/`issues`
+rather than re-deriving them. Cast wide; pull whatever exists:
 
 - **Identity & legal**: full legal name, NIF/NIPC, CAE, founding year, legal form, ownership/parent (Racius, registries).
 - **Size & money**: employees, revenue/turnover if public, funding, growth signals.
@@ -78,3 +82,7 @@ The dashboard then shows the dossier in the company's detail panel (and the `Dee
 This is **agent-only** work: the watch-loop deliberately skips `deepdive` requests and leaves them for a
 Claude session (you). Always do it for a company you can actually research — never fabricate a dossier.
 Compliance: only public business information; this is B2B lead research.
+
+The dossier answers "who are they and why pitch them". When the redesign is already decided and the
+question becomes "what exactly do we build" — full-site capture, issue register, implementation plan —
+hand over to **`prospect-blueprint`** (it builds on this dossier; don't duplicate its work here).

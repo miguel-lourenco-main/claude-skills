@@ -1,6 +1,6 @@
 ---
 name: prospect-worker
-description: Connect THIS local Claude Code session to the hosted Prospector and process its queued agent work (hunt / deep-dive / outreach) off your own subscription — so the cloud doesn't pay per-token. Use when the user says "connect to the server", "run the worker", "drain the cloud queue locally", "process Prospector remotely", or wants the local-first / free-agent mode. Leases one request at a time, runs the existing skill against a synced workdir, pushes results back. The cloud's metered API stays as the fallback when this session isn't connected.
+description: Connect THIS local Claude Code session to the hosted Prospector and process its queued agent work (hunt / deep-dive / outreach / blueprint) off your own subscription — so the cloud doesn't pay per-token. Use when the user says "connect to the server", "run the worker", "drain the cloud queue locally", "process Prospector remotely", or wants the local-first / free-agent mode. Leases one request at a time, runs the existing skill against a synced workdir, pushes results back. Accepts a mode argument — `queue` (drain what's pending, then stop; the default) or `monitor` (stay connected and keep polling for new work). The cloud's metered API stays as the fallback when this session isn't connected.
 ---
 
 # Prospect · worker (drain the hosted queue locally)
@@ -8,7 +8,20 @@ description: Connect THIS local Claude Code session to the hosted Prospector and
 You are a **remote worker**: this session's Claude (your subscription) does the hosted Prospector's
 agent work for free, instead of its cloud paying the metered API. You lease one queued request at a
 time, run the normal procedure against a **synced workdir**, push the results back to the server, and
-mark it done — looping until the user stops you.
+mark it done.
+
+## Mode — `queue` (default) or `monitor`
+
+Read the mode from the skill's argument (`/prospector:prospect-worker <mode>`):
+
+- **`queue`** (default, also when no argument is given): drain everything pending **right now**, then
+  **stop** as soon as the queue comes up empty. Use it to process a batch you just queued and hand back.
+- **`monitor`**: stay connected and keep polling **indefinitely** — pick up new jobs as they arrive
+  until the user stops you. Between empty polls, still `heartbeat` so the dashboard shows the worker
+  connected and the cloud keeps deferring to it. (Run this as a self-paced loop; check for a stop
+  request between iterations.)
+
+Confirm the mode back to the user in one line before you start.
 
 ## 0 · Setup (once)
 
@@ -29,14 +42,15 @@ Repeat until the user says stop (or you've polled empty several times in a row):
    WORK="$(mktemp -d)"
    node "$PLUGIN/scripts/worker.mjs" take "$WORK"
    ```
-   - Prints `{"none":true}` → nothing queued. Wait ~15s and repeat (or stop if asked).
+   - Prints `{"none":true}` → nothing queued: in **`queue`** mode, **stop** now and report what you
+     drained; in **`monitor`** mode, run `heartbeat` to stay present, wait ~20s, and poll again.
    - Prints `{"reqId":"…","action":"hunt|deepdive|outreach","req":{…}}` → note the `reqId` + `action`,
      then `export PROSPECTOR_ROOT="$WORK"` (the synced store snapshot, with this one request already in
      its queue).
 
 2. **Do the work** — follow the EXISTING skill for that `action`, scoped to this `reqId`, against
    `$WORK` exactly as you would locally (the scripts read `$WORK`'s queue and write into `$WORK`):
-   - `hunt` → **prospect-hunt**  ·  `deepdive` → **prospect-deepdive**  ·  `outreach` → **prospect-outreach**
+   - `hunt` → **prospect-hunt**  ·  `deepdive` → **prospect-deepdive**  ·  `outreach` → **prospect-outreach**  ·  `blueprint` → **prospect-blueprint**
 
    During a long run, every ~30s renew the lease so the cloud doesn't reclaim it:
    ```bash

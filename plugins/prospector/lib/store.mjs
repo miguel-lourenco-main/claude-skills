@@ -36,6 +36,7 @@ export const paths = (root = storeRoot()) => ({
   outreach: join(root, "outreach"),
   dossiers: join(root, "dossiers"),
   assessments: join(root, "assessments"),
+  blueprints: join(root, "blueprints"),
   requests: join(root, "requests"),
   queue: join(root, "requests", "queue.jsonl"),
   results: join(root, "requests", "results.jsonl"),
@@ -54,7 +55,7 @@ export const paths = (root = storeRoot()) => ({
  *  Full (with screenshots) for export + the worker push; JSON-only (`{screenshots:false}`) for the
  *  worker pull — the agent never needs the screenshots as input, and they are 95% of the bytes. */
 export function bundleDirs(root = storeRoot(), { screenshots = true } = {}) {
-  const names = ["scope.json", "leads.md", "companies", "audits", "assessments", "dossiers", "outreach"];
+  const names = ["scope.json", "leads.md", "companies", "audits", "assessments", "dossiers", "outreach", "blueprints"];
   if (screenshots) names.push("screenshots");
   return names.filter((n) => existsSync(join(root, n)));
 }
@@ -76,6 +77,7 @@ export function deleteCompany(id, root = storeRoot()) {
     try { rmSync(f); } catch { /* not present */ }
   }
   try { rmSync(join(p.screenshots, id), { recursive: true, force: true }); } catch { /* none */ }
+  try { rmSync(join(p.blueprints, id), { recursive: true, force: true }); } catch { /* none */ }
 }
 
 export function readJSON(file, fallback = null) {
@@ -94,7 +96,7 @@ export function writeJSON(file, data) {
 /** Create the dir skeleton, and seed from sample-store/seed.json if there are no companies yet. */
 export function ensureStore(root = storeRoot()) {
   const p = paths(root);
-  for (const d of [p.root, p.companies, p.audits, p.screenshots, p.outreach, p.dossiers, p.assessments, p.requests, p.logs]) {
+  for (const d of [p.root, p.companies, p.audits, p.screenshots, p.outreach, p.dossiers, p.assessments, p.blueprints, p.requests, p.logs]) {
     mkdirSync(d, { recursive: true });
   }
   // Seed sample data ONLY into a truly empty store. A real, discovered store (which has
@@ -262,7 +264,7 @@ export function appendResult(result, root = storeRoot()) {
 
 // ---- remote-worker presence + agent-request leases (Part B) -----------------
 // The agent actions a remote worker (a local Claude session) can drain off the user's subscription.
-export const AGENT_ACTIONS = new Set(["deepdive", "hunt", "outreach"]);
+export const AGENT_ACTIONS = new Set(["deepdive", "hunt", "outreach", "blueprint"]);
 // Timing knobs (one source of truth, shared by the bridge + agent-runner):
 export const WORKER_PRESENCE_MS = 60_000;    // a worker counts as "connected" if it heartbeat within this
 export const LEASE_TTL_MS = 5 * 60_000;      // a lease is live until expiresAt; the worker renews via heartbeat

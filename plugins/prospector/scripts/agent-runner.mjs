@@ -17,7 +17,7 @@ import { appendResult, ensureStore, leaseLive, leaseState, paths, readCancels, r
 
 // action → the skill whose SKILL.md drives the headless claude (the skill stays the single source
 // of truth for the agent's procedure; we just feed it in non-interactively, scoped to one reqId).
-const AGENT_SKILLS = { hunt: "prospect-hunt", deepdive: "prospect-deepdive", outreach: "prospect-outreach" };
+const AGENT_SKILLS = { hunt: "prospect-hunt", deepdive: "prospect-deepdive", outreach: "prospect-outreach", blueprint: "prospect-blueprint" };
 const MODEL = process.env.PROSPECTOR_CLAUDE_MODEL || "opus";
 const CLAUDE_BIN = process.env.PROSPECTOR_CLAUDE_BIN || "claude";
 const BYPASS = process.env.PROSPECTOR_CLAUDE_BYPASS === "1";

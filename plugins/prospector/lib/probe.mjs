@@ -57,6 +57,19 @@ function detectCms(html, headers) {
   return null;
 }
 
+/** Cheap on-page SEO/marketing signals — regex over the fetched HTML, measured not inferred. */
+function pageSignals(html) {
+  const title = /<title[^>]*>([^<]{1,300})/i.exec(html)?.[1]?.trim() || null;
+  return {
+    title,
+    metaDescription: /<meta[^>]+name=["']description["'][^>]+content=["'][^"']+["']/i.test(html)
+      || /<meta[^>]+content=["'][^"']+["'][^>]+name=["']description["']/i.test(html),
+    ogTags: /<meta[^>]+property=["']og:/i.test(html),
+    structuredData: /<script[^>]+type=["']application\/ld\+json["']/i.test(html),
+    analytics: /gtag\(|google-analytics\.com|googletagmanager\.com|fbq\(|connect\.facebook\.net/i.test(html),
+  };
+}
+
 /** Newest 4-digit year in a footer copyright (e.g. "© 2018"), as a coarse "lastModified". */
 function copyrightYear(html) {
   const years = [...html.matchAll(/(?:©|&copy;|copyright)[^0-9]{0,12}(20\d{2})/gi)].map((m) => Number(m[1]));
@@ -101,6 +114,8 @@ export async function probe(rawUrl) {
       cms: detectCms(html, res.headers),
       lastModified: res.headers.get("last-modified") ?? copyrightYear(html),
       domainAge: host ? await domainAge(host) : null,
+      htmlKB: Math.round(html.length / 1024),
+      ...pageSignals(html),
       lighthousePerf: null, // not measured here; never faked
     },
   };

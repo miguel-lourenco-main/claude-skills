@@ -39,7 +39,7 @@ ensureStore(ROOT);
 // from a stale pre-refactor one still squatting on the port — and replace it instead of reusing it.
 const VERSION = (() => { try { return JSON.parse(readFileSync(join(PLUGIN_ROOT, ".claude-plugin", "plugin.json"), "utf8")).version; } catch { return null; } })();
 
-const ACTIONS = new Set(["discover", "audit", "rank", "outreach", "outreach-save", "send", "scope", "delete", "shortlist", "setstatus", "deepdive", "hunt", "import"]);
+const ACTIONS = new Set(["discover", "audit", "rank", "outreach", "outreach-save", "send", "scope", "delete", "shortlist", "setstatus", "deepdive", "hunt", "import", "blueprint"]);
 const LOG_FILE = process.env.PROSPECTOR_LOG ?? "/tmp/prospector-loop.log";
 const MIME = { ".html": "text/html", ".js": "text/javascript", ".css": "text/css", ".json": "application/json", ".png": "image/png", ".svg": "image/svg+xml" };
 

@@ -32,7 +32,7 @@ const SCRIPTS = {
 // both workers). This loop simply leaves them for that worker so neither double-processes.
 // `outreach` is agent-driven (research contacts + draft email/text); `outreach-save`/`send` are the
 // deterministic follow-ups the loop DOES run.
-const AGENT_ACTIONS = new Set(["deepdive", "hunt", "outreach"]);
+const AGENT_ACTIONS = new Set(["deepdive", "hunt", "outreach", "blueprint"]);
 
 const root = storeRoot();
 ensureStore(root);

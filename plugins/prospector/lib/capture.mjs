@@ -10,15 +10,16 @@
 import { mkdirSync, rmSync } from "node:fs";
 import { join } from "node:path";
 
-const UA = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
-const DESKTOP = { width: 1440, height: 900 };
-const MOBILE = { width: 390, height: 844 };
+export const UA = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
+export const MOBILE_UA = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1";
+export const DESKTOP = { width: 1440, height: 900 };
+export const MOBILE = { width: 390, height: 844 };
 // Tile height = the render viewport height too (scroll-and-shoot), so keep it screen-realistic
 // (~1000) to render the page faithfully; a much taller value inflates vh-based layouts.
-const MAX_TILE = Number(process.env.PROSPECTOR_TILE_HEIGHT ?? 1000);
+export const MAX_TILE = Number(process.env.PROSPECTOR_TILE_HEIGHT ?? 1000);
 const MAX_PAGE = Number(process.env.PROSPECTOR_MAX_PAGE ?? 14000);   // cap total captured height
 
-async function loadChromium() {
+export async function loadChromium() {
   try {
     const pw = await import("playwright");
     return pw.chromium;
@@ -27,7 +28,7 @@ async function loadChromium() {
   }
 }
 
-async function launch(chromium) {
+export async function launch(chromium) {
   // Prefer the system Chrome (already installed); fall back to a downloaded chromium.
   try {
     return await chromium.launch({ channel: "chrome" });
@@ -36,7 +37,7 @@ async function launch(chromium) {
   }
 }
 
-async function dismissConsent(page) {
+export async function dismissConsent(page) {
   const selectors = [
     "#onetrust-accept-btn-handler", ".cookie-accept", '[data-testid="uc-accept-all-button"]',
     "#CybotCookiebotDialogBodyLevelButtonLevelOptinAllowAll", "button#didomi-notice-agree-button",
@@ -51,7 +52,7 @@ async function dismissConsent(page) {
   }
 }
 
-async function autoScroll(page) {
+export async function autoScroll(page) {
   await page.evaluate(async () => {
     await new Promise((resolve) => {
       let last = 0, stable = 0, y = 0;
@@ -68,7 +69,7 @@ async function autoScroll(page) {
   });
 }
 
-async function prime(page, url) {
+export async function prime(page, url) {
   await page.goto(url, { waitUntil: "commit", timeout: 40000 }).catch(() => {});
   await page.waitForLoadState("domcontentloaded", { timeout: 20000 }).catch(() => {});
   await page.waitForLoadState("load", { timeout: 15000 }).catch(() => {});
@@ -84,7 +85,7 @@ async function prime(page, url) {
  *  scrolling and shooting the viewport (clip below the fold doesn't work in Playwright).
  *  Covers the whole page up to MAX_PAGE; the final tile may slightly overlap the previous
  *  when the page height isn't a multiple of the viewport (browser clamps the last scroll). */
-async function tilePage(page, prefix, outDir, signal, onProgress) {
+export async function tilePage(page, prefix, outDir, signal, onProgress) {
   const docH = Math.min(await page.evaluate(() => document.body.scrollHeight), MAX_PAGE);
   const vh = page.viewportSize().height;
   const tiles = Math.max(1, Math.ceil(docH / vh));
@@ -100,6 +101,45 @@ async function tilePage(page, prefix, outDir, signal, onProgress) {
   }
   await page.evaluate(() => window.scrollTo(0, 0)).catch(() => {});
   return { files, docH };
+}
+
+/** Attach honest runtime observers to a page BEFORE navigation. Returns a collector whose
+ *  snapshot() yields { consoleErrors, failedRequests, requestCount, pageBytes } — all measured,
+ *  never inferred. pageBytes is best-effort (content-length headers), so it under-counts. */
+export function observeRuntime(page) {
+  const consoleErrors = [];
+  const failedRequests = [];
+  let requestCount = 0;
+  let pageBytes = 0;
+  page.on("console", (m) => { if (m.type() === "error" && consoleErrors.length < 10) consoleErrors.push(m.text().slice(0, 200)); });
+  page.on("pageerror", (e) => { if (consoleErrors.length < 10) consoleErrors.push(String(e.message ?? e).slice(0, 200)); });
+  page.on("request", () => { requestCount++; });
+  page.on("requestfailed", (r) => { if (failedRequests.length < 10) failedRequests.push(`${r.url().slice(0, 160)} (${r.failure()?.errorText ?? "failed"})`); });
+  page.on("response", (r) => {
+    const len = Number(r.headers()["content-length"] ?? 0);
+    if (len > 0) pageBytes += len;
+    if (r.status() >= 400 && failedRequests.length < 10) failedRequests.push(`${r.url().slice(0, 160)} (http ${r.status()})`);
+  });
+  return { snapshot: () => ({ consoleErrors, failedRequests, requestCount, pageBytes }) };
+}
+
+/** In-page JS framework/library sniff (window globals + DOM markers). Measured, best-effort. */
+export async function detectJsLibs(page) {
+  return await page.evaluate(() => {
+    const libs = [];
+    const w = window;
+    if (w.jQuery?.fn?.jquery) libs.push(`jQuery ${w.jQuery.fn.jquery}`);
+    if (w.React || document.querySelector("[data-reactroot],#__next")) libs.push("React");
+    if (w.Vue || document.querySelector("[data-v-app],#__nuxt")) libs.push("Vue");
+    if (w.angular || document.querySelector("[ng-version]")) libs.push("Angular");
+    if (w.Shopify) libs.push("Shopify runtime");
+    if (w.wp || document.querySelector('link[href*="wp-content"]')) libs.push("WordPress assets");
+    if (document.querySelector('script[src*="bootstrap"],link[href*="bootstrap"]')) libs.push("Bootstrap");
+    if (w.Swiper || document.querySelector(".swiper")) libs.push("Swiper");
+    if (w.gtag || w.ga || w.dataLayer) libs.push("Google Analytics/Tag Manager");
+    if (w.fbq) libs.push("Meta Pixel");
+    return libs;
+  }).catch(() => []);
 }
 
 /**
@@ -119,11 +159,14 @@ export async function capture(url, outDir, { signal, onProgress } = {}) {
     // ---- desktop: top→bottom tiles ----
     const ctx = await browser.newContext({ viewport: { width: DESKTOP.width, height: MAX_TILE }, userAgent: UA, locale: "pt-PT", timezoneId: "Europe/Lisbon", ignoreHTTPSErrors: true, serviceWorkers: "block" });
     const page = await ctx.newPage();
+    const runtime = observeRuntime(page); // console errors / failed requests / weight — real measurements
     const t0 = Date.now();
     onProgress?.("loading page");
     await prime(page, url);
     out.meta.loadMs = Date.now() - t0;
     out.meta.title = (await page.title().catch(() => "")).slice(0, 160);
+    out.meta.jsLibs = await detectJsLibs(page);
+    Object.assign(out.meta, runtime.snapshot());
     const d = await tilePage(page, "desktop", outDir, signal, onProgress);
     out.desktop = d.files;
     out.meta.docHeight = d.docH;
@@ -133,7 +176,7 @@ export async function capture(url, outDir, { signal, onProgress } = {}) {
 
     // ---- mobile pass (responsiveness is the biggest "dated" tell), same tiling ----
     try {
-      const mctx = await browser.newContext({ viewport: { width: MOBILE.width, height: MAX_TILE }, userAgent: "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1", isMobile: true, hasTouch: true, deviceScaleFactor: 2, locale: "pt-PT", ignoreHTTPSErrors: true });
+      const mctx = await browser.newContext({ viewport: { width: MOBILE.width, height: MAX_TILE }, userAgent: MOBILE_UA, isMobile: true, hasTouch: true, deviceScaleFactor: 2, locale: "pt-PT", ignoreHTTPSErrors: true });
       const mpage = await mctx.newPage();
       onProgress?.("mobile pass");
       await prime(mpage, url);

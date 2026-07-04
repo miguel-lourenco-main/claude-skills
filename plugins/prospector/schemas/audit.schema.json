@@ -19,7 +19,14 @@
       "properties": {
         "https": { "type": "boolean" }, "mobileFriendly": { "type": "boolean" },
         "lighthousePerf": { "type": "number" }, "cms": { "type": "string" },
-        "lastModified": { "type": "string" }, "domainAge": { "type": "number" }
+        "lastModified": { "type": "string" }, "domainAge": { "type": "number" },
+        "htmlKB": { "type": "number" }, "loadMs": { "type": "number" },
+        "title": { "type": ["string", "null"] }, "metaDescription": { "type": "boolean" },
+        "ogTags": { "type": "boolean" }, "structuredData": { "type": "boolean" }, "analytics": { "type": "boolean" },
+        "jsLibs": { "type": "array", "items": { "type": "string" }, "description": "Frameworks/libraries detected at runtime during capture." },
+        "consoleErrors": { "type": "array", "items": { "type": "string" }, "description": "First console/page errors observed during capture (measured, max 10)." },
+        "failedRequests": { "type": "array", "items": { "type": "string" }, "description": "Failed/4xx+ requests observed during capture (measured, max 10)." },
+        "requestCount": { "type": "number" }, "pageBytes": { "type": "number", "description": "Best-effort transfer weight (content-length sum) — undercounts." }
       }
     },
     "screenshots": {
@@ -53,6 +60,7 @@
           }
         },
         "overall": { "type": "number" },
+        "summary": { "type": ["string", "null"], "description": "One-line agent verdict on the site — reusable in dossiers/outreach." },
         "datedSignals": { "type": "array", "items": { "type": "string" } },
         "issues": {
           "type": "array",

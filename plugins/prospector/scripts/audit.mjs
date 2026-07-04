@@ -3,7 +3,7 @@
 // agent to grade; a no-website or unreachable site gets reachable:false and taste:null.
 
 import { join } from "node:path";
-import { dedupeByUrl, listCompanyIds, paths, readCompany, storeRoot, writeAudit } from "../lib/store.mjs";
+import { dedupeByUrl, listCompanyIds, paths, readAudit, readCompany, storeRoot, writeAudit } from "../lib/store.mjs";
 import { probe } from "../lib/probe.mjs";
 import { capture } from "../lib/capture.mjs";
 import { emit, progress, readRequest } from "./_cli.mjs";
@@ -19,7 +19,20 @@ const ids = (fullPass ? listCompanyIds(root) : req.companyIds).filter((id) => re
 const today = () => new Date().toISOString().slice(0, 10);
 const audited = [];       // captured, taste pending
 const unreachable = [];   // no site / dead
+const skipped = [];       // fresh graded audit — left untouched
 let captureError = null;
+
+// Freshness guard: re-auditing OVERWRITES a graded audit with taste:{pending} (the agent's grading
+// work is lost). So a company whose audit is already GRADED and newer than maxAgeDays is skipped
+// unless the request says force:true. Ungraded/pending/unreachable audits are always re-run.
+const FRESH_DAYS = typeof req.maxAgeDays === "number" ? req.maxAgeDays : 30;
+const force = req.force === true;
+function isFresh(id) {
+  const a = readAudit(id, root);
+  if (!a?.taste || a.taste.pending) return false;            // never graded → always re-audit
+  const at = Date.parse(a.capturedAt ?? "");
+  return Number.isFinite(at) && (Date.now() - at) / 864e5 < FRESH_DAYS;
+}
 
 // Cooperative cancel: on a stop signal, finish-safe between companies (all completed
 // audits are already on disk) and abort the in-flight capture, then emit a partial result.
@@ -37,6 +50,13 @@ for (let idx = 0; idx < ids.length; idx++) {
   const url = c.contacts?.website;
   const item = c.name || url || id;
   const at = { i: idx + 1, n: N, item };
+
+  // 0) already graded + fresh → keep the agent's grade (force:true to re-audit anyway)
+  if (!force && isFresh(id)) {
+    progress({ ...at, phase: "fresh — skipped" });
+    skipped.push(id);
+    continue;
+  }
 
   // 1) no website → honest record, no capture, no taste
   if (!c.digital?.hasWebsite || !url) {
@@ -72,6 +92,10 @@ for (let idx = 0; idx < ids.length; idx++) {
   // 4) write audit — taste PENDING (agent grades it), or null if capture failed (nothing to grade)
   const tech = { ...p.tech };
   if (shots.meta?.loadMs != null) tech.loadMs = shots.meta.loadMs;
+  // runtime signals measured during capture (never fabricated — absent when capture failed)
+  for (const k of ["jsLibs", "consoleErrors", "failedRequests", "requestCount", "pageBytes"]) {
+    if (shots.meta?.[k] != null) tech[k] = shots.meta[k];
+  }
   writeAudit({
     companyId: id,
     url: p.finalUrl ?? url,
@@ -108,6 +132,7 @@ emit({
   ok: !captureError && !stopping,
   audited,
   unreachable,
+  skipped: skipped.length ? skipped : undefined,
   pending: audited.length,
   count: audited.length + unreachable.length,
   total: ids.length,

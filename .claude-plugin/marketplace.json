@@ -11,7 +11,10 @@
       "source": "./plugins/git-steward",
       "category": "git",
       "version": "0.7.0",
-      "author": { "name": "migaloco", "email": "migasoulou@gmail.com" }
+      "author": {
+        "name": "migaloco",
+        "email": "migasoulou@gmail.com"
+      }
     },
     {
       "name": "ui-ux-studio",
@@ -19,7 +22,10 @@
       "source": "./plugins/ui-ux-studio",
       "category": "design",
       "version": "0.2.2",
-      "author": { "name": "migaloco", "email": "migasoulou@gmail.com" }
+      "author": {
+        "name": "migaloco",
+        "email": "migasoulou@gmail.com"
+      }
     },
     {
       "name": "ui-ux-pro-max",
@@ -30,15 +36,20 @@
         "sha": "b7e3af80f6e331f6fb456667b82b12cade7c9d35"
       },
       "category": "design",
-      "author": { "name": "nextlevelbuilder" }
+      "author": {
+        "name": "nextlevelbuilder"
+      }
     },
     {
       "name": "prospector",
-      "description": "Lead-generation system for a web-redesign business: gather companies within a defined scope, store rich dossiers (sector, revenue, employees), capture + taste-audit their websites, score the money×bad-site×site-matters opportunity, and run an outreach workspace (agent-drafted email + copy-paste text → validate the contact → send). Runs locally as a dashboard over a filesystem store, or hosted in a container with shared-password auth; a headless claude agent-runner drains hunt/deep-dive/outreach (cloud API), or a local Claude session can drain it off your subscription via the prospect-worker skill. Import/export the whole store as a bundle.",
+      "description": "Lead-generation system for a web-redesign business: gather companies within a defined scope, store rich dossiers (sector, revenue, employees), capture + taste-audit their websites, score the money×bad-site×site-matters opportunity, deep-capture committed redesigns into a full blueprint (multi-page screenshots + code + issue register + implementation plan), and run an outreach workspace (agent-drafted email + copy-paste text → validate the contact → send). Runs locally as a dashboard over a filesystem store, or hosted in a container with shared-password auth; a headless claude agent-runner drains hunt/deep-dive/outreach/blueprint (cloud API), or a local Claude session can drain it off your subscription via the prospect-worker skill. Import/export the whole store as a bundle.",
       "source": "./plugins/prospector",
       "category": "business",
-      "version": "0.5.0",
-      "author": { "name": "migaloco", "email": "migasoulou@gmail.com" }
+      "version": "0.6.0",
+      "author": {
+        "name": "migaloco",
+        "email": "migasoulou@gmail.com"
+      }
     }
   ]
 }

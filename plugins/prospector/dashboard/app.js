@@ -1236,11 +1236,27 @@ function runHunt() {
 }
 
 // ---- discover modal --------------------------------------------------------
+/** Pre-fill the Discover modal from the active scope, so a run defaults to the scope you've set
+ *  (verticals, region, sources, website posture, cap). Re-runs on every open = "reset to scope". */
 function openDiscover() {
-  const sc = state.store?.scope;
-  $("#dscDistrict").value = sc?.districts?.[0] ?? "";
-  $("#dscCity").value = sc?.cities?.[0] ?? "";
-  if (sc?.verticals?.[0]) $("#dscVertical").value = sc.verticals[0];
+  const sc = state.store?.scope ?? {};
+  $("#dscDistrict").value = sc.districts?.[0] ?? "";
+  $("#dscCity").value = sc.cities?.[0] ?? "";
+  // verticals ← scope.verticals (default to restaurants if the scope has none)
+  const wantV = new Set(sc.verticals?.length ? sc.verticals : ["restaurants"]);
+  document.querySelectorAll("#dscVerticals input").forEach((i) => (i.checked = wantV.has(i.value)));
+  // sources ← scope.sources.allow (default osm), minus any denied
+  const allow = sc.sources?.allow?.length ? sc.sources.allow : ["osm"];
+  const deny = new Set(sc.sources?.deny ?? []);
+  document.querySelectorAll("#dscSources input").forEach((i) => (i.checked = allow.includes(i.value) && !deny.has(i.value)));
+  // website posture ← scope.hasWebsite (true→has, false→none, else any)
+  $("#dscWebsite").value = sc.hasWebsite === true ? "has" : sc.hasWebsite === false ? "none" : "any";
+  if (sc.maxCompanies) $("#dscCount").value = Math.min(200, sc.maxCompanies);
+  const bits = [];
+  if (sc.excludeContacted !== false) bits.push("skips contacted");
+  if (sc.freshnessDays) bits.push(`skips <${sc.freshnessDays}d-old`);
+  if (sc.suppress?.domains?.length) bits.push(`${sc.suppress.domains.length} suppressed domain(s)`);
+  $("#dscScopeHint").innerHTML = bits.length ? `Pre-filled from your scope · also honors: ${bits.join(" · ")}. <b>Edit Scope</b> to change the defaults.` : "Pre-filled from your scope. <b>Edit Scope</b> to change the defaults.";
   $("#dscErr").textContent = "";
   $("#discoverModal").classList.add("open");
 }
@@ -1249,13 +1265,15 @@ function runDiscover() {
   const district = $("#dscDistrict").value.trim();
   const city = $("#dscCity").value.trim();
   const area = [city, district].filter(Boolean).join(", ");
-  const vertical = $("#dscVertical").value;
+  const verticals = [...document.querySelectorAll("#dscVerticals input:checked")].map((i) => i.value);
   const sources = [...document.querySelectorAll("#dscSources input:checked")].map((i) => i.value);
   const count = Math.max(1, Math.min(200, Number($("#dscCount").value) || 25));
-  const onlyWithWebsite = $("#dscOnlyWeb").checked;
+  const website = $("#dscWebsite").value; // any | has | none
+  const onlyNew = $("#dscOnlyNew").checked;
+  if (!verticals.length) return ($("#dscErr").textContent = "pick at least one vertical");
   if (!sources.length) return ($("#dscErr").textContent = "pick at least one source");
   if (!area && sources.some((s) => s !== "wikidata")) return ($("#dscErr").textContent = "pick a district or city (OSM / Maps / Páginas need a location)");
-  postAction({ action: "discover", payload: { sources, area, district, city, vertical, count, onlyWithWebsite } });
+  postAction({ action: "discover", payload: { sources, area, district, city, verticals, count, website, onlyNew } });
   closeDiscover();
 }
 

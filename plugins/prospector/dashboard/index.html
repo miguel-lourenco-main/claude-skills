@@ -113,15 +113,32 @@
               </datalist>
             </div>
           </div>
+          <div class="form-row"><label>Verticals <span class="csub">· one or more</span></label>
+            <div class="checks checks-grid" id="dscVerticals">
+              <label><input type="checkbox" value="restaurants"> restaurants</label>
+              <label><input type="checkbox" value="cafes"> cafés</label>
+              <label><input type="checkbox" value="bars"> bars / pubs</label>
+              <label><input type="checkbox" value="hotels"> hotels / guesthouses</label>
+              <label><input type="checkbox" value="events"> events / venues</label>
+              <label><input type="checkbox" value="dental"> dental</label>
+              <label><input type="checkbox" value="clinics"> clinics</label>
+              <label><input type="checkbox" value="veterinary"> veterinary</label>
+              <label><input type="checkbox" value="beauty"> beauty / salons</label>
+              <label><input type="checkbox" value="fitness"> fitness / gyms</label>
+              <label><input type="checkbox" value="photography"> photography</label>
+              <label><input type="checkbox" value="legal"> legal</label>
+              <label><input type="checkbox" value="realEstate"> real estate</label>
+              <label><input type="checkbox" value="automotive"> automotive</label>
+              <label><input type="checkbox" value="trades"> trades / construction</label>
+              <label><input type="checkbox" value="other"> other</label>
+            </div>
+          </div>
           <div class="form-two">
-            <div class="form-row"><label>Vertical</label>
-              <select id="dscVertical" class="field-in">
-                <optgroup label="Food &amp; drink"><option value="restaurants">restaurants</option><option value="cafes">cafés</option><option value="bars">bars / pubs</option></optgroup>
-                <optgroup label="Stay &amp; events"><option value="hotels">hotels / guesthouses</option><option value="events">events / venues</option></optgroup>
-                <optgroup label="Health"><option value="dental">dental</option><option value="clinics">clinics</option><option value="veterinary">veterinary</option></optgroup>
-                <optgroup label="Personal services"><option value="beauty">beauty / salons</option><option value="fitness">fitness / gyms</option><option value="photography">photography</option></optgroup>
-                <optgroup label="Professional"><option value="legal">legal</option><option value="realEstate">real estate</option><option value="automotive">automotive</option><option value="trades">trades / construction</option></optgroup>
-                <option value="other">other</option>
+            <div class="form-row"><label>Website</label>
+              <select id="dscWebsite" class="field-in">
+                <option value="any">any</option>
+                <option value="has">has a website · redesign targets</option>
+                <option value="none">no website · get-a-site leads</option>
               </select>
             </div>
             <div class="form-row"><label>Target companies to add</label><input id="dscCount" class="field-in" type="number" min="1" max="200" value="25" /></div>
@@ -135,7 +152,8 @@
               <label><input type="checkbox" value="agent"> Agent research <span class="csub">· needs the agent</span></label>
             </div>
           </div>
-          <div class="form-row"><label class="check-inline"><input type="checkbox" id="dscOnlyWeb" checked> Only companies that already have a website <span class="csub">· redesign targets</span></label></div>
+          <div class="form-row"><label class="check-inline"><input type="checkbox" id="dscOnlyNew" checked> Only new — skip companies already in the store <span class="csub">· runs stay additive</span></label></div>
+          <div class="form-row csub" id="dscScopeHint" style="margin-top:-.25rem"></div>
           <div class="err" id="dscErr"></div>
         </div>
         <div class="modal-foot">

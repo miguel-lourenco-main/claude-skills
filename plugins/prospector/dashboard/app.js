@@ -322,20 +322,20 @@ function renderTable() {
     const foc = state.focusId === c.id ? "foc" : "";
     const cells = auditCells(c);
     return `<div class="trow ${heat} ${sel} ${foc}" data-id="${c.id}" style="--i:${Math.min(i, 24)}">
-      <div><input type="checkbox" data-check="${c.id}" ${sel ? "checked" : ""}></div>
+      <div data-col="sel"><input type="checkbox" data-check="${c.id}" ${sel ? "checked" : ""}></div>
       <div class="namecell">
         <button class="star ${c.pipeline?.shortlisted ? "on" : ""}" data-star="${c.id}" title="${c.pipeline?.shortlisted ? "Remove from shortlist" : "Shortlist as potential client"}">${c.pipeline?.shortlisted ? "★" : "☆"}</button>
         <div><div class="cname-row"><span class="cname">${esc(c.name)}</span>${huntBadge(c)}${c.hasDossier ? `<span class="dossier-dot" title="has a deep-dive dossier">${ic("file", 12)}</span>` : ""}</div><div class="csub">${esc(c.location?.city ?? "")}</div></div>
       </div>
-      <div><span class="pill ${VTONE[c.sector?.vertical] ?? "muted"}">${esc(c.sector?.vertical ?? "—")}</span></div>
-      <div class="num">${revKnown(c) ? eur(c.size.revenue.value) : '<span class="csub" title="revenue unknown — neutral can-pay prior">?</span>'}</div>
-      <div class="num">${c.size?.employees ?? "—"}</div>
-      <div>${websiteCell(c)}</div>
-      <div>${cells.taste}</div>
-      <div>${cells.opp}</div>
-      <div>${(() => { const A = opportunityAngles(c); if (!A.length) return '<span class="csub">—</span>'; const sec = A[1] ? `<span class="csub" title="${esc(A.join(" + "))}"> +${esc(ANGLE_SHORT[A[1]] ?? A[1])}</span>` : ""; return `<span class="pill ${ANGLE_TONE[A[0]] ?? "muted"}" title="${esc(A.join(" + "))}">${esc(A[0])}</span>${sec}`; })()}</div>
-      <div><span class="pill ${c.pipeline?.status === "contacted" ? "accent" : c.pipeline?.status === "outreach-ready" ? "info" : "muted"}">${esc(c.pipeline?.status ?? "—")}</span></div>
-      <div class="csub">${(() => { const d = discoveredAt(c); return d ? `<span title="${esc(d)}">${esc(fmtDate(d))}</span>` : "—"; })()}</div>
+      <div data-th="Type"><span class="pill ${VTONE[c.sector?.vertical] ?? "muted"}">${esc(c.sector?.vertical ?? "—")}</span></div>
+      <div class="num" data-th="Revenue">${revKnown(c) ? eur(c.size.revenue.value) : '<span class="csub" title="revenue unknown — neutral can-pay prior">?</span>'}</div>
+      <div class="num" data-th="Staff">${c.size?.employees ?? "—"}</div>
+      <div data-th="Site">${websiteCell(c)}</div>
+      <div data-th="Taste">${cells.taste}</div>
+      <div data-th="Opp">${cells.opp}</div>
+      <div data-th="Angle">${(() => { const A = opportunityAngles(c); if (!A.length) return '<span class="csub">—</span>'; const sec = A[1] ? `<span class="csub" title="${esc(A.join(" + "))}"> +${esc(ANGLE_SHORT[A[1]] ?? A[1])}</span>` : ""; return `<span class="pill ${ANGLE_TONE[A[0]] ?? "muted"}" title="${esc(A.join(" + "))}">${esc(A[0])}</span>${sec}`; })()}</div>
+      <div data-th="Status"><span class="pill ${c.pipeline?.status === "contacted" ? "accent" : c.pipeline?.status === "outreach-ready" ? "info" : "muted"}">${esc(c.pipeline?.status ?? "—")}</span></div>
+      <div class="csub" data-th="Found">${(() => { const d = discoveredAt(c); return d ? `<span title="${esc(d)}">${esc(fmtDate(d))}</span>` : "—"; })()}</div>
       <div class="delcell"><button class="rowdel" data-delrow="${c.id}" title="Delete this lead" aria-label="Delete ${esc(c.name)}">${ic("trash", 14)}</button></div>
     </div>`;
   }).join("");
@@ -408,7 +408,13 @@ function sizeBoard() {
   const board = $("#board");
   if (!board || state.view !== "board") return;
   const docTop = board.getBoundingClientRect().top + window.scrollY; // stable distance from doc top
-  board.style.height = `${Math.max(260, window.innerHeight - docTop - 16)}px`;
+  // On phones the bars above eat most of the viewport, so fill-to-bottom leaves a stunted board —
+  // floor it at 800px there (the page scrolls to it). Desktop keeps its keep-the-scrollbar-visible floor.
+  const floor = window.innerWidth <= 720 ? 800 : 260;
+  // …but never taller than the device viewport (minus a little padding), so the board fits one screen
+  // instead of overflowing. The cap wins over the floor on short devices.
+  const cap = window.innerHeight - 24;
+  board.style.height = `${Math.min(cap, Math.max(floor, window.innerHeight - docTop - 16))}px`;
 }
 
 // ---- view dispatch + bars --------------------------------------------------

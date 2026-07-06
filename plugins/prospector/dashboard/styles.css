@@ -263,7 +263,7 @@ header.topbar {
 .table { border: 1px solid var(--p-border); border-radius: 0.85rem; background: color-mix(in srgb, var(--p-surface) 80%, transparent); }
 .trow {
   display: grid;
-  grid-template-columns: 2.5rem 1.7fr 0.9fr 0.8fr 0.7fr 0.6fr 0.7fr 1.2fr 0.9fr 0.9fr 1.3fr;
+  grid-template-columns: 2.5rem 1.7fr 0.9fr 0.8fr 0.7fr 0.6fr 0.7fr 1.2fr 0.9fr 0.9fr 1.3fr 2.2rem;
   align-items: center; gap: 0.5rem; padding: 0.55rem 0.85rem;
 }
 .thead { font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--p-faint); border-bottom: 1px solid var(--p-border); background: var(--p-surface2); position: sticky; top: 3.6rem; z-index: 11; border-radius: 0.85rem 0.85rem 0 0; }
@@ -309,6 +309,12 @@ input[type="checkbox"] { accent-color: var(--p-accent); width: 0.95rem; height: 
 .star { background: none; border: none; cursor: pointer; color: var(--p-faint); font-size: 1.05rem; line-height: 1; padding: 0.1rem 0.15rem; flex-shrink: 0; transition: transform 140ms var(--ease-out), color 140ms; }
 .star:hover { color: var(--p-warn); transform: scale(1.15); }
 .star.on { color: var(--p-warn); }
+
+/* per-row quick delete (table) — always visible, danger-tinted so it clearly reads as "delete" */
+.delcell { display: flex; justify-content: center; }
+.rowdel { display: inline-flex; align-items: center; justify-content: center; cursor: pointer; color: var(--p-danger); background: color-mix(in srgb, var(--p-danger) 12%, transparent); border: 1px solid color-mix(in srgb, var(--p-danger) 32%, transparent); padding: 0.22rem; border-radius: 0.4rem; transition: color 140ms, background 140ms, border-color 140ms, transform 120ms; }
+.rowdel:hover { color: #fff; background: var(--p-danger); border-color: var(--p-danger); transform: scale(1.08); }
+.rowdel:focus-visible { outline: 2px solid var(--p-danger); outline-offset: 1px; }
 .dossier-dot { color: var(--p-info); opacity: 0.9; display: inline-flex; }
 
 /* deep-dive report render */
@@ -463,6 +469,7 @@ input[type="checkbox"] { accent-color: var(--p-accent); width: 0.95rem; height: 
 .abtn.danger { color: var(--p-danger); }
 .abtn.danger:hover { color: #fff; background: var(--p-danger); border-color: var(--p-danger); }
 .abtn.ab-clear { margin-left: auto; color: var(--p-muted); }
+.ab-sep { width: 1px; align-self: stretch; margin: 0.1rem 0.25rem; background: var(--p-border); }
 
 /* view wrappers */
 .boardwrap, .tablewrap, .outreachwrap { display: none; }
@@ -531,6 +538,19 @@ input[type="checkbox"] { accent-color: var(--p-accent); width: 0.95rem; height: 
 .card-name { font-weight: 600; font-size: 0.82rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; min-width: 0; }
 .card-menu { background: none; border: none; color: var(--p-faint); cursor: pointer; padding: 0.1rem; display: inline-flex; border-radius: 0.3rem; }
 .card-menu:hover { color: var(--p-fg); background: var(--p-hover); }
+/* per-card quick delete — always visible, danger-tinted so it clearly reads as "delete" */
+.card-del { color: var(--p-danger); background: color-mix(in srgb, var(--p-danger) 12%, transparent); border: 1px solid color-mix(in srgb, var(--p-danger) 32%, transparent); cursor: pointer; padding: 0.12rem; display: inline-flex; border-radius: 0.3rem; transition: color 140ms, background 140ms, border-color 140ms, transform 120ms; }
+.card-del:hover { color: #fff; background: var(--p-danger); border-color: var(--p-danger); transform: scale(1.08); }
+.card-del:focus-visible { outline: 2px solid var(--p-danger); outline-offset: 1px; }
+
+/* long-press-to-select feedback: a ring that tightens over the 1s hold, so the hold feels intentional.
+ * -webkit-touch-callout/user-select keep a mobile hold from selecting text or raising the callout menu. */
+.card { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
+@keyframes lp-arm {
+  0%   { box-shadow: 0 0 0 0 color-mix(in srgb, var(--p-info) 55%, transparent); }
+  100% { box-shadow: 0 0 0 3px var(--p-info); }
+}
+.card.lp-arming { animation: lp-arm 1s ease-out forwards; }
 .card-sub { margin: 0.1rem 0 0.35rem; }
 .card-meta { display: flex; flex-wrap: wrap; gap: 0.3rem; align-items: center; }
 .card-opp { display: flex; align-items: center; gap: 0.45rem; margin-top: 0.45rem; }

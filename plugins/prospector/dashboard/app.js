@@ -52,7 +52,7 @@ const state = {
   sort: { key: "opportunity", dir: -1 },
   filter: "",
   view: "board",              // "board" | "table"
-  facets: {},                 // { vertical, stage, site, oppMin, angle, dossier, shortlisted, qualified }
+  facets: {},                 // { vertical, stage, district, city, site, oppMin, angle, dossier, shortlisted, qualified }
   detailId: null,
   focusId: null,              // keyboard-focused card/row id
   sig: "",
@@ -64,7 +64,7 @@ const state = {
 const COLS = [
   { key: "sel", label: "" },
   { key: "name", label: "Company", sortable: true },
-  { key: "vertical", label: "Vertical", sortable: true },
+  { key: "vertical", label: "Type", sortable: true },
   { key: "revenue", label: "Revenue", sortable: true },
   { key: "employees", label: "Staff", sortable: true },
   { key: "site", label: "Site", sortable: true },
@@ -73,6 +73,7 @@ const COLS = [
   { key: "angle", label: "Angle", sortable: true, tip: "The kind of opportunity the hunt identified for a qualified lead: redesign, get-a-site, AI upsell, or growth." },
   { key: "status", label: "Status", sortable: true },
   { key: "discovered", label: "Discovered", sortable: true, tip: "When this lead first entered the store (earliest source fetch date)." },
+  { key: "del", label: "" },
 ];
 
 const VTONE = {
@@ -102,6 +103,7 @@ function val(c, key) {
 function renderHead() {
   $("#thead").innerHTML = COLS.map((col) => {
     if (col.key === "sel") return `<div><input type="checkbox" id="selAll" title="Select all (filtered)"></div>`;
+    if (col.key === "del") return `<div></div>`;
     const arrow = state.sort.key === col.key ? `<span class="arrow">${state.sort.dir < 0 ? "▾" : "▴"}</span>` : "";
     return `<div class="th" data-sort="${col.key}"${col.tip ? ` title="${esc(col.tip)}"` : ""}>${col.label} ${arrow}</div>`;
   }).join("");
@@ -139,6 +141,8 @@ function rows() {
   const f = state.facets;
   if (f.stage) list = list.filter((c) => stageOf(c) === f.stage);
   if (f.vertical) list = list.filter((c) => c.sector?.vertical === f.vertical);
+  if (f.district) list = list.filter((c) => c.location?.district === f.district);
+  if (f.city) list = list.filter((c) => c.location?.city === f.city);
   if (f.angle) list = list.filter((c) => opportunityType(c) === f.angle);
   if (f.site) list = list.filter((c) => siteState(c) === f.site);
   if (typeof f.oppMin === "number") list = list.filter((c) => (c.audit?.taste?.opportunity ?? -1) >= f.oppMin);
@@ -332,6 +336,7 @@ function renderTable() {
       <div>${(() => { const A = opportunityAngles(c); if (!A.length) return '<span class="csub">—</span>'; const sec = A[1] ? `<span class="csub" title="${esc(A.join(" + "))}"> +${esc(ANGLE_SHORT[A[1]] ?? A[1])}</span>` : ""; return `<span class="pill ${ANGLE_TONE[A[0]] ?? "muted"}" title="${esc(A.join(" + "))}">${esc(A[0])}</span>${sec}`; })()}</div>
       <div><span class="pill ${c.pipeline?.status === "contacted" ? "accent" : c.pipeline?.status === "outreach-ready" ? "info" : "muted"}">${esc(c.pipeline?.status ?? "—")}</span></div>
       <div class="csub">${(() => { const d = discoveredAt(c); return d ? `<span title="${esc(d)}">${esc(fmtDate(d))}</span>` : "—"; })()}</div>
+      <div class="delcell"><button class="rowdel" data-delrow="${c.id}" title="Delete this lead" aria-label="Delete ${esc(c.name)}">${ic("trash", 14)}</button></div>
     </div>`;
   }).join("");
   updateSelAll();
@@ -365,6 +370,7 @@ function cardHtml(c) {
     <div class="card-top">
       <button class="star ${c.pipeline?.shortlisted ? "on" : ""}" data-star="${c.id}" title="Shortlist">${c.pipeline?.shortlisted ? "★" : "☆"}</button>
       <span class="card-name">${esc(c.name)}</span>
+      <button class="card-del" data-delrow="${c.id}" title="Delete lead" aria-label="Delete ${esc(c.name)}">${ic("trash", 13)}</button>
       <button class="card-menu" data-menu="${c.id}" aria-label="Move lead">${ic("dots", 14)}</button>
     </div>
     <div class="card-sub csub">${esc(c.sector?.vertical ?? "")}${c.location?.city ? " · " + esc(c.location.city) : ""}</div>
@@ -419,7 +425,7 @@ function renderView() {
   sizeBoard(); // after the action bar (it can shift the board's top)
 }
 
-const FACET_LABEL = { vertical: "vertical", stage: "stage", site: "site", angle: "angle", oppMin: "opportunity", dossier: "has dossier", shortlisted: "shortlisted", qualified: "qualified" };
+const FACET_LABEL = { vertical: "type", stage: "stage", site: "site", angle: "angle", oppMin: "opportunity", district: "district", city: "city", dossier: "has dossier", shortlisted: "shortlisted", qualified: "qualified" };
 function facetChip(k, v) {
   const txt = k === "oppMin" ? `opp ≥ ${v}` : k === "stage" ? STAGE_LABEL[v] ?? v : v === true ? FACET_LABEL[k] : `${FACET_LABEL[k]}: ${v}`;
   return `<button class="chip facet-on" data-facet-clear="${k}" title="Remove filter">${esc(txt)} ${ic("x", 9)}</button>`;
@@ -427,16 +433,29 @@ function facetChip(k, v) {
 function setFacet(k, v) {
   if (v === undefined || v === null || v === false || v === "" || state.facets[k] === v) delete state.facets[k];
   else state.facets[k] = v;
+  // District drives the city list — if the chosen city no longer sits in the selected district, drop it.
+  if (k === "district" && state.facets.city) {
+    const stillValid = (state.store?.companies ?? []).some((c) => c.location?.city === state.facets.city && (!state.facets.district || c.location?.district === state.facets.district));
+    if (!stillValid) delete state.facets.city;
+  }
   state.view === "board" ? renderBoard() : renderTable();
   renderFacetBar(); renderKpis(); syncUrl();
 }
 function renderFacetBar() {
   const active = activeFacets();
-  const verticals = [...new Set((state.store?.companies ?? []).map((c) => c.sector?.vertical).filter(Boolean))].sort();
+  const companies = state.store?.companies ?? [];
+  const verticals = [...new Set(companies.map((c) => c.sector?.vertical).filter(Boolean))].sort();
+  const districts = [...new Set(companies.map((c) => c.location?.district).filter(Boolean))].sort();
+  // City list cascades off the chosen district: when a district is picked, only its cities are offered.
+  const cities = [...new Set(companies
+    .filter((c) => !state.facets.district || c.location?.district === state.facets.district)
+    .map((c) => c.location?.city).filter(Boolean))].sort();
   const sel = (id, label, opts, cur) => `<select class="facet-sel" data-facet="${id}"><option value="">${label}</option>${opts.map((o) => `<option value="${esc(o.v)}" ${cur === o.v ? "selected" : ""}>${esc(o.l)}</option>`).join("")}</select>`;
   const controls = [
     sel("stage", "Stage", STAGES.map((s) => ({ v: s.key, l: s.label })), state.facets.stage),
-    sel("vertical", "Vertical", verticals.map((v) => ({ v, l: v })), state.facets.vertical),
+    sel("vertical", "Type", verticals.map((v) => ({ v, l: v })), state.facets.vertical),
+    districts.length ? sel("district", "District", districts.map((v) => ({ v, l: v })), state.facets.district) : "",
+    sel("city", "City", cities.map((v) => ({ v, l: v })), state.facets.city),
     sel("site", "Site", [{ v: "yes", l: "has site" }, { v: "good", l: "good site" }, { v: "unreachable", l: "unreachable" }, { v: "none", l: "no site" }], state.facets.site),
     sel("angle", "Angle", ["redesign", "AI upsell", "get-a-site", "growth"].map((v) => ({ v, l: v })), state.facets.angle),
     sel("oppMin", "Opportunity", [{ v: "0.7", l: "≥ 0.7 (hot)" }, { v: "0.45", l: "≥ 0.45" }], state.facets.oppMin != null ? String(state.facets.oppMin) : ""),
@@ -462,7 +481,8 @@ function renderActionBar() {
   const btns = ACTIONBAR.map((b) => {
     let count = ids.length, note = "", disabled = false;
     if (b.act === "audit") { count = auditable; if (auditable < ids.length) note = `${ids.length - auditable} no site`; if (!auditable) disabled = true; }
-    return `<button class="abtn ${b.danger ? "danger" : ""}" data-act="${b.act}" ${disabled ? "disabled" : ""} title="${esc(b.label)}${note ? " · " + note : ""}">${ic(b.icon, 14)} ${b.label}${b.act === "audit" && auditable !== ids.length ? ` (${count})` : ""}</button>`;
+    // Set the destructive Delete apart from the safe actions with a divider, so it's clearly the odd one out.
+    return `${b.danger ? '<span class="ab-sep" aria-hidden="true"></span>' : ""}<button class="abtn ${b.danger ? "danger" : ""}" data-act="${b.act}" ${disabled ? "disabled" : ""} title="${esc(b.label)}${note ? " · " + note : ""}">${ic(b.icon, 14)} ${b.label}${b.act === "audit" && auditable !== ids.length ? ` (${count})` : ""}</button>`;
   }).join("");
   bar.innerHTML = `<span class="ab-count">${ids.length} selected</span>${btns}<button class="abtn ab-clear" id="selClear" aria-label="Clear selection">${ic("x", 13)}</button>`;
 }
@@ -561,7 +581,7 @@ function readUrl() {
   const p = new URLSearchParams(location.hash.slice(1));
   if (p.get("view") === "table" || p.get("view") === "outreach") state.view = p.get("view");
   const f = {};
-  for (const k of ["stage", "vertical", "site", "angle"]) if (p.get(k)) f[k] = p.get(k);
+  for (const k of ["stage", "vertical", "district", "city", "site", "angle"]) if (p.get(k)) f[k] = p.get(k);
   if (p.get("opp")) f.oppMin = Number(p.get("opp"));
   for (const k of ["captured", "graded", "dossier", "shortlisted", "qualified"]) if (p.get(k) === "1") f[k] = true;
   state.facets = f;
@@ -1126,6 +1146,19 @@ async function postAction(action) {
   }
 }
 
+/** Quick per-row/per-card delete of a single lead. Confirms, drops it from the view optimistically
+ *  (the poll then confirms), and queues the same `delete` action the bulk action bar uses. */
+function deleteLead(id) {
+  const c = company(id);
+  const name = c?.name ?? "this lead";
+  if (!confirm(`Delete "${name}" and its audits + screenshots? This cannot be undone.`)) return;
+  state.selected.delete(id);
+  if (state.store?.companies) state.store.companies = state.store.companies.filter((x) => x.id !== id); // optimistic
+  state.view === "board" ? renderBoard() : renderTable();
+  renderActionBar(); renderKpis(); renderFacetBar();
+  postAction({ action: "delete", companyIds: [id] });
+}
+
 async function cancelAction(payload) {
   try {
     await fetch("/api/cancel", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) });
@@ -1431,6 +1464,8 @@ $("#tbody").addEventListener("click", (e) => {
     postAction({ action: "shortlist", companyIds: [id], payload: { value: next } });
     return;
   }
+  const del = e.target.closest("[data-delrow]");
+  if (del) { deleteLead(del.dataset.delrow); return; }
   const check = e.target.closest("[data-check]");
   if (check) {
     const id = check.dataset.check;
@@ -1447,16 +1482,22 @@ $("#tbody").addEventListener("click", (e) => {
 function toggleSelect(id) { if (state.selected.has(id)) state.selected.delete(id); else state.selected.add(id); renderSelCount(); renderActionBar(); reRender(); }
 function flashCard(id) { try { const el = document.querySelector(`[data-id="${CSS.escape(id)}"]`); if (el) { el.classList.add("flash"); setTimeout(() => el.classList.remove("flash"), 700); } } catch { /* ignore */ } }
 $("#board").addEventListener("click", (e) => {
+  if (lpFired) { lpFired = false; return; } // a long-press already handled this interaction (select), don't also open
   if (e.target.closest("#boardClear")) { state.facets = {}; state.filter = ""; $("#filter").value = ""; reRender(); renderFacetBar(); renderKpis(); syncUrl(); return; }
   const star = e.target.closest("[data-star]");
   if (star) { const id = star.dataset.star; const c = company(id); const v = !c?.pipeline?.shortlisted; if (c) { c.pipeline = { ...(c.pipeline ?? {}), shortlisted: v }; renderBoard(); } postAction({ action: "shortlist", companyIds: [id], payload: { value: v } }); return; }
+  const del = e.target.closest("[data-delrow]");
+  if (del) { deleteLead(del.dataset.delrow); return; }
   const nx = e.target.closest("[data-next]");
   if (nx) { const c = company(nx.dataset.next); if (c) { runNext(nextStepOf(c).action, [c.id]); flashCard(c.id); } return; }
   const menu = e.target.closest("[data-menu]");
   if (menu) { openMoveMenu(menu.dataset.menu, menu); return; }
   const card = e.target.closest(".card");
   if (!card) return;
-  if (e.metaKey || e.ctrlKey || e.shiftKey) { toggleSelect(card.dataset.id); return; }
+  // In select mode (anything already selected) a plain click toggles selection instead of opening the
+  // detail — the click is hijacked by the multi-select, so tapping cards keeps building the set. Modifier
+  // keys do the same. Clear the selection (× in the action bar) to leave select mode and reopen details.
+  if (e.metaKey || e.ctrlKey || e.shiftKey || state.selected.size > 0) { toggleSelect(card.dataset.id); return; }
   openPanel(card.dataset.id);
 });
 let dragId = null;
@@ -1464,6 +1505,43 @@ $("#board").addEventListener("dragstart", (e) => { const card = e.target.closest
 $("#board").addEventListener("dragend", (e) => { e.target.closest(".card")?.classList.remove("dragging"); document.querySelectorAll(".col.drop").forEach((c) => c.classList.remove("drop")); dragId = null; state.dragging = false; });
 $("#board").addEventListener("dragover", (e) => { const col = e.target.closest(".col"); if (!col) return; e.preventDefault(); document.querySelectorAll(".col.drop").forEach((c) => c !== col && c.classList.remove("drop")); col.classList.add("drop"); });
 $("#board").addEventListener("drop", (e) => { const col = e.target.closest(".col"); if (!col || !dragId) return; e.preventDefault(); const ids = state.selected.has(dragId) ? selectedIds() : [dragId]; col.classList.remove("drop"); moveTo(ids, col.dataset.stage); });
+
+// ---- long-press to multi-select (board cards) ------------------------------
+// Press-and-hold a card for 1s (without moving or dragging) to toggle it into the selection — a
+// touch-friendly path to multi-select that mirrors Cmd/Ctrl-click. Movement or release cancels it.
+const LP_MS = 1000, LP_MOVE = 10;
+let lpTimer = null, lpCard = null, lpStart = null, lpFired = false;
+function cancelLongPress() {
+  if (lpTimer) { clearTimeout(lpTimer); lpTimer = null; }
+  if (lpCard) { lpCard.classList.remove("lp-arming"); lpCard = null; }
+  lpStart = null;
+}
+$("#board").addEventListener("pointerdown", (e) => {
+  if (e.button > 0) return; // primary button / touch only
+  lpFired = false;
+  if (e.target.closest("[data-star],[data-delrow],[data-menu],[data-next],#boardClear")) return; // real controls own the press
+  const card = e.target.closest(".card");
+  if (!card) return;
+  cancelLongPress();
+  lpCard = card; lpStart = { x: e.clientX, y: e.clientY };
+  card.classList.add("lp-arming");
+  lpTimer = setTimeout(() => {
+    lpFired = true; lpTimer = null;
+    card.classList.remove("lp-arming"); lpCard = null;
+    toggleSelect(card.dataset.id); // enter multi-select on this card
+    flashCard(card.dataset.id);
+  }, LP_MS);
+});
+$("#board").addEventListener("pointermove", (e) => {
+  if (!lpStart) return;
+  if (Math.abs(e.clientX - lpStart.x) > LP_MOVE || Math.abs(e.clientY - lpStart.y) > LP_MOVE) cancelLongPress();
+});
+$("#board").addEventListener("pointerup", cancelLongPress);
+$("#board").addEventListener("pointercancel", cancelLongPress);
+$("#board").addEventListener("pointerleave", cancelLongPress);
+$("#board").addEventListener("dragstart", cancelLongPress); // a real drag pre-empts the hold
+// The touch context-menu the hold would otherwise raise on mobile: swallow it while a press is armed/fired.
+$("#board").addEventListener("contextmenu", (e) => { if (lpFired || lpCard) e.preventDefault(); });
 
 // ---- contextual action bar + facets + KPIs + view toggle -------------------
 $("#actionBar").addEventListener("click", (e) => { const b = e.target.closest("[data-act]"); if (b) return runAction(b.dataset.act); if (e.target.closest("#selClear")) clearSelection(); });

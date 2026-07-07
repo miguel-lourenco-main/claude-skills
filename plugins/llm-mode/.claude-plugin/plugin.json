@@ -1,0 +1,6 @@
+{
+  "name": "llm-mode",
+  "description": "Working-discipline modes distilled from top Claude models, written down so any session can run them. Ships the fable-mode skill — Fable 5's five-gate task loop (scope, evidence, adversarial reasoning, verification, calibrated reporting) plus standing habits — to make planning, debugging, and review noticeably more rigorous on Opus 4.8 or Sonnet 5.",
+  "version": "0.1.0",
+  "author": { "name": "migaloco", "email": "migasoulou@gmail.com" }
+}

@@ -61,6 +61,17 @@
         "name": "migaloco",
         "email": "migasoulou@gmail.com"
       }
+    },
+    {
+      "name": "project-genesis",
+      "description": "AI-native project bootstrapping: interview → foundation docs → minimal scaffold + CI. Generates a CLAUDE.md agent contract with a doc map and enforceable maintenance rules, plus lean product/architecture/decisions/conventions docs designed for future LLM sessions (current-state only, explicit non-goals and restrictions, read-before-touching pointers). Stack-agnostic — asks or detects the stack and adapts.",
+      "source": "./plugins/project-genesis",
+      "category": "development",
+      "version": "0.1.0",
+      "author": {
+        "name": "migaloco",
+        "email": "migasoulou@gmail.com"
+      }
     }
   ]
 }

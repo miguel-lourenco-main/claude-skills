@@ -61,6 +61,28 @@
         "name": "migaloco",
         "email": "migasoulou@gmail.com"
       }
+    },
+    {
+      "name": "project-genesis",
+      "description": "AI-native project bootstrapping: interview → foundation docs → minimal scaffold + CI. Generates a CLAUDE.md agent contract with a doc map and enforceable maintenance rules, plus lean product/architecture/decisions/conventions docs designed for future LLM sessions (current-state only, explicit non-goals and restrictions, read-before-touching pointers). Stack-agnostic — asks or detects the stack and adapts.",
+      "source": "./plugins/project-genesis",
+      "category": "development",
+      "version": "0.1.0",
+      "author": {
+        "name": "migaloco",
+        "email": "migasoulou@gmail.com"
+      }
+    },
+    {
+      "name": "skill-smith",
+      "description": "Meta-tooling for developing and refining Claude Code skills. Ships skill-retro: a session retrospective that reviews the skills and plugins used in the current session, grades their perceived performance with session evidence, appends findings to each skill's append-only FEEDBACK.md, and proposes concrete user-approved SKILL.md edits — the feedback loop that makes skills improve from real usage. Mostly user-triggered: 'skill retro', 'review this session', 'how did the skills perform'.",
+      "source": "./plugins/skill-smith",
+      "category": "development",
+      "version": "0.1.0",
+      "author": {
+        "name": "migaloco",
+        "email": "migasoulou@gmail.com"
+      }
     }
   ]
 }

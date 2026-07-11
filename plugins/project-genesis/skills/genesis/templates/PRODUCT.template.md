@@ -16,7 +16,8 @@ Non-goals is the most valuable section — be concrete there even if the user wa
 ## v1 scope
 
 <!-- genesis: the walking skeleton from interview Q2 — the single end-to-end flow v1 must do
-well, plus at most a handful of supporting capabilities. Bullet list. -->
+well, plus at most a handful of supporting capabilities. Bullet list. Once the user confirms,
+these seed docs/FEATURES.md's Planned section; per-feature status lives THERE, not here. -->
 {{v1-scope}}
 
 ## Non-goals

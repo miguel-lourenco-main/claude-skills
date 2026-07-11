@@ -4,8 +4,12 @@ AI-native project bootstrapping. One skill for now:
 
 - **genesis** — start a new app from scratch the AI-native way: a short structured
   interview, a minimal stack-appropriate scaffold that actually runs, and a lean set of
-  foundation docs (`CLAUDE.md` agent contract + `docs/PRODUCT|ARCHITECTURE|DECISIONS|CONVENTIONS.md`)
+  foundation docs (`CLAUDE.md` agent contract +
+  `docs/PRODUCT|FEATURES|ARCHITECTURE|DECISIONS|CONVENTIONS.md`)
   written *for future LLM sessions*, with maintenance rules embedded so they stay true.
+  `docs/FEATURES.md` is the cross-session execution ledger: features move Planned → In
+  progress → Implemented, and In-progress entries carry a "Next:" pointer so any fresh
+  session knows exactly where the last one left off.
 
 ## Why
 

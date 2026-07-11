@@ -29,13 +29,10 @@
     },
     {
       "name": "ui-ux-pro-max",
-      "description": "UI/UX design intelligence: styles, color palettes, font pairings, product-type guidance, UX guidelines, and charts across many stacks. Open-source skill by nextlevelbuilder, referenced here (not vendored) so it updates from upstream — bump the pinned sha to take a new release.",
-      "source": {
-        "source": "url",
-        "url": "https://github.com/nextlevelbuilder/ui-ux-pro-max-skill.git",
-        "sha": "b7e3af80f6e331f6fb456667b82b12cade7c9d35"
-      },
+      "description": "UI/UX design intelligence: styles, color palettes, font pairings, product-type guidance, UX guidelines, and charts across many stacks. Open-source skill by nextlevelbuilder (MIT), vendored into this marketplace at upstream sha b7e3af8 (v2.5.0) — see the plugin's VENDORED.md to take a new upstream release.",
+      "source": "./plugins/ui-ux-pro-max",
       "category": "design",
+      "version": "2.5.0",
       "author": {
         "name": "nextlevelbuilder"
       }

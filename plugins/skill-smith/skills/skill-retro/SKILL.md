@@ -57,10 +57,15 @@ Then classify each friction point's fault before blaming the skill:
 own adherence honestly) / **scope-change** (user redirected for reasons no skill could know).
 Only skill-faults justify proposing edits.
 
+Before classifying, **re-read the target skill's current SKILL.md and templates** — your session
+memory may predate fixes. A friction already fixed upstream is recorded as "since fixed", never
+re-proposed.
+
 ## Phase 3 — Assess
 
 Per skill, a verdict block: overall **1–5 rating** with a one-line justification, plus one line
-each for: **discoverability** (did it trigger when it should), **clarity**, **completeness**
+each for: **discoverability** (did it trigger when it should; "n/a" if invoked deliberately),
+**clarity**, **completeness**
 (coverage of what the session actually needed), **outcome** (quality of what it produced). A
 skill that performed fine gets one line — "no friction" — not invented findings.
 
@@ -76,12 +81,15 @@ Resolve each skill's **editable source** and append a dated entry (format:
 1. Resolve symlinks to the skill's real directory. If it's under a plugin cache
    (`~/.claude/plugins/...`), map it to the checkout: `$REPO/plugins/<plugin>/skills/<name>/`.
 2. Writable checkout or standalone git-managed skill folder → append to `FEEDBACK.md` next to
-   its SKILL.md (create from the template header if missing).
+   its SKILL.md (create from the template header if missing — everything above the entry
+   heading, including the retro boundary comment).
 3. External/vendored/read-only (e.g. marketplace `source: url` skills) → append to
    `$REPO/reviews/external/<skill-name>.md` instead.
 
 Entries are **append-only and dated** — never rewrite past feedback; supersede it in a new
-entry. Never write into the plugin cache: it is volatile and overwritten on update.
+entry. One exception: write proposal outcomes as "pending" at record time, and flipping your
+new entry's own outcome lines (pending → applied/rejected) after the user decides is not a
+rewrite. Never write into the plugin cache: it is volatile and overwritten on update.
 
 ## Phase 5 — Propose refinements
 

@@ -75,7 +75,9 @@ Stack-appropriate, minimal, running:
 - `git init` + a proper `.gitignore` (if not already a repo).
 - Formatter, linter, and test runner configured — where the stack and the user's restrictions
   allow. If a tool would violate a restriction (e.g. "no third-party deps"), skip it, use the
-  closest built-in check, and record the gap in CONVENTIONS.md. **One trivial passing test.**
+  closest built-in check, and record the gap in CONVENTIONS.md. **At least one passing test,
+  sized to the interview's testing-appetite answer** — one trivial test is the floor, not the
+  target.
 - CI on the platform from the interview, running lint + test on push. If the user chose "none
   yet", create no CI config and record it under Open questions.
 - `.env.example` if the app needs secrets; never commit real values.

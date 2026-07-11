@@ -11,7 +11,7 @@ nothing above. Fill all placeholders; cite real session moments, no hypothetical
 
 - **Trigger:** {{how the skill was invoked: slash command / keyword match / read-and-followed / missed-then-manual}}
 - **Verdict:** {{1-5}} — {{one-line justification}}
-- **Discoverability:** {{one line}}
+- **Discoverability:** {{one line — "n/a" if invoked deliberately}}
 - **Clarity:** {{one line}}
 - **Completeness:** {{one line}}
 - **Outcome:** {{one line}}

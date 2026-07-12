@@ -83,6 +83,16 @@
         "name": "migaloco",
         "email": "migasoulou@gmail.com"
       }
+    },
+    {
+      "name": "scroll-world",
+      "description": "Build an immersive scroll-scrubbed 'fly through the world' landing page for any industry or brand using Higgsfield: cohesive isometric diorama scenes and seamless camera flights driven by scroll position (Apple-style scrubbing), with a portable framework-agnostic scrub engine for plain HTML, Next.js, Vue, or a Python-served page. Fork of oso95/scroll-world (MIT) vendored at upstream f941ef9 (v0.2.0) — see the plugin's VENDORED.md; local divergence expected.",
+      "source": "./plugins/scroll-world",
+      "category": "design",
+      "version": "0.2.0",
+      "author": {
+        "name": "cyw"
+      }
     }
   ]
 }

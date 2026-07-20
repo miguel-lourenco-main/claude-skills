@@ -1,6 +1,6 @@
 ---
 name: genesis
-description: Bootstrap a brand-new app the AI-native way — interview the user, then generate the foundation docs (CLAUDE.md agent contract, product/architecture/decisions/conventions) plus a minimal stack-appropriate scaffold with CI. The docs are designed as the operating system for future agent sessions, with embedded maintenance rules that keep them true. Use when starting a new project or app from scratch, or setting up a greenfield repo. Trigger phrases: "new project", "start an app", "from scratch", "scaffold", "greenfield", "bootstrap", "set up the foundation".
+description: Bootstrap a brand-new app the AI-native way — interview the user, then generate the foundation docs (CLAUDE.md agent contract, product/features/architecture/decisions/conventions) plus a minimal stack-appropriate scaffold with CI. The docs are designed as the operating system for future agent sessions, with embedded maintenance rules that keep them true. Use when starting a new project or app from scratch, or setting up a greenfield repo. Trigger phrases: "new project", "start an app", "from scratch", "scaffold", "greenfield", "bootstrap", "set up the foundation".
 ---
 
 # Genesis
@@ -26,14 +26,15 @@ code?* And no doc exists without a maintenance rule that keeps it alive.
 |---|---|
 | `CLAUDE.md` | The contract: project identity, verified commands, hard restrictions, a **doc map** with "read X before touching Y" pointers, and the maintenance rules. The index to everything. |
 | `docs/PRODUCT.md` | Intent code can't express: users, v1 scope, **non-goals** (the highest-value section — prevents scope drift), open questions. |
+| `docs/FEATURES.md` | The execution ledger: features grouped by status (In progress / Planned / Implemented); entries move between sections as work progresses. The first read when resuming — "In progress" and its **Next:** pointers say where the last session left off. |
 | `docs/ARCHITECTURE.md` | Current-state system shape only: stack with one-line whys, module map, data flow, entry points, "where changes go". |
 | `docs/DECISIONS.md` | Append-only decision log (`## NNNN — Title`, Context/Decision/Consequences, 5–10 lines). Never edited — superseded. Seeded at genesis with the stack choice. |
 | `docs/CONVENTIONS.md` | Only non-obvious, project-specific rules, plus a **Restrictions** section. Not a linter-config restatement. |
 
 Optional: `docs/GLOSSARY.md` — only when the domain has ≥5 terms an LLM would misread.
-Deliberately excluded: ROADMAP (rots; lives in the issue tracker), CHANGELOG (git is the
-changelog), a separate docs index (CLAUDE.md's doc map is the index), per-module READMEs at
-genesis time (speculative).
+Deliberately excluded: a marketing-style ROADMAP (speculation rots; FEATURES.md tracks only
+work actually planned or underway), CHANGELOG (git is the changelog), a separate docs index
+(CLAUDE.md's doc map is the index), per-module READMEs at genesis time (speculative).
 
 ## Template mechanics
 
@@ -64,6 +65,8 @@ entry in PRODUCT.md, not a fourth round.
 Draft `docs/PRODUCT.md` and the first `docs/DECISIONS.md` entries (stack choice with reasoning,
 hosting, key constraints). Then **show the user the non-goals and the decisions and get
 confirmation before writing anything else** — this is the cheapest moment to correct course.
+Once confirmed, seed `docs/FEATURES.md`: the v1 scope becomes the Planned section, in intended
+build order.
 
 ## Phase 3 — Scaffold
 
@@ -100,7 +103,8 @@ first — and push if a remote was created, confirming CI goes green (or reporti
 ## Phase 4 — Document what exists
 
 Only now write `docs/ARCHITECTURE.md` and `docs/CONVENTIONS.md`, describing the *actual*
-scaffold — so the docs start true. Add `docs/GLOSSARY.md` only if the threshold above is met.
+scaffold — so the docs start true. Move anything the scaffold genuinely implemented end-to-end
+to FEATURES.md's Implemented section. Add `docs/GLOSSARY.md` only if the threshold above is met.
 
 ## Phase 5 — Generate CLAUDE.md
 
@@ -114,7 +118,8 @@ Re-read only the generated docs, as if you were a fresh session with zero contex
 
 1. Does CLAUDE.md alone tell me how to run and test the app?
 2. Can I tell what NOT to build (non-goals, restrictions)?
-3. For a sample change ("add an endpoint/screen"), do the docs say where it goes?
+3. For a sample change ("add an endpoint/screen"), do the docs say where it goes — and does
+   FEATURES.md say what to build next?
 4. Is every claim in the docs currently true? (Mechanical version: re-run every command in
    CLAUDE.md verbatim; diff the module map against the real tree.)
 5. Is every doc in the doc map, and covered by a maintenance rule? Any leftover

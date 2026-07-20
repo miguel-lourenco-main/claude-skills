@@ -30,6 +30,7 @@ Read the relevant doc **before** working in its territory; each doc is short eno
 | Doc | What it holds | Read before |
 |---|---|---|
 | `docs/PRODUCT.md` | Users, v1 scope, non-goals, open questions | Adding or changing any feature |
+| `docs/FEATURES.md` | Feature ledger: in progress / planned / implemented, with Next: pointers | Starting any session's work — resume from "In progress" |
 | `docs/ARCHITECTURE.md` | Stack, module map, data flow, where changes go | Touching code structure |
 | `docs/DECISIONS.md` | Append-only log of choices that constrain future work | Adding a dependency, changing a pattern |
 | `docs/CONVENTIONS.md` | Project-specific rules + testing policy | Writing any code |
@@ -54,3 +55,7 @@ These keep the docs true. They are the contract of this repo — follow them in 
 6. **Before ending a session that changed code:** re-check the docs your diff touches on; if a
    doc now lies, fix it in the same commit. Never create a new doc file unless a rule here will
    keep it alive.
+7. **Feature lifecycle lives in FEATURES.md.** Starting or finishing a feature moves its entry
+   (Planned → In progress → Implemented) in the same commit; an In-progress entry always
+   carries a current "Next:" pointer — update it before ending the session. New features enter
+   as Planned only after the user confirms them against PRODUCT.md's non-goals.

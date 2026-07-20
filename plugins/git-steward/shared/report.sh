@@ -101,6 +101,9 @@ render_repo_body() {
   echo "| Large blobs | $(g '.attention.big_blobs') |"
   echo "| Open work items | $(g '.attention.open_work_items') |"
   echo "| CI status (headline) | $(g '.attention.ci_status') |"
+  # Provenance: which fleet record this repo's data came from (set on canonical/merged reports).
+  local _fid _at; _fid="$(g '.fleet_id')"; _at="$(g '.analyzed_at')"
+  [ -n "$_fid" ] && { echo; echo "_Analyzed ${_at:-?} · fleet record \`${_fid}\`_"; }
 
   # ---- Analysis & tasks (agent-authored region) ----
   local secn blobn cifail summary wi_raw
@@ -109,11 +112,11 @@ render_repo_body() {
   cifail="$(lines '[.skills["pipeline-health"].branches[]?|select(.status=="failed" or .status=="failure")]|length')"; [ -z "$cifail" ] && cifail=0
   echo; echo "${hb}## 🧭 Analysis & tasks"; echo
   echo "<!-- gs:repo:${name}-start -->"
-  echo "_Agent fills this in: explain notable findings (mention false-positive secrets only in aggregate), judge blob cleanability, assess active branches for merge-vs-variant, and turn this repo's open work items into validated tasks. Put a blank line before every bullet list so it renders. Raw material below._"
+  echo "_Agent fills this in: explain notable findings (mention false-positive secrets only in aggregate), judge blob cleanability and draft a strip task for any worth removing, assess active branches for merge-vs-variant, turn the work items worth doing into validated tasks, AND record Observations on the rest. Put a blank line before every bullet list so it renders. Raw material below._"
   echo
   echo "**Notable findings to explain:** ${secn} secret match(es) · ${blobn} blob(s) over the size guideline · ${cifail} branch(es) with failing CI."
   echo
-  echo "**Open work items** — first **validate** each against branches / recent commits / the relevant code (already implemented? still valid?), then group/dedupe into tasks. Write each as a short checkbox line carrying the tag, with \`*Items:*\`, \`*Why:*\`, \`*How:*\` sub-bullets (blank line before the list):"
+  echo "**Open work items** — first **validate** each against branches / recent commits / the relevant code (already implemented? still valid?). Turn the ones worth doing now into Tasks (below); for the ones you would NOT action, write **Observations** instead. Tasks are short checkbox lines carrying the tag, with \`*Items:*\`, \`*Why:*\`, \`*How:*\` sub-bullets (blank line before the list):"
   echo
   echo '```'
   echo "- [ ] **<task title>** <!--gs op=work-item-implement repo=${name} numbers=<n,m> slug=<kebab>-->"
@@ -121,6 +124,21 @@ render_repo_body() {
   echo "  - *Why:* <why these belong together / the goal>"
   echo "  - *How:* <concrete steps grounded in the code you read — which files/components, the approach>"
   echo "- [ ] _**Select all of the above**_ <!--gs op=select-all-->   ← end the Tasks list with this when there are 2+ tasks"
+  echo '```'
+  echo
+  echo "**Observations** (for items you are NOT turning into a task — 🤔 needs-refinement / ❌ skip): one bullet per item with your honest read of what it proposes, whether it's well-specified, and how it would (or wouldn't) integrate with this project — substantive feedback, not a one-line dismissal. No \`<!--gs-->\` tag (these are NOT actions):"
+  echo
+  echo '```'
+  echo "- **#<n> <title>** — 🤔/❌: <opinion on the idea + how it fits the project's architecture/goals; what's missing or why skip>."
+  echo '```'
+  echo
+  echo "**History cleanup** (only if warranted) — for an oversized blob you judge worth removing, or a CONFIRMED real secret, draft the gated rewrite task here. IRREVERSIBLE, so assess first (is the blob still needed? is the secret actually committed & real — \`git log -S\`?). A rewrite orphans other linked worktrees, so sequence any \`worktree-remove\` pre-steps BEFORE it; a backup is taken automatically and force-push is a separate step; for a secret, tell the user to ROTATE it. Emit NO task if a rewrite isn't warranted:"
+  echo
+  echo '```'
+  echo "- [ ] **Remove linked worktree \`<name>\` first** <!--gs op=worktree-remove repo=${name} path=<abs-worktree-path> branch=<branch>-->   ← only if a rewrite is planned AND the worktree is clean"
+  echo "- [ ] 🔴 **Strip \`<file>\` from ALL history** <!--gs op=history-remove-path repo=${name} path=<file>-->"
+  echo "  - *Why:* <the blob is X MB and no longer used / the file holds a confirmed real secret>."
+  echo "  - *Risk:* 🔴 Tier 2 · IRREVERSIBLE (backup first; force-push separate). Rotate the credential if a secret."
   echo '```'
   echo
   wi_raw="$(lines '.skills["work-items"].items[]? | "- #\(.number) [\(.importance)/\(.scope)] \(.title) — \(.web_url)"')"
@@ -175,12 +193,15 @@ render_repo_body() {
   echo; echo "${hb}## 🔑 Secrets & history"; echo
   local hs='.skills["git-history-surgery"]'
   if [ "$(g "$hs.schema")" = "history-surgery/v1" ]; then
-    echo "Secret findings: **$(g "$hs.summary.secret_findings")** · sensitive tracked files: $(g "$hs.summary.sensitive_files") · large blobs: $(g "$hs.summary.big_blobs") · rewrite tool ready: $(g "$hs.tools.rewrite_ready")"
-    local secn
-    secn="$(g "$hs.summary.secret_findings")"; [ -z "$secn" ] && secn=0
+    # Flagged count is verdict-adjusted (agent-cleared false positives excluded); raw + cleared are
+    # shown for transparency when the agent has reviewed some.
+    local secn fp
+    secn="$(g '.attention.secret_findings')"; [ -z "$secn" ] && secn="$(g "$hs.summary.secret_findings")"; [ -z "$secn" ] && secn=0
+    fp="$(g '.attention.secrets_false_positive')"; [ -z "$fp" ] && fp=0
+    echo "Secret findings (flagged): **${secn}**$([ "${fp:-0}" -gt 0 ] 2>/dev/null && echo " · ${fp} cleared as false-positive by the agent") · sensitive tracked files: $(g "$hs.summary.sensitive_files") · large blobs: $(g "$hs.summary.big_blobs") · rewrite tool ready: $(g "$hs.tools.rewrite_ready")"
     if [ "${secn:-0}" -gt 0 ] 2>/dev/null; then
       echo
-      echo "> ⚠️ $secn working-tree regex match(es) (scan method **$(g "$hs.secret_scan.method")**, no history). Verdict in **Analysis & tasks** — most are false positives (env interpolation, i18n, test fixtures); only real secrets get an action."
+      echo "> ⚠️ ${secn} unreviewed/real working-tree match(es) (scan method **$(g "$hs.secret_scan.method")**, no history). The scan over-flags — the agent clears false positives (env interpolation, i18n, test fixtures, public keys) via verdicts, which persist across analyses; only real secrets get an action."
     fi
     local bb
     bb="$(lines "$hs"'.large_blobs.items[]? | "- `\(.path)` — \(.mb) MB"')"
@@ -201,6 +222,7 @@ render_repo_body() {
     [ "${mrn:-0}" != "0" ] && echo && echo "_+ $mrn merge-request pipeline(s) (not shown above)._"
     fdiag="$(lines "$ph"'.branches[]? | select(.status=="failed" or .status=="failure")
       | "- `\(.branch)` — cause: **\(.likely_cause // "unknown")**"
+        + ([.failing_jobs[]? | "`\(.name)`" + (if (.cause // "") != "" then " (\(.cause))" else "" end)] | if length > 0 then "\n  - failed job(s): " + join(", ") else "" end)
         + ([.diagnosis[]? | "\n  - " + .] | join(""))
         + ([.failing_jobs[]? | select((.log_excerpt // "") != "") | .log_excerpt]
            | if length > 0 then "\n  - log: " + (.[0] | gsub("\\[[0-9;?]*[A-Za-z]";"") | gsub("[\r\n]+";" ⏎ ") | gsub("  +";" ") | .[0:240]) else "" end)')"
@@ -261,25 +283,67 @@ render_repo_body() {
     if [ "${dep_out:-0}" -gt 0 ] 2>/dev/null; then any=true; echo; echo "${hb}### Dependencies (Tier 1)"; echo "- [ ] **Bump $dep_out outdated dep(s)** (minor/patch) <!--gs op=deps-bump repo=$repo-->"; echo "  - *Why:* stay current within a safe minor/patch policy."; echo "  - *Risk:* Tier 1 · recoverable (lockfile change; review the diff)."; echo "  - *Source:* dependency-health: $dep_out outdated."; fi
   fi
 
-  # History / secrets (Tier 2)
-  # NOTE: unvalidated working-tree secret matches do NOT auto-emit history-remove actions — that
-  # judgement (real-vs-false-positive) is the agent's, in the per-repo region. Only a CONFIRMED secret
-  # gets a history-remove checkbox, authored by the agent (see SKILL "Annotate"). The script emits only
-  # objective, size-based large-blob strips here.
-  local hs_blobs
-  hs_blobs="$(lines "$hs"'.large_blobs.items[]? |
-    "- [ ] 🔴 **Strip `\(.path)` (\(.mb) MB) from ALL history** <!--gs op=history-remove-path repo=REPO path=\(.path)-->\n  - *Why:* shrink the repo by removing a large blob from every commit.\n  - *Risk:* 🔴 Tier 2 · IRREVERSIBLE (history rewrite; backup taken first).\n  - *Source:* git-history-surgery: \(.mb) MB blob in history."')"
-  if [ -n "$hs_blobs" ]; then
-    any=true; echo; echo "${hb}### Secrets & history (🔴 Tier 2 — irreversible)"
-    printf '%s\n' "${hs_blobs//REPO/$repo}"
-    selall "${hs_blobs//REPO/$repo}"
+  # History cleanup (Tier 2) — FACTS + BLOCKERS only, never an auto-decided task. A history rewrite
+  # is irreversible and context-dependent (is the blob still needed? is the secret real?), so the
+  # script does NOT queue a strip: it surfaces the oversized blobs and the worktree-orphan blocker,
+  # and the AGENT judges cleanability and drafts any `history-remove-path` / `history-redact` task
+  # (with the `worktree-remove` pre-steps + backup + rotate-the-credential note) in Analysis & tasks.
+  local blob_facts wt_block
+  blob_facts="$(lines "$hs"'.large_blobs.items[]? | "- `\(.path)` — \(.mb) MB (removable only by a history rewrite; still needed?)"')"
+  wt_block="$(lines "$hs"'.blockers[]? | select(.id=="history-worktrees") | ([.facts_needed[]?|select(.fact=="worktree")]) as $w |
+    "- ⚠️ A history rewrite would orphan \($w|length) other linked worktree(s): \([$w[]|select(.removable==true)]|length) clean (safe to remove first), \([$w[]|select(.removable!=true)]|length) holding uncommitted work (a genuine decision)."')"
+  if [ -n "$blob_facts" ] || [ -n "$wt_block" ]; then
+    echo; echo "${hb}### History cleanup — candidates for the agent to assess (🔴 Tier 2)"
+    [ -n "$blob_facts" ] && { echo "_Oversized blobs in history:_"; echo; printf '%s\n' "$blob_facts"; }
+    [ -n "$wt_block" ] && { echo; printf '%s\n' "$wt_block"; }
+    echo
+    echo "> _No strip is auto-queued — a history rewrite is irreversible and situational. If one is warranted, the agent drafts the gated \`history-remove-path\`/\`history-redact\` task (with any \`worktree-remove\` pre-steps, a backup, and — for a real secret — a rotate-the-credential note) in **Analysis & tasks**._"
   fi
 
-  # CI fix (Tier 2) — one per failing real branch
+  # CI fix (Tier 2) — one per failing real branch, but ONLY for agent-fixable causes.
+  # Per the failure taxonomy, agent_fixable is true for lint/build/hygiene/test; infra
+  # (incl. raw GitLab failure_reasons like ci_quota_exceeded), empty-pipeline / config
+  # errors and unknown causes have no code fix to push — offering "fix & monitor" there
+  # is a false positive, so we surface them as a note instead of a queued Tier-2 action.
+  local fixable_filter='((.likely_cause // "unknown") | .=="lint" or . =="build" or . =="hygiene" or . =="test")'
+  # A branch already queued for deletion above must NOT also get a CI-fix action — pushing
+  # commits to a branch you are about to delete is contradictory (this surfaced as a real
+  # conflicting pair in fleet runs). Capture the delete-set and exclude those branches.
+  local del_set='( [ '"$bc"'.candidates[]? | select(.category!="keep") | .branch ] )'
+  local not_deleting='((.branch) as $b | ($del | any(.==$b)) | not)'
+  # The runtime (pipeline-health apply.sh) REFUSES to push the default branch, so a pipeline-fix
+  # queued there is guaranteed to fail and wastes a review slot. Never queue it; surface it as a
+  # note below instead. (`is_default` is set per-branch by pipeline-health analyze.)
+  local not_default='(.is_default != true)'
   local ci_items
-  ci_items="$(lines "$ph"'.branches[]? | select(.status=="failed" or .status=="failure") |
-    "- [ ] **Fix & monitor CI on `\(.branch)`** <!--gs op=pipeline-fix repo=REPO branch=\(.branch)-->\n  - *Why:* pipeline failing (cause: \(.likely_cause // "unknown")).\n  - *Risk:* Tier 2 · pushes commits and monitors; never the default branch unless asked.\n  - *Source:* pipeline-health: branch `\(.branch)` latest pipeline failed."')"
+  ci_items="$(lines "$del_set"' as $del | '"$ph"'.branches[]? | select((.status=="failed" or .status=="failure") and '"$fixable_filter"' and '"$not_deleting"' and '"$not_default"') |
+    "- [ ] **Fix & monitor CI on `\(.branch)`** <!--gs op=pipeline-fix repo=REPO branch=\(.branch)-->\n  - *Why:* pipeline failing (cause: \(.likely_cause // "unknown"))\(if (.failing_jobs|length) > 0 then " on job(s) " + ([.failing_jobs[].name | "`\(.)`"] | join(", ")) else "" end).\n  - *Risk:* Tier 2 · pushes commits and monitors; never the default branch unless asked.\n  - *Source:* pipeline-health: branch `\(.branch)` latest pipeline failed\(if (.failing_jobs|length) > 0 then " (job: " + (.failing_jobs[0].name) + ")" else "" end)."')"
   if [ -n "$ci_items" ]; then any=true; echo; echo "${hb}### CI — fix & monitor (Tier 2, pushes)"; printf '%s\n' "${ci_items//REPO/$repo}"; selall "${ci_items//REPO/$repo}"; fi
+  # Failing branches whose cause is NOT agent-fixable: explain, don't queue an action.
+  local ci_unfixable
+  ci_unfixable="$(lines "$ph"'.branches[]? | select((.status=="failed" or .status=="failure") and ('"$fixable_filter"' | not)) |
+    "- `\(.branch)` — cause: **\(.likely_cause // "unknown")** (infra/quota/config — no code fix to push; escalated to you)"')"
+  if [ -n "$ci_unfixable" ]; then echo; echo "> _Failing CI not auto-actioned (not agent-fixable):_"; printf '%s\n' "$ci_unfixable"; fi
+  # Default-branch failures with an otherwise-fixable cause: the runtime won't push the default
+  # branch, so we note rather than queue a doomed pipeline-fix.
+  local ci_default
+  ci_default="$(lines "$ph"'.branches[]? | select((.status=="failed" or .status=="failure") and '"$fixable_filter"' and .is_default==true) |
+    "- `\(.branch)` (default) — cause: **\(.likely_cause // "unknown")** (fixable, but pushing the default branch is refused — fix it yourself on a branch / locally)"')"
+  if [ -n "$ci_default" ]; then echo; echo "> _Failing CI on the default branch (not auto-actioned — never pushed):_"; printf '%s\n' "$ci_default"; fi
+  # Branches with fixable CI that are ALSO queued for deletion: note (don't queue) so the
+  # dropped CI fix is visible rather than silently swallowed.
+  local ci_skip_del
+  ci_skip_del="$(lines "$del_set"' as $del | '"$ph"'.branches[]? | select((.status=="failed" or .status=="failure") and '"$fixable_filter"' and ('"$not_deleting"' | not)) |
+    "- `\(.branch)` — failing CI, but the branch is queued for deletion above; no CI fix offered."')"
+  if [ -n "$ci_skip_del" ]; then echo; echo "> _Failing CI on branches you are deleting (no fix offered):_"; printf '%s\n' "$ci_skip_del"; fi
+
+  # Agent-drafted actions (from a chat "draft action items" flow): rendered as gated checkboxes,
+  # UNCHECKED, so they flow through the normal stage→gate→apply path. The reference/session file
+  # records how they were generated; the canonical report carries the reviewable items.
+  local drafted
+  drafted="$(lines '.drafted_actions[]? |
+    "- [ ] **\(.title)** <!--gs op=\(.op) repo=REPO\(if .branch then " branch=\(.branch)" else "" end)\(if .path then " path=\(.path)" else "" end)\(if .number then " numbers=\(.number)" else "" end)\(if .slug then " slug=\(.slug)" else "" end)-->\n  - *Why:* \(.why // "agent-drafted action.")\n  - *Source:* agent-drafted\(if .session then " (session `\(.session)`)" else "" end)."')"
+  if [ -n "$drafted" ]; then any=true; echo; echo "${hb}### Drafted actions (agent-proposed)"; printf '%s\n' "${drafted//REPO/$repo}"; selall "${drafted//REPO/$repo}"; fi
 
   $any || { echo; echo "> _No mechanical actions — see **Analysis & tasks** for work-item tasks._"; }
 }

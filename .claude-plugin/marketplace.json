@@ -10,7 +10,7 @@
       "description": "Multi-repo git stewardship: branch pruning, commit & history hygiene, secret/large-file removal, repo health, work-item triage, and CI pipeline health — plus a fleet-wide CI watchdog that monitors every pipeline in every repo and autofixes failures (gated by default, autonomous per policy). Analyze (read-only) and apply (mutating) modes stack from a single operation to a single repo to the whole fleet.",
       "source": "./plugins/git-steward",
       "category": "git",
-      "version": "0.7.0",
+      "version": "0.8.0",
       "author": {
         "name": "migaloco",
         "email": "migasoulou@gmail.com"
@@ -67,7 +67,7 @@
       "description": "AI-native project bootstrapping: interview → foundation docs → minimal scaffold + CI. Generates a CLAUDE.md agent contract with a doc map and enforceable maintenance rules, plus lean product/architecture/decisions/conventions docs designed for future LLM sessions (current-state only, explicit non-goals and restrictions, read-before-touching pointers). Stack-agnostic — asks or detects the stack and adapts.",
       "source": "./plugins/project-genesis",
       "category": "development",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "author": {
         "name": "migaloco",
         "email": "migasoulou@gmail.com"

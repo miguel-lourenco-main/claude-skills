@@ -65,6 +65,27 @@ if [ "${#remove_paths[@]}" -eq 0 ] && [ -z "$replace_text" ]; then
   echo "nothing to do: pass --remove-path and/or --replace-text"; exit 1
 fi
 
+# --- preconditions: linked worktrees + dirty tree (git-filter-repo cannot handle either) ---
+# filter-repo rewrites every commit, leaving any OTHER linked worktree pointing at commits
+# that no longer exist (orphaned HEAD). It also refuses to run on a dirty tree, and any
+# uncommitted work would be lost in the rewrite. Refuse early with an actionable message
+# rather than orphaning worktrees or aborting mid-rewrite.
+wt_count="$(git worktree list --porcelain 2>/dev/null | grep -c '^worktree ')"
+if [ "${wt_count:-1}" -gt 1 ]; then
+  echo
+  echo "REFUSED: $name has $wt_count linked worktrees. A history rewrite would orphan the"
+  echo "other worktree(s) — their HEADs would point at rewritten-away commits. Remove the"
+  echo "extra worktrees first (git worktree remove <path>), then re-run:"
+  git worktree list
+  exit 1
+fi
+if [ -n "$(git status --porcelain 2>/dev/null)" ]; then
+  echo
+  echo "REFUSED: working tree is dirty. git-filter-repo refuses to run on a dirty tree, and"
+  echo "uncommitted changes would be lost by the rewrite. Commit or stash them, then re-run."
+  exit 1
+fi
+
 # --- mandatory backups (shared/SAFETY.md) ---
 ts="$(date +%Y%m%d-%H%M%S)"
 backup_ref="refs/git-steward/backup/$ts"

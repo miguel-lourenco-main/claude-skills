@@ -38,10 +38,20 @@ default="$(jq -r '.default_branch' <<<"$analysis")"
 
 # selection: an explicit --branches allow-list wins; otherwise by category.
 # Either way, never select a branch the analyzer marked "keep" (default/current/active).
+skipped=""
 if [ -n "$only_branches" ]; then
   br_filter="$(printf '%s' "$only_branches" | jq -R 'split(",")|map(select(length>0))')"
   selected="$(jq -c --argjson br "$br_filter" '[.candidates[]|select((.branch as $b|$br|index($b)) and .category!="keep")]' <<<"$analysis")"
   sel_desc="branches: $only_branches"
+  # Explain any requested branch that will NOT be deleted, so a "selected: 0"
+  # result is never a black box (already-deleted vs. kept-because-active/protected).
+  skipped="$(jq -r --argjson br "$br_filter" '
+    [ $br[] as $b
+      | ([.candidates[]|select(.branch==$b)][0]) as $c
+      | if $c == null then "  ~ \($b): not found locally (already deleted or never existed)"
+        elif $c.category=="keep" then "  ~ \($b): kept — \($c.reason)"
+        else empty end ]
+    | .[]' <<<"$analysis")"
 else
   cat_filter="$(printf '%s' "$categories" | jq -R 'split(",")')"
   selected="$(jq -c --argjson cats "$cat_filter" '[.candidates[]|select(.category as $c|$cats|index($c))]' <<<"$analysis")"
@@ -53,6 +63,7 @@ echo "== git-branch-cleanup plan =="
 echo "repo: $repo   default: $default   remote: ${remote:-none}"
 echo "$sel_desc   selected: $count branch(es)"
 jq -r '.[] | "  - \(.branch)  [\(.category)]  \(.reason)"' <<<"$selected"
+[ -n "$skipped" ] && { echo "requested but not deletable:"; echo "$skipped"; }
 $prune && echo "  + prune stale remote-tracking refs (git remote prune $remote)"
 $delete_remote && echo "  + DELETE matching branches on remote '$remote' (Tier 2, irreversible on server)"
 
@@ -69,10 +80,14 @@ echo; echo "== applying =="
 deleted_local="[]"; failed="[]"
 while IFS= read -r row; do
   br="$(jq -r '.branch' <<<"$row")"; cat="$(jq -r '.category' <<<"$row")"
+  mtype="$(jq -r '.merge_type // ""' <<<"$row")"
   # safety re-check: never touch default/current
   [ "$br" = "$default" ] && continue
   [ "$br" = "$(git rev-parse --abbrev-ref HEAD)" ] && continue
-  if [ "$cat" = "merged" ]; then flag="-d"; else flag="-D"; fi   # -d is safe; gone/stale need force
+  # Use the safe -d ONLY for ancestor-merges, which it recognizes. Squash/rebase-merges are
+  # classified "merged" (content verified present) but are NOT ancestors, so `git branch -d`
+  # refuses them — they, like gone/stale, need -D. Keep -d as the safety net where it applies.
+  if [ "$cat" = "merged" ] && [ "$mtype" = "ancestor" ]; then flag="-d"; else flag="-D"; fi
   if git branch "$flag" "$br" >/dev/null 2>&1; then
     echo "  deleted local: $br"
     deleted_local="$(jq -c --arg b "$br" '. += [$b]' <<<"$deleted_local")"

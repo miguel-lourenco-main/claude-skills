@@ -64,12 +64,13 @@ it won't render as bullets. Keep every list as real `-` bullets; nest sub-bullet
 1. **Per-repo `<!-- gs:repo:<name>-start/end -->` regions** — for each repo:
    - **Explain notable findings with sources (deep).**
      - *Secrets:* investigate (`git -C <repo> log -S '<snippet>' --oneline`, `git blame`, read the
-       `file:line`) to decide real-vs-false-positive. **Don't enumerate false positives** — mention them
-       in **one casual aggregate line** (e.g. *"the N matches are all false positives — env interpolation /
-       i18n / test fixtures"*). The **script does not auto-propose history removal** for raw working-tree
-       matches (so false positives never become actions); only a **real** secret gets a detailed finding
-       **and** an action that **you** author here — tell the user to rotate the credential, and add the
-       parseable Tier-2 checkbox:
+       `file:line`) to decide real-vs-false-positive. **RECORD each verdict** so the report's counts, KPIs
+       and drill-down stop flagging false positives (durably, across re-analyses) — don't just describe them
+       in prose: emit `⟦VERDICT kind=secret repo=<name> file=<file> [rule=<rule>] verdict=false-positive|confirmed⟧ <one-line reason>`
+       (copy file/rule from the finding). You may still add one casual aggregate line for the reader. The
+       **script does not auto-propose history removal** for raw matches; only a **confirmed real** secret
+       gets a detailed finding **and** a strip task **you** author here — tell the user to rotate the
+       credential, and add the parseable Tier-2 checkbox:
        ```
 
        - [ ] 🔴 **Remove `<file>` from ALL history** <!--gs op=history-remove-path repo=<name> path=<file>-->
@@ -78,7 +79,11 @@ it won't render as bullets. Keep every list as real `-` bullets; nest sub-bullet
          - *Source:* <commit/blame evidence that the value is a real secret>.
        ```
      - *Blobs:* judge cleanability — `in_worktree` + build-artifact/gitignored → removable (untrack now,
-       or history rewrite if history-only); a real committed asset → keep.
+       or history rewrite if history-only); a real committed asset → keep. The script surfaces oversized
+       blobs as FACTS only (no auto-strip). If a history rewrite is warranted, YOU draft the gated
+       `history-remove-path` task here (same Tier-2 checkbox form as the secret one above), and sequence any
+       `worktree-remove` pre-step(s) BEFORE it — a rewrite orphans other linked worktrees, so clear the
+       clean ones first (`op=worktree-remove`); leave worktrees holding uncommitted work as a user decision.
      - *CI:* the report already prints each failing pipeline's cause **and a diagnosis trail** (what was
        checked + the result, incl. GitLab `failure_reason`). Summarize it; if the cause is still
        `unknown`/`empty-pipeline`, dig one level further (read the branch's `.gitlab-ci.yml`
@@ -106,6 +111,17 @@ it won't render as bullets. Keep every list as real `-` bullets; nest sub-bullet
      Group, don't transcribe — fewer, better-scoped, validated tasks. When the Tasks list has 2+ items,
      **end it with** `- [ ] _**Select all of the above**_ <!--gs op=select-all-->` so the user can queue
      them all (then exclude individual ones by ticking).
+   - **Observations (don't silently drop the rest).** For items you would NOT turn into a task — 🤔
+     needs-refinement or ❌ skip — still ENGAGE with them under an **Observations** sub-section: one bullet
+     per item with your honest read of what it proposes, whether it's well-specified, and how it would (or
+     wouldn't) integrate with this project's architecture/goals — substantive feedback, not a one-line
+     dismissal. These are plain bullets with **no `<!--gs-->` tag** (they are not actions); the decision
+     stays with the user.
+     ```
+
+     **Observations**
+     - **#<n> <title>** — 🤔/❌: <opinion on the idea + project-fit; what's missing or why skip>.
+     ```
 2. **Top `<!-- gs:themes-start/end -->` region** — groups of related items spanning more than one repo;
    call out overlap/duplication so the same work isn't done twice. Per-repo tasks stay in their repo's
    region (linked by theme).
@@ -145,3 +161,4 @@ optimize-tier skills also run per repo. See `${CLAUDE_PLUGIN_ROOT}/shared/MODES.
 - **`scripts/resolve_fleet.sh`** — source choice + intersection + exclusions, persisted to `fleet.json`.
 - **`scripts/run_across.sh`** — read-only fan-out aggregator.
 - **`${CLAUDE_PLUGIN_ROOT}/shared/SAFETY.md`** — the fleet-level confirmation gate.
+- **`${CLAUDE_PLUGIN_ROOT}/shared/PROBES.md`** — the read-only facts toolbox (`inspect.sh`): investigate a blocker before asking, and propose a gated remediation.

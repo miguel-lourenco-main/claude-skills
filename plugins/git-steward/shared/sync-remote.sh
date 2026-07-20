@@ -89,8 +89,12 @@ gs_sync_remote() {
           reason="working tree dirty"; action="no-ff"
           echo "[sync] working tree dirty — not fast-forwarding '$default' (no local work touched)." >&2
         else
-          ahead="$(git rev-list --count "$upstream..$default" 2>/dev/null || echo 0)"
-          behind="$(git rev-list --count "$default..$upstream" 2>/dev/null || echo 0)"
+          # One symmetric-diff count instead of two `git rev-list` forks: `--left-right
+          # --count upstream...default` prints "<behind>\t<ahead>" (left=in upstream not
+          # default, right=in default not upstream) — identical numbers, half the
+          # subprocesses. Mirrors git-branch-cleanup / git-repo-health's analyze.sh.
+          read -r behind ahead < <(git rev-list --left-right --count "$upstream...$default" 2>/dev/null || echo "0 0")
+          ahead="${ahead:-0}"; behind="${behind:-0}"
           if [ "${behind:-0}" -gt 0 ] 2>/dev/null && [ "${ahead:-0}" -eq 0 ] 2>/dev/null; then
             if git merge --ff-only "$upstream" --quiet 2>/dev/null; then
               ffd=true; action="fast-forwarded"

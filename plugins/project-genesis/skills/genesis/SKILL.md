@@ -75,20 +75,30 @@ Stack-appropriate, minimal, running:
 - Prefer the stack's official generator (`npm create vite`, `cargo new`, `uv init`, …) over
   hand-rolling — but hand-roll when no generator fits (e.g. a single-file stdlib project); a
   generator is not worth an extra dependency.
-- `git init` + a proper `.gitignore` (if not already a repo).
+- Version control per the interview's Q11 answer — never assumed:
+  - **No git** (scratch project): skip init, commits, and CI entirely; record the choice in
+    `docs/DECISIONS.md` so a future session doesn't "fix" it.
+  - **Local git only**: `git init` + a proper `.gitignore` (if not already a repo); no remote,
+    no CI file — record CI under Open questions.
+  - **Git + remote** (GitLab/GitHub): init as above, then create the remote with the forge CLI
+    (`glab repo create` / `gh repo create`) and set `origin`. If the CLI is missing or
+    unauthenticated, fall back to local-git-only, tell the user, and record the remote as an
+    Open question.
 - Formatter, linter, and test runner configured — where the stack and the user's restrictions
   allow. If a tool would violate a restriction (e.g. "no third-party deps"), skip it, use the
   closest built-in check, and record the gap in CONVENTIONS.md. **At least one passing test,
   sized to the interview's testing-appetite answer** — one trivial test is the floor, not the
   target.
-- CI on the platform from the interview, running lint + test on push. If the user chose "none
-  yet", create no CI config and record it under Open questions.
+- CI on the platform from the interview, running lint + test on push — **only when a remote
+  exists**; a workflow file that can never run is a false claim in the repo. Otherwise create
+  no CI config and record it under Open questions.
 - `.env.example` if the app needs secrets; never commit real values.
 - **Scaffold the smallest thing that runs, not a folder museum** — no empty `utils/`, `services/`
   directories awaiting a future that may differ.
 
-Verify: run the app, the tests, and whatever lint/check exists, once each. Then make the initial
-commit (e.g. "genesis scaffold") — unless the user has asked to review first.
+Verify: run the app, the tests, and whatever lint/check exists, once each. Then, if git is in
+play, make the initial commit (e.g. "genesis scaffold") — unless the user has asked to review
+first — and push if a remote was created, confirming CI goes green (or reporting why not).
 
 ## Phase 4 — Document what exists
 

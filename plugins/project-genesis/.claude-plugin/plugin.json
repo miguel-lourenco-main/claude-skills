@@ -1,6 +1,6 @@
 {
   "name": "project-genesis",
   "description": "AI-native project bootstrapping: a genesis skill that interviews the user, scaffolds the smallest thing that runs, and generates the foundation docs (CLAUDE.md agent contract, product, feature ledger, architecture, decision log, conventions) with embedded maintenance rules — so the docs become the operating system future agent sessions program against.",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "author": { "name": "migaloco", "email": "migasoulou@gmail.com" }
 }

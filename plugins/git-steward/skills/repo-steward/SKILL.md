@@ -103,7 +103,16 @@ that refuses.
 4. `work-items` — optionally start the top item (branch + draft MR/PR), or **implement** a selected
    item/task end-to-end (branch → change → commit → push → open MR) on explicit request.
 5. `pipeline-health` — if CI is failing, run the fix→monitor loop.
-6. `git-history-surgery` — **last**, most dangerous; only on explicit request, with backup + Tier-2 gate.
+5b. **Worktree precondition (only when step 6 will run a history rewrite).** A rewrite orphans every
+   other linked worktree. `git-history-surgery` analyze already emits a `history-worktrees` blocker
+   classifying each extra worktree (`inspect.sh worktrees` for the same data): the clean ones come
+   with a recommended Tier-1 `worktree-remove` pre-step (the branch is kept) — propose those as gated
+   pre-steps and run them first; a worktree with **uncommitted work** (or locked) is a genuine
+   decision — surface it, do not auto-remove. Only once the tree is down to the primary worktree does
+   the rewrite proceed.
+6. `git-history-surgery` — **last**, most dangerous; only on explicit request, with backup + Tier-2
+   gate, AFTER the worktree precondition (5b) is satisfied. Its apply.sh worktree refusal is now a
+   backstop, not the first time the user hears about worktrees.
 7. (optimize-tier, only if `--optimize`) — after core, in the same gated manner.
 
 Present a single consolidated plan before applying, confirm once at the top, then proceed skill by skill
@@ -118,3 +127,4 @@ the fleet aggregates.
 
 - **`${CLAUDE_PLUGIN_ROOT}/shared/MODES.md`** — mode + optimize inference.
 - **`${CLAUDE_PLUGIN_ROOT}/shared/SAFETY.md`** — the gates each apply step must honor.
+- **`${CLAUDE_PLUGIN_ROOT}/shared/PROBES.md`** — the read-only facts toolbox (`inspect.sh`): investigate a blocker before asking, and propose a gated remediation.

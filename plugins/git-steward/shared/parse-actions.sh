@@ -68,6 +68,6 @@ flush
 
 jq -n --arg src "$file" --argjson a "$actions" '
   {schema:"execution-plan/v1", source:$src, count:($a|length),
-   tier1:[$a[]|select(.op|test("^(branch-delete-local|commit-reword|gitignore-add|gitignore-untrack|worktree-prune|deps-bump)$"))],
+   tier1:[$a[]|select(.op|test("^(branch-delete-local|commit-reword|gitignore-add|gitignore-untrack|worktree-prune|worktree-remove|deps-bump)$"))],
    tier2:[$a[]|select(.op|test("^(history-remove-path|history-redact|branch-delete-remote|branch-merge|work-item-start|work-item-implement|pipeline-fix|release-tag)$"))],
    actions:$a}'

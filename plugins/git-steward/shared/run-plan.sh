@@ -62,6 +62,17 @@ for repo in $(jq -r '[.tier1[]|select(.op=="worktree-prune").repo]|unique[]' <<<
   run bash "$skills/worktree-manager/scripts/apply.sh" --repo "$repo" --prune --confirm
 done
 
+# worktree-remove — drop specific (redundant/merged) worktrees, e.g. as a gated pre-step before a
+# history rewrite (which would otherwise orphan them). Tier-1 runs before the Tier-2 commands are
+# printed below, so the worktrees are gone by the time the user runs the history-remove-path command.
+for repo in $(jq -r '[.tier1[]|select(.op=="worktree-remove").repo]|unique[]' <<<"$plan_json"); do
+  while IFS= read -r wt; do
+    [ -n "$wt" ] || continue
+    echo "→ worktree-remove in $repo: $wt"
+    run bash "$skills/worktree-manager/scripts/apply.sh" --repo "$repo" --remove "$wt" --confirm
+  done < <(jq -r --arg r "$repo" '.tier1[]|select(.op=="worktree-remove" and .repo==$r).path' <<<"$plan_json")
+done
+
 # deps-bump
 for repo in $(jq -r '[.tier1[]|select(.op=="deps-bump").repo]|unique[]' <<<"$plan_json"); do
   echo "→ deps-bump in $repo"
@@ -83,4 +94,11 @@ if [ "$n2" -gt 0 ]; then
     else "• \(.op) \(.repo)" end' <<<"$plan_json"
 fi
 echo
-$dry && echo "(dry-run — nothing executed)" || echo "Tier-1 actions applied. Tier-2 actions above need explicit confirmation."
+if $dry; then
+  echo "(dry-run — nothing executed)"
+elif [ "$n1" -eq 0 ] && [ "$n2" -eq 0 ]; then
+  echo "Nothing selected — no actions were applied. Edit the report to check (- [x]) the items you want, then re-run."
+else
+  [ "$n1" -gt 0 ] && echo "Tier-1 actions applied."
+  [ "$n2" -gt 0 ] && echo "Tier-2 actions above need explicit confirmation."
+fi

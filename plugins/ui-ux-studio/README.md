@@ -36,6 +36,6 @@ fallback to `~/.claude/skills/ui-ux-references`, so it works before and after th
 
 - ✅ Code moved into this plugin; vault externalized; scripts/docs updated; `bootstrap.sh` wires the
   external vault + (from a checkout) the personal-skills symlink.
-- ⬜ Marketplace wiring: add `ui-ux-studio` (`./plugins/ui-ux-studio`) and `ui-ux-pro-max`
-  (external `url` source, pinned sha) to `.claude-plugin/marketplace.json`, bump the marketplace
-  version, push, then `/plugin update`.
+- ✅ Marketplace wiring: `ui-ux-studio` (`./plugins/ui-ux-studio`) and `ui-ux-pro-max` (vendored
+  at `./plugins/ui-ux-pro-max` — see its `VENDORED.md` for the upstream sha and update steps) are
+  both registered in `.claude-plugin/marketplace.json`.

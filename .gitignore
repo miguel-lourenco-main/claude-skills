@@ -25,3 +25,4 @@ ui-ux-references/vault/
 # Misc
 *.log
 .DS_Store
+__pycache__/

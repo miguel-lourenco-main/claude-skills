@@ -35,7 +35,12 @@ never a fourth round.
    paid services, touch prod data, force-push, pick copyleft-licensed deps, exceed a cost
    ceiling…
 10. **Testing appetite?** Minimal smoke tests / solid unit coverage on core logic / strict TDD.
-11. **CI platform?** GitHub Actions / GitLab CI / none yet.
+11. **Version control & CI?** Not assumed — a scratch project may want none. Options:
+    GitLab (remote + CI) / GitHub (remote + Actions) / local git only, no remote or CI /
+    no git at all / recommend for me. The recommendation defaults to at least local git
+    unless the user framed the project as throwaway. A remote answer means genesis creates
+    the remote repo and pushes, so CI actually runs — CI without a remote is a config file
+    that has never executed.
 12. **Existing conventions to match?** A repo or style guide this project should feel like.
 
 ## Recording the answers
@@ -43,7 +48,8 @@ never a fourth round.
 - Answers 1–4 → `docs/PRODUCT.md` (vision, v1 scope, non-goals, stakes).
 - Answers 5–8 → `docs/DECISIONS.md` entries (stack, hosting, data, services) with the user's
   reasoning — or yours, marked as a recommendation the user accepted.
-- Answers 9–12 → `CLAUDE.md` Restrictions + `docs/CONVENTIONS.md` (testing policy, style) + CI
-  setup in Phase 3.
+- Answers 9–12 → `CLAUDE.md` Restrictions + `docs/CONVENTIONS.md` (testing policy, style) + the
+  version-control/CI setup in Phase 3. The Q11 answer also gets a `docs/DECISIONS.md` entry —
+  especially "no git", so a future session doesn't "fix" the missing repo.
 - "Don't know / decide later" → **Open questions** in `docs/PRODUCT.md`, verbatim enough that a
   future session can re-raise it with the user.

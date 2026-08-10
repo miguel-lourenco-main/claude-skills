@@ -94,7 +94,10 @@ rewrite. Never write into the plugin cache: it is volatile and overwritten on up
 ## Phase 5 — Propose refinements
 
 For each skill-fault, propose a **minimal concrete edit**: quote the current line(s), show the
-replacement (or the section to add), one line of rationale tied to the evidence. Rank by impact;
+replacement (or the section to add), one line of rationale tied to the evidence. Keep proposals
+conformant to the authoring standard in `../skill-author/STANDARDS.md` (description carries
+discovery; skimmable numbered spine; bounded loops; detail out of the main flow) — a fix that
+degrades structure or readability isn't a fix. Rank by impact;
 lead with anything a user correction motivated. Then **stop and present the proposals — apply
 only what the user approves**, as edits to the checkout (suggest commit message
 `retro(<skill>): <what>`). Record the outcome (applied / pending / rejected) in the FEEDBACK

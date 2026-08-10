@@ -1,6 +1,6 @@
 {
   "name": "skill-smith",
-  "description": "Meta-tooling for developing and refining Claude Code skills. Ships skill-retro: a session retrospective that reviews the skills and plugins used in the current session, grades their perceived performance with evidence, appends findings to each skill's FEEDBACK.md, and proposes concrete user-approved SKILL.md edits — the feedback loop that makes skills improve from real usage.",
-  "version": "0.1.0",
+  "description": "Meta-tooling for developing and refining Claude Code skills. Ships skill-author: create new skills or audit/restructure existing ones against a written authoring standard (discoverable descriptions, skimmable structure, human-readable prose, correct plugin wiring). And skill-retro: a session retrospective that reviews the skills used in the current session, grades their performance with evidence, appends findings to each skill's FEEDBACK.md, and proposes concrete user-approved SKILL.md edits — the feedback loop that makes skills improve from real usage.",
+  "version": "0.2.0",
   "author": { "name": "migaloco", "email": "migasoulou@gmail.com" }
 }

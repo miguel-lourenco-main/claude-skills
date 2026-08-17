@@ -22,6 +22,12 @@ marketplace.
   (OLED-dark, browse screenshots/palettes/typography/teardowns) so a human can review the library in
   a browser. The gallery source lives in the monorepo at `ui-ux-references/gallery/` (beside the
   vault + Pages CI); the skill resolves it via the repo root and runs `build.mjs` + a local server.
+- **ui-adversary** (`skills/ui-adversary/`) — spawns an adversarial agent that critiques a live
+  web UI/UX in the browser: multi-viewport screenshots, GIF recordings of interactions,
+  accessibility tree, console/network logs, keyboard-only passes, and JS measurement probes
+  (contrast, tap targets, overflow) — returning a severity-ranked report where every finding
+  carries captured evidence. Read-only: it judges, it never fixes (fixes go to impeccable /
+  ui-ux-director).
 - **style-tweaker** (`skills/style-tweaker/`) — injects a live, dev-only sidebar into the website
   being built: controls (fonts with a lazy-loaded roster, colors, spacing, radius, shadows, plus
   app-specific component knobs) bound to CSS custom properties, so changes restyle the page in real
@@ -35,7 +41,8 @@ ui-ux-director  (this plugin — the WHEN/HOW workflow)
    ├─ delegates RULES    → ui-ux-pro-max     (external OSS plugin, referenced by the marketplace)
    ├─ delegates EXAMPLES → ui-ux-references  (bundled here once moved)
    ├─ variations mode    → N isolated variants, one taste skill / style direction each + compare page
-   └─ fine-tuning        → style-tweaker     (live token sidebar in the running app)
+   ├─ fine-tuning        → style-tweaker     (live token sidebar in the running app)
+   └─ verdict            → ui-adversary      (hostile evidence-backed critique of the result)
 ```
 
 `ui-ux-pro-max` stays an externally-referenced plugin so it updates straight from upstream. The

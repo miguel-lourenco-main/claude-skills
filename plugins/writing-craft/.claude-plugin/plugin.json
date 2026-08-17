@@ -1,0 +1,6 @@
+{
+  "name": "writing-craft",
+  "description": "Writing skills for making technical work readable. Ships plain-report — turn a technical analysis, run, or dataset into a report a reader with zero context and no technical knowledge can follow: concepts defined before use, internal codes renamed to human labels, every claim backed by one concrete result, honest limits, a glossary that grows with reader questions, and an audit mode that flags readability defects without rewriting.",
+  "version": "0.1.0",
+  "author": { "name": "migaloco", "email": "migasoulou@gmail.com" }
+}

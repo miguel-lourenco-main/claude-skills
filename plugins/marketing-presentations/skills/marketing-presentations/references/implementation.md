@@ -1,0 +1,458 @@
+# Implementation playbook — building a marketing-page-feel HTML presentation
+
+Companion to `design-principles.md` (which chooses WHAT to build per style axis). This file is
+HOW: the validated single-file mechanics, distilled from three clones that each passed blind
+evaluation at 8.3–8.6/10 (BRUTALIST / EDITORIAL / REPORT poles). Numbers below are the
+validated ones — reuse them verbatim unless the visual script overrides them.
+
+---
+
+## 1. Single-file skeleton
+
+One `.html` file, in this order:
+
+```
+<!DOCTYPE html><html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+      <!-- REPORT pole used width=1440 + body{min-width:1240px} — desktop-first is allowed -->
+  <title>…</title>
+  <link> Google Fonts (preconnect ×2 + one css2 link)   — only if the pole needs a real face
+  <style>
+    :root{ ALL tokens }   /* colors, easings as cubic-bezier vars, font stacks, vw type vars,
+                             frame margin / gutter, grain data-URI */
+    reset: *{margin:0;padding:0;box-sizing:border-box}  (+ border-radius:0 on EDITORIAL/REPORT)
+    shared utilities (.mask/.rl, .wipe, .roll, .eyebrow, .hairline, .grain, media placeholders)
+    per-section CSS, in page order, one banner comment per section
+    @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+  </style>
+</head>
+<body>
+  fixed chrome first (cursor layers, loader/intro overlay, header/nav)
+  <main> sections in narrative order </main>
+  floating furniture (hover cards, popups) after main
+  CDN <script> tags (BRUTALIST only), then ONE inline <script> — the whole engine — at the end
+</body></html>
+```
+
+Rules that held across all three:
+
+- **Tokens as CSS vars.** Every color, every easing curve, the frame margin, the grain URI.
+  Easing vars are named by voice (`--out-expo`, `--bez`, `--ease-brand`), not by element.
+- **Viewport strategy: desktop-first 1440×900.** Display type in **vw** (so composition
+  survives viewport changes); labels/body/UI in **px**. Layout anchors as vw or % vars
+  (e.g. `--colx:42%`), gutters in px (`--m:16px` / 12px / 30px). Guard body with
+  `overflow-x:clip` (bleeds are deliberate; horizontal scrollbars are not).
+- **CDN policy:** BRUTALIST pole only —
+  `cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js` + `ScrollTrigger.min.js` +
+  `cdn.jsdelivr.net/npm/lenis@1.1.18/dist/lenis.min.js`. EDITORIAL and REPORT poles: **zero
+  libraries** — adding a smooth-scroll lib to those registers breaks the feel (axis A3).
+- The engine script is an IIFE (`(function(){'use strict';…})()` on the no-lib poles); wire a
+  `prefers-reduced-motion` check that snaps everything to end state.
+- Dev hook worth keeping: `?jump=N` query param that skips the loader and lands at scrollY N.
+
+---
+
+## 2. The three engine patterns (pick ONE per page — axis A3)
+
+### 2a. BRUTALIST — Lenis + GSAP scrub (layered lag IS the signature)
+
+```html
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/lenis@1.1.18/dist/lenis.min.js"></script>
+<script>
+gsap.registerPlugin(ScrollTrigger);
+
+/* brand ease usable from GSAP: Newton-solved cubic-bezier */
+function cubicBezierEase(p1x,p1y,p2x,p2y){
+  function A(a,b){return 1-3*b+3*a} function B(a,b){return 3*b-6*a} function C(a){return 3*a}
+  function calc(t,a,b){return ((A(a,b)*t+B(a,b))*t+C(a))*t}
+  function slope(t,a,b){return 3*A(a,b)*t*t+2*B(a,b)*t+C(a)}
+  return function(x){ if(x<=0)return 0; if(x>=1)return 1; let t=x;
+    for(let i=0;i<6;i++){const s=slope(t,p1x,p2x); if(s===0)break; t-=(calc(t,p1x,p2x)-x)/s;}
+    return calc(t,p1y,p2y); };
+}
+const brandEase=cubicBezierEase(0.785,0.135,0.15,0.86);   /* the 1s+ cinematic voice */
+
+/* two stacked smoothing layers: Lenis lerp 0.05 under per-tween scrub 0.2–0.6 */
+const lenis=new Lenis({lerp:0.05,smoothWheel:true,wheelMultiplier:1});
+lenis.on('scroll',ScrollTrigger.update);
+gsap.ticker.add(t=>lenis.raf(t*1000));
+gsap.ticker.lagSmoothing(0);
+
+/* standard scrub reveal helper: chars/words rise out of masks, paced by scroll */
+function scrubRise(targets,trigger,{stagger=0.02,scrub=0.3,start='top 95%',end='top 40%'}={}){
+  gsap.set(targets,{yPercent:102});
+  gsap.to(targets,{yPercent:0,ease:'power2.out',stagger,
+    scrollTrigger:{trigger,start,end,scrub}});
+}
+/* usage, with the splitter from §3: */
+scrubRise(splitChars(el),'#statement',{stagger:0.02});               // dense word-wave
+scrubRise(splitChars(t),'#title',{stagger:0.2,end:'top 40%'});       // letters land one by one
+scrubRise(splitChars(email),'#email',{stagger:{each:0.1,from:'random'},scrub:0.2}); // types itself
+
+/* headline collision: two layers, two scrub lags */
+gsap.fromTo('#italic-word',{xPercent:-60},{xPercent:0,ease:'power2.out',
+  scrollTrigger:{trigger:'.head',start:'top bottom',end:'top 25%',scrub:0.3}});
+gsap.fromTo('#solid-word',{xPercent:42},{xPercent:0,ease:'power2.out',
+  scrollTrigger:{trigger:'.head',start:'top bottom',end:'top 25%',scrub:0.6}});
+
+window.addEventListener('load',()=>ScrollTrigger.refresh());
+</script>
+```
+
+One-shot timed tweens (`scrollTrigger:{trigger,start:'top 85%'}`, no scrub) are reserved for
+curtains, badge/arc pops, and slide-ins. Anchors scroll via `lenis.scrollTo(el,{offset:-65})`;
+popups call `lenis.stop()/start()`.
+
+### 2b. EDITORIAL — native scroll + one-shot class toggles + CSS transition grammar
+
+No libraries. Motion lives in CSS; JS only adds classes once and drives fixed-stage furniture
+with a lightly-lerped rAF loop. The whole engine is ~120 lines.
+
+```css
+/* the universal reveal grammar — lines rise 1.4s out-expo, leave .3s in-quad */
+.rl{display:block;overflow:hidden}
+.rl>span{display:block;transform:translateY(112%);transition:transform 1.4s var(--out-expo)}
+.in .rl>span{transform:translateY(0)}
+.rf{opacity:0;transition:opacity .6s var(--out-sine)}     /* italic words fade — the ONE exception */
+.in .rf{opacity:1}
+.out .rl>span{transform:translateY(-112%);transition:transform .3s var(--in-quad)}
+```
+Stagger = inline `style="transition-delay:.08s"` per line (steps of .06–.08s, up to ~.32s).
+
+```js
+var vh=innerHeight; addEventListener('resize',()=>vh=innerHeight);
+/* one-shot: elements leave the watch list the moment they fire */
+var revealEls=[...document.querySelectorAll('[data-reveal]')];
+function checkReveals(){
+  revealEls=revealEls.filter(el=>{
+    var r=el.getBoundingClientRect();
+    if(r.top<vh*0.82&&r.bottom>0){el.classList.add('in');return false;}
+    return true;
+  });
+}
+/* scrub-for-furniture: native scroll + light lerp (~0.15–0.25) for silk */
+var sY=0,sYs=0,lastTick=0;
+function update(){
+  var p=Math.min(Math.max(sYs/vh,0),1);           /* hero progress 0..1 */
+  wordmark.style.transform='translate(-50%,'+((0.394*vh)*(1-p)+24.5*p)+'px) scale('+(1-0.648*p)+')';
+  heroMedia.style.transform='scale('+(1-0.3*Math.max(0,p-0.1))+')';
+  document.body.classList.toggle('theme-plain',sY>vh*0.92);   /* header theme swap */
+  /* …per-pin math: q = clamp(-pin.top/(pin.height-vh),0,1) drives sticky-stage states… */
+  checkReveals();
+}
+(function raf(){
+  lastTick=performance.now(); sY=scrollY; sYs+=(sY-sYs)*0.2;
+  if(Math.abs(sY-sYs)<0.1)sYs=sY;
+  update(); requestAnimationFrame(raf);
+})();
+/* robustness: occluded/throttled tabs still update */
+addEventListener('scroll',()=>{if(performance.now()-lastTick>200){sY=scrollY;sYs=sY;update();}},{passive:true});
+setInterval(()=>{if(performance.now()-lastTick>300&&scrollY!==sY){sY=scrollY;sYs=sY;update();}},250);
+```
+
+Sticky pins are plain CSS (`.pin{height:300vh}` wrapping `.stage{position:sticky;top:0;
+height:100vh;overflow:hidden}`); JS reads pin progress and toggles `.in`/`.out` state pairs
+(A-leaves-up + B-enters-below sharing one slot) or writes clip-path/transform directly
+(eased in JS: `1-Math.pow(1-k,3)` for slide-overs).
+
+### 2c. REPORT — IO variant machine + counters + pure-CSS sticky curtain stack
+
+No libraries. Three motion classes only: one-shot entrances on ONE house bezier, 1.0s
+count-ups, and one lerped scroll-follow image. Everything else is still.
+
+```css
+:root{--bez:cubic-bezier(.44,0,.37,1)}   /* the single house voice, 0.3–0.5s band */
+.mask{overflow:hidden;height:4.5vw}
+.mask>span{display:block;transform:translateY(112%);transition:transform .5s var(--bez)}
+.mask.m2>span{transition-delay:.1s}                  /* sibling stagger ≈ .1s */
+.slide.in .mask>span{transform:translateY(0)}
+
+/* curtain under-stack: NO JS. First slide relative; each later slide sticky inside a
+   taller wrapper with DESCENDING z-index. The current slide scrolls up and off,
+   revealing the next already pinned bone-still beneath. No fade, no scale, no parallax. */
+.slides{position:relative;height:calc(300vh + 500px)}      /* n slides + dwell (~250px each) */
+.slide{height:100vh;position:relative;overflow:hidden}
+.s1{position:relative;z-index:4}
+.sw{position:absolute;top:0;left:0;right:0}
+.sw2{height:calc(200vh + 250px);z-index:3}
+.sw3{height:100%;z-index:2}
+.sw .slide{position:sticky;top:0}
+```
+
+```js
+/* performed counter: 0→N in exactly 1s, once, affix as separate span (see §3) */
+function runCount(el){
+  if(el.dataset.done)return; el.dataset.done="1";
+  var target=+el.dataset.target,t0=null;
+  if(reduced){el.textContent=target;return;}
+  (function tick(ts){ if(t0===null)t0=ts;
+    var p=Math.min((ts-(t0||ts))/1000,1);
+    el.textContent=Math.round(p*target);
+    if(p<1)requestAnimationFrame(tick);
+  })(performance.now());
+  setTimeout(function(){el.textContent=target},1150);   /* occluded-tab safety: land it anyway */
+}
+var io=new IntersectionObserver(function(es){es.forEach(function(en){
+  if(en.isIntersecting){runCount(en.target);io.unobserve(en.target);}})},{threshold:.6});
+document.querySelectorAll('.cnt').forEach(function(el){io.observe(el)});
+
+/* variant machine: curtain-aware one-shot reveals + nav dock + lerped photo follow */
+function update(snap){
+  var y=scrollY,vh=innerHeight;
+  navFixed.classList.toggle('docked',y>hero.offsetTop+hero.offsetHeight-56);
+  ptgt=Math.max(0,Math.min(1,(y-preface.offsetTop)/400));      /* scrub target */
+  if(snap||reduced){pcur=ptgt;applyPhoto();}
+  if(s1.getBoundingClientRect().top<vh*0.6)s1.classList.add('in');
+  if(s1.getBoundingClientRect().bottom<vh*0.6)s2.classList.add('in');   /* underslide waits for */
+  if(s2.getBoundingClientRect().bottom<vh*0.6)s3.classList.add('in');   /* its curtain to leave */
+}
+function loop(){pcur+=(ptgt-pcur)*0.15;applyPhoto();requestAnimationFrame(loop);}
+addEventListener('scroll',function(){update(document.hidden)},{passive:true}); update(true);
+```
+
+---
+
+## 3. Shared component patterns
+
+### Mask-rise text splitter (BRUTALIST/JS poles; EDITORIAL pre-splits lines in HTML)
+```js
+/* chars: <span class=mask><span class=ch>X</span></span>, whitespace kept as text nodes */
+function splitChars(el){
+  const chars=[];
+  const nodes=[...el.childNodes]; el.textContent='';
+  nodes.forEach(n=>{
+    if(n.nodeType===3){ for(const ch of n.textContent){
+      if(/\s/.test(ch)){el.appendChild(document.createTextNode(ch));continue;}
+      const m=document.createElement('span');m.className='mask';
+      const c=document.createElement('span');c.className='ch';c.textContent=ch;
+      m.appendChild(c);el.appendChild(m);chars.push(c);
+    }} else { el.appendChild(n); if(n.nodeType===1)chars.push(...splitChars(n)); }
+  });
+  return chars;
+}
+```
+```css
+.mask{display:inline-block;overflow:hidden;vertical-align:bottom}
+.mask .ch{display:inline-block;transform:translateY(102%)}
+```
+Word variant: split on `/(\s+)/`, wrap tokens the same way. "Loose" variant for
+decoder/scramble: bare `.ch{opacity:0}` spans, animate opacity with
+`stagger:{each:0.05,from:'random'}` — no masks. EDITORIAL pole instead hard-codes each line
+as `<span class="rl"><span style="transition-delay:.08s">…</span></span>` (exact line breaks
+are part of the composition; never let the browser rewrap a revealed line).
+
+### Hover roll-swap (duplicated label)
+```html
+<a class="rollhost"><span class="roll"><span class="roll-in">
+  <span>Label</span><span aria-hidden="true">Label</span>
+</span></span></a>
+```
+```css
+.roll{display:block;overflow:hidden;height:18px;line-height:18px}
+.roll .roll-in{display:block;transition:transform .35s var(--bez)}   /* EDITORIAL: .5s out-expo */
+.roll .roll-in span{display:block;height:18px}
+.rollhost:hover .roll .roll-in{transform:translateY(-18px)}
+```
+BRUTALIST index-flip variant: `.idx` flips out up (`translateY(-100%)`, opacity 0, .2s) while
+an absolutely-positioned `.hword` rises from `translateY(100%)` — two different words, one slot.
+
+### Hover wipe-twin (REPORT — one mechanism, many colorways)
+```css
+.wipe{position:relative;overflow:hidden}
+.wipe::before{content:"";position:absolute;inset:0;background:var(--wipe,var(--blk));
+  transform:translateX(-101%);transition:transform .38s var(--bez);z-index:0}
+.wipe:hover::before{transform:translateX(0)}
+.wipe>*{position:relative;z-index:1}
+/* per surface: --wipe:var(--orange); pair with transition:color .25s on the host */
+```
+
+### Underline draw
+```css
+/* transform flavor (BRUTALIST, .25–.35s) */
+.ulink{position:relative}
+.ulink::after{content:"";position:absolute;left:0;bottom:-2px;height:1px;width:100%;
+  background:currentColor;transform:scaleX(0);transform-origin:left center;
+  transition:transform .3s ease-out}
+.ulink:hover::after{transform:scaleX(1)}
+/* background-size flavor (EDITORIAL — exits sliding out right, .6s (.55,0,.1,1) +.1s delay) */
+.cta-line{background-image:linear-gradient(currentColor,currentColor);background-repeat:no-repeat;
+  background-size:0% 1px;background-position:left 100%;
+  transition:background-size .6s cubic-bezier(.55,0,.1,1) .1s;padding-bottom:3px}
+.cta-line:hover{background-size:100% 1px}
+```
+
+### Curtain multi-panel wipe (identity titles — BRUTALIST)
+```html
+<div class="title-wrap"><h2 class="title" style="transform:scaleX(1.1);opacity:0;
+  transform-origin:left center">…</h2>
+  <div class="curtains"><i></i><i></i><i></i><i></i><i></i><i></i></div></div>
+```
+```css
+.curtains{position:absolute;inset:0;display:flex;z-index:2;pointer-events:none}
+.curtains i{flex:1;background:var(--ground);transform-origin:left center}
+```
+```js
+const tl=gsap.timeline({scrollTrigger:{trigger:wrap,start:'top 80%'}});
+tl.to('.curtains i',{scaleX:0,duration:1.2,ease:'power1.inOut',stagger:0.05},0.3)
+  .to('.title',{scaleX:1,opacity:1,duration:1.2,ease:'power1.inOut'},0.3);
+```
+
+### Aperture clip-path reveal (EDITORIAL — media opens, never fades)
+Small window → full, .7–1.4s in-out-quint `cubic-bezier(.83,0,.17,1)`. Three validated scales:
+loader type-hole (`width/height 0 → 15.6vw → FLIP to 100vw/100vh`), sticky-stepper wipe
+(scroll-driven: `clipPath='inset(iy% ix% iy% ix%)'` where ix,iy shrink from a 26.5vw centered
+window to 0 over the first 30% of pin progress), and grid pair:
+```css
+.mp{clip-path:polygon(20% 20%,80% 20%,80% 80%,20% 80%);transition:clip-path 1.1s var(--out-expo)}
+.in .mp{clip-path:polygon(0% 0%,100% 0%,100% 100%,0% 100%)}
+```
+
+### Marquee (measured px/s — duration derives from content width)
+```html
+<div class="mq"><div class="mq-track" id="mq"><span>ITEM — ITEM — …&nbsp;</span></div></div>
+```
+```css
+.mq{overflow:hidden;white-space:nowrap}
+.mq-track{display:inline-block;will-change:transform;animation:mq linear infinite}
+@keyframes mq{to{transform:translateX(-50%)}}
+```
+```js
+const track=document.getElementById('mq');
+track.innerHTML+=track.innerHTML;                       /* duplicate once for the seamless loop */
+const half=track.scrollWidth/2, SPEED=80;               /* px/s — measure the original; 60–120 typical */
+track.style.animationDuration=(half/SPEED)+'s';
+```
+Ambient loops obey axis A10: constant linear speed, no ease, and none at all on the REPORT pole.
+
+### Performed counter with affix span (REPORT)
+```html
+<div class="stat-num"><span class="cnt" data-target="850">0</span><span class="affix">+</span></div>
+<p class="stat-cap">Designers surveyed across 50+ countries.</p>
+```
+`runCount` from §2c: exactly 1.0s, linear-ish, one-shot (`data-done` guard), fired by IO at
+`threshold:.6` or by the section's own entrance (e.g. 650ms after its card docks). The affix
+never counts; magnitude at display scale (4.98–7.03vw, weight 500) above a small fixed-measure
+caption. `+setTimeout(target,1150)` so occluded tabs still land the number.
+
+### Loader with progress binding + hold-and-release
+Progress UI must move in **eased jumps with a hold before release** (a linear fake was scored
+against). Bind to real asset progress when assets exist; else simulate:
+```js
+var jumps=[0.18,0.34,0.55,0.71,0.86,1], ji=0;
+function nextJump(){
+  if(ji>=jumps.length){setTimeout(release,420);return;}       /* hold-at-full, then release */
+  var tp=jumps[ji++];
+  bar.style.transform='scaleX('+tp+')';        /* bar: scaleX from transform-origin:left */
+  pct.textContent=Math.round(tp*100)+'%';      /* pct label travels with the bar tip */
+  setTimeout(nextJump,220+Math.random()*300);
+}
+setTimeout(nextJump,1300);
+```
+`release()` converts the loading UI itself into the hero reveal — never a plain fade:
+BRUTALIST letterbox (loader = top/bottom black panels + 24px bar strip; panels part
+`yPercent:±100` 1.2s power1.inOut while the hero's `clip-path:inset(75vh 0 calc(25vh−24px) 0)`
+opens to `inset(0)` over 1.2s brand ease, then the wordmark stamps in char-by-char, stagger
+0.15); EDITORIAL FLIP (read the type-hole's rect, pin it `position:fixed` at that rect, then
+transition left/top/width/height to `0,0,100vw,100vh` in .7s in-out-quint while loader lines
+exit ±60vh). REPORT variant is a time-choreographed scroll-locked intro
+(`html.lock{overflow:hidden}` + setTimeout phase classes at 1100/2350/3250/3700ms + a 6s
+failsafe that always calls `settle()`).
+
+---
+
+## 4. Fonts
+
+- One `css2` link, two families max, only the weights/styles actually used, `display=swap`:
+  - EDITORIAL: `Cormorant:ital,wght@0,400;1,400` + `Inter:wght@400;500`
+  - REPORT: `Archivo:wght@400;500;700` + `Geist+Mono:wght@400;500`
+  - BRUTALIST clone shipped with NO webfont — pure system stacks (see below) still scored 8.3.
+- **The asset-risk rule (recurring loss pattern):** the flagship face must genuinely carry its
+  needed cut — ultra-black 800–900 (BRUTALIST), a TRUE italic (EDITORIAL), a true 500
+  (REPORT). A merely-bold or faux-italic fallback was the largest single deduction in cycle 1.
+  Verify after load (render two samples and compare, or `document.fonts.check('500 16px Archivo')`)
+  and always name a guaranteed stand-in in the stack.
+- Validated fallback stacks (copy verbatim):
+```css
+/* BRUTALIST */
+--grot:"Helvetica Neue",Helvetica,Arial,sans-serif;
+--display:"Arial Black","Archivo Black","Helvetica Neue",Arial,sans-serif;   /* the 900 slab */
+--didone:"Didot","Bodoni MT","Playfair Display",Georgia,serif;               /* light italic */
+--mono:ui-monospace,"SF Mono","DejaVu Sans Mono",Menlo,Consolas,monospace;
+/* EDITORIAL */
+--serif:"Cormorant",Georgia,"Times New Roman",Garamond,Palatino,"Book Antiqua",serif;
+--sans:"Inter",Roboto,"Helvetica Neue",Arial,sans-serif;
+/* REPORT */
+--sans:"Archivo","Helvetica Neue",Arial,sans-serif;      /* never a geometric Poppins-like */
+--mono:"Geist Mono","SFMono-Regular",Menlo,monospace;
+```
+
+---
+
+## 5. Placeholder media (this technique preserved color/mood scores at 8–9.5)
+
+Every media slot = a CSS-gradient stand-in matched to the slot's mood spec, **value key first**:
+decide light-valued vs dark-valued ground BEFORE hue — same hues at inverted value read as the
+opposite emotional register (cycle 3's biggest deduction).
+
+```css
+/* anatomy: layered radial highlights over a linear base, + grain, + tiny label */
+.media{position:relative;overflow:hidden;background:#c9c4bf}
+.m-amber{background:
+  radial-gradient(120% 90% at 72% 30%, rgba(255,214,160,.5), rgba(0,0,0,0) 55%),
+  radial-gradient(140% 120% at 50% 110%, rgba(40,16,4,.55), rgba(0,0,0,0) 60%),
+  linear-gradient(158deg,#b4642a 0%,#d98a3a 44%,#8a4718 100%)}  /* warm amber film, mid-dark */
+/* SVG turbulence grain overlay — accepted equivalent of in-asset grain */
+.media::after{content:"";position:absolute;inset:0;pointer-events:none;opacity:.5;
+  mix-blend-mode:overlay;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='140' height='140'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2'/><feColorMatrix type='saturate' values='0'/></filter><rect width='140' height='140' filter='url(%23n)' opacity='0.3'/></svg>")}
+/* the label documents what real media goes here (mono, ~9-10px, low-alpha, bottom-left) */
+.media .ml{position:absolute;left:12px;bottom:10px;z-index:2;font-family:var(--mono);
+  font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:rgba(248,248,248,.55)}
+```
+```html
+<div class="media m-amber"><span class="ml">film — bride &amp; hanging gown · amber loop</span></div>
+```
+
+- Build a small mood library per page (4–8 recipes: `m-amber`, `m-grey`, `m-bw`, `m-warm`…)
+  and reuse; gallery tiles can be flat 2-stop gradients (`.ph-1…ph-8` style).
+- "Video" slots get slow life: `background-size:130% 130%` + 12s alternate background-position
+  pan, or an oversized `.drift` layer of stacked radial-gradients on a 38–46s
+  `translate/scale` alternate loop (REPORT montage). ≥10s periods — placeholder video breathes,
+  it does not animate.
+- Gradient energy lives ONLY in the media layer; the designer's own surfaces stay flat (A14).
+- Label prefix states the medium: `[ video: … ]` / `film — …` / `scan — …` / `3D — …`.
+
+---
+
+## 6. Verification checklist (what the evaluators actually checked)
+
+Before declaring done, load the page in a real browser (claude-in-chrome or Playwright) and:
+
+1. **Full slow scroll, top to bottom.** Every section renders; every reveal fires; nothing
+   stays hidden because its trigger never intersected (watch for `overflow:hidden` ancestors
+   killing IO, and sticky underslides revealing before their curtain has left).
+2. **Counts exact.** Tiles, list rows, dots, chips, roster names, chapter counts, per-chapter
+   list items — match the visual script exactly; a repeated roster carries the SAME names in
+   the SAME split on every surface (nav, carousel, footer).
+3. **Console clean.** Zero errors at load, after the intro, and after a full scroll (CDN 404s,
+   null lookups from renamed ids, GSAP "target not found" warnings all count).
+4. **One-shots fire once.** Scroll up and back down: entrances must NOT replay (one-shot lists
+   drained / `io.unobserve` / `data-done` guards). Counters land on their exact target.
+5. **No accidental bounce.** No spring/overshoot ease anywhere unless the script names one;
+   audit every `ease:` and `transition:` against the pole's named voices (A5).
+6. **Negative space respected.** The sections the script marks "no animation" (galleries,
+   partner walls, list rows, hairlines) are genuinely still — animating them is a fidelity
+   BUG, not polish.
+7. **Loader/intro completes and unlocks.** Scroll lock always releases (failsafe timeout);
+   the loader element is removed from the DOM after release; a cached revisit path (or
+   `?jump=N`) skips it cleanly.
+8. **Hovers.** Every interactive surface answers with the site's ONE swap grammar; no press/
+   click animations; wipe-twins pre-render (no layout shift on first hover).
+9. **No horizontal scrollbar** (`overflow-x:clip` holding) while the scripted bleeds still
+   bleed; check at 1440×900 and one other width.
+10. **Reduced-motion:** with `prefers-reduced-motion`, the page is fully readable at end state
+    (intro skipped, counters snapped, transitions off).

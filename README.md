@@ -20,6 +20,11 @@ under `plugins/<name>/` and are installed via this repo's marketplace manifest
   branch/commit/history hygiene, repo health, work-item triage, CI pipeline health, plus an
   optimize tier, composed by `repo-steward` (one repo) and `fleet-steward` (the whole fleet). See
   `plugins/git-steward/README.md`.
+- **plugins/marketing-presentations/** — HTML presentations, decks and report pages that feel
+  like high-end marketing/landing pages: content → visual script → single-file scroll page, with
+  `extract <url>` to grow the knowledge base from a reference site. Principles and numbers were
+  validated by three award-site extract→blind-clone→evaluate cycles (8.3–8.6/10). See
+  `plugins/marketing-presentations/README.md`.
 
 Plugins are **not** loaded via the `~/.claude/skills/` clone — they are registered as a marketplace.
 This repo's `.claude-plugin/marketplace.json` lists them. Register the marketplace once (per machine):

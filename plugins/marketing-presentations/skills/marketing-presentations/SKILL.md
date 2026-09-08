@@ -134,3 +134,13 @@ to run the loop in `$REF/validation-lab.md`; do not start it unasked.
 ## Field notes
 
 Appended after real uses — see FEEDBACK.md.
+
+- **2026-09-08 — first real use, an existing Next.js marketing route with its own design
+  world.** The method held; the deliverable was the page's components rather than a
+  single file. What it added to the references: the brand-deviation table
+  (`visual-script.md` §2b), a section on applying the skill to an existing framework page
+  plus a Playwright verification walk for when the browser extension is down
+  (`implementation.md` §7), and two silent mechanics — a clip-path'd target has zero
+  intersection area (observe with `threshold: 0`), and oversized hollow type has phantom
+  scrollable height (`overflow-y: clip`). Page went from ~8 to ~10 viewport-heights;
+  e2e and reduced-motion checks stayed green.

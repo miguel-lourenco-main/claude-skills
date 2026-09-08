@@ -456,3 +456,76 @@ Before declaring done, load the page in a real browser (claude-in-chrome or Play
    bleed; check at 1440×900 and one other width.
 10. **Reduced-motion:** with `prefers-reduced-motion`, the page is fully readable at end state
     (intro skipped, counters snapped, transitions off).
+
+
+---
+
+## 7. Applying the skill to an existing framework page (first real use, 2026-09-08)
+
+The playbook above assumes a standalone single-file page. The first real use was the
+opposite: a Next.js marketing route with its own design world (tokens, faces, a colour
+budget, a house motion rule). What carried over unchanged: the visual script first, the
+type ladder with monumental ends, one entrance verb, restraint zones, the arc with a
+belief room, a climax and a bookend, performed numbers, the reacting header. What changes:
+
+- **The deliverable is the page's own components**, not an HTML file. Keep the script
+  beside them (`VISUAL-SCRIPT.md` in the component folder) and write the register's
+  brand-forced deviations as a table (axis | pole says | this page does | why) at the top —
+  see `visual-script.md` §2b.
+- **Reuse the world's motion metaphor as the entrance verb** when it has one. A "surveyed
+  in left to right" world gets a horizontal clip wipe (`clip-path: inset(0 100% 0 0) → 0`),
+  which still satisfies S2 (arrives through a clip, never fades) without importing a
+  vertical mask-rise the world never spoke.
+- **Ship the finished state; arm the hidden pre-state only when JS ran, motion is allowed
+  and the element is below the fold.** No JS, reduced motion, already on screen: the page
+  is simply printed. This is what keeps e2e tests, SEO snapshots and calm visitors whole.
+- **Perform only measured numbers.** Where a page mixes real and illustrative figures,
+  counting up only the real ones turns provenance into motion (observed-once; it read as a
+  craft signal rather than a gimmick).
+
+Two mechanics that bit, both silent:
+
+1. **A clip-path'd target has zero intersection area.** Chrome reports
+   `intersectionRatio: 0` for an element whose `clip-path` is `inset(0 100% 0 0)`, so an
+   IntersectionObserver with `threshold: 0.12` never fires and every below-fold reveal
+   stays blank — and the page looks fine above the fold. Observe with `threshold: 0` and
+   `entry.isIntersecting`; keep `rootMargin: "0px 0px -10% 0px"` as the edge guard.
+   (Opacity pre-states do not have this problem, which is why it surfaces exactly when a
+   fade is upgraded to a clip.)
+2. **Oversized hollow type has phantom height.** A 24vw wordmark at `line-height: .76`
+   has a glyph content box ~90px taller than its line box, and a content box counts as
+   scrollable overflow even where the ink does not — a blank strip appears under the
+   footer. `overflow-y: clip; overflow-x: visible` (the one mixed pair CSS allows) keeps
+   the right-edge bleed and drops the strip.
+
+And one hygiene item: **measure the face before claiming a bleed.** The script assumed
+~0.55em per glyph and listed the cover's third line as a deliberate overflow; Archivo sets
+it at ~0.47em and the line fit with 200px to spare, while the condensed footer face needed
+24vw, not 16.4vw, to leave the viewport. Render once (or `canvas.measureText`) and put the
+measured widths in the arithmetic audit.
+
+### Verification without Claude-in-Chrome
+
+When the browser extension is not connected, a Playwright walk does the slow-scroll pass:
+
+```js
+// walk.mjs — run from the project so @playwright/test resolves
+import { chromium } from "@playwright/test";
+const [,, url, outdir, w = "1440", h = "900"] = process.argv;
+const b = await chromium.launch(); const p = await b.newPage({ viewport: { width: +w, height: +h } });
+const errors = []; p.on("console", m => m.type() === "error" && errors.push(m.text())); p.on("pageerror", e => errors.push(String(e)));
+await p.goto(url, { waitUntil: "networkidle" }); await p.waitForTimeout(2500);
+const sc = () => document.querySelector("[data-scroll-root]") ?? document.scrollingElement;   // the element that scrolls
+const total = await p.evaluate(sc.toString() ? `(${sc})().scrollHeight` : "0");
+for (let y = 0, i = 0; y < total; y += +h, i++) {
+  await p.evaluate(`(${sc})().scrollTop = ${y}`); await p.waitForTimeout(1200);
+  await p.screenshot({ path: `${outdir}/v${String(i).padStart(2, "0")}.png` });
+}
+const pending = await p.evaluate(() => document.querySelectorAll("[data-armed]:not([data-in])").length);
+console.log(JSON.stringify({ total, pending, errors })); await b.close();
+```
+
+Read every frame, not just the hero; report `pending` (reveals that never fired) and
+`errors` as gate failures. Add a reduced-motion context (`reducedMotion: "reduce"`) that
+asserts nothing is armed and performed numbers are printed at their targets, and a phone
+viewport that asserts `scrollWidth - clientWidth <= 1`.

@@ -50,6 +50,22 @@ are coherent ready-made bundles — start from one and deviate deliberately:
 Record every pole choice at the top of the script ("Register: REPORT; deviations: cursor from
 BRUTALIST pole" etc.). Never blend poles unknowingly — an unnamed blend reads as noise.
 
+### 2b. Brand-constrained builds: the deviation table
+
+When the page belongs to an existing design world (tokens, faces, a colour budget, a house
+easing, a motion rule), the brand wins every conflict (hard rule) — but only if the conflicts
+are written down. Put this table under the register line, one row per axis the brand forces
+off the pole, and never blend silently:
+
+| Axis | Pole says | This page does | Why |
+|---|---|---|---|
+| A1 typeface | grotesk at 500 | Archivo 600 (the world's face) | one display weight, kept |
+| A4 entrance verb | rise through a clip | wipe left→right through a clip | the world's motion metaphor; still never a fade (S2) |
+| A14 colour | three flat hues | two marks with jurisdictions | the product's colour claim |
+
+Everything not in the table is taken from the pole as specified. (First real use: an app's
+marketing route; six rows, and the page kept its world while gaining the craft signals.)
+
 ## 3. Per-section spec template
 
 One block per section, in DOM order. Every claim numeric. Template:
@@ -98,7 +114,10 @@ validation cycles). Example shape:
 - **Performed numbers fully specified**: size, target value, duration, affix-as-span, trigger,
   one-shot vs re-arm (A12).
 - **Arithmetic audit before handoff**: child widths must fit their columns; anchors must not
-  land text on a same-color panel; the type ladder must be internally consistent.
+  land text on a same-color panel; the type ladder must be internally consistent. **Measure
+  the face** (render once, or `canvas.measureText`) before listing a bleed — an assumed
+  0.55em/glyph claimed an overflow that a 0.47em grotesk never produced, and under-sized a
+  condensed footer wordmark by a third.
 - **Type-scale law**: keep the extreme ratio (S1) — monumental top, tiny annotation layer,
   and (outside the REPORT register) skip most of the 30–60px middle.
 - **Overflow is rationed intent** (S5): list each deliberate bleed; everything else contained.

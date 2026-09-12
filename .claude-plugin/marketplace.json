@@ -107,7 +107,7 @@
    "description": "Build HTML presentations, decks, report pages, and story pages that feel like high-end marketing/landing pages — scroll-driven visual storytelling with award-site craft (oversized typography, choreographed motion, section-by-section narrative), written first as a visual script and then implemented as a single-file HTML page. Ships the marketing-presentations skill: build (content → visual script → page, self-scored against 8 dimensions in bounded passes) and extract <url> (grow the knowledge base from a reference site). Principles, 15 style axes with BRUTALIST/EDITORIAL/REPORT poles, and implementation patterns were validated in a design-extraction lab — three award-site extract → blind-clone → evaluate cycles, each passing at 8.3–8.6/10.",
    "source": "./plugins/marketing-presentations",
    "category": "design",
-   "version": "1.0.0",
+   "version": "1.1.0",
    "author": {
     "name": "migaloco",
     "email": "migasoulou@gmail.com"

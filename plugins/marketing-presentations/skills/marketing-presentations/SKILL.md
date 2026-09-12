@@ -64,13 +64,24 @@ bundle — REPORT is the default for formal or data presentations; BRUTALIST for
 ambition; EDITORIAL for brand, craft, taste. Record the choices and every deviation
 explicitly; they go at the top of the visual script.
 
+**If the page belongs to an existing design world** (an app's tokens, faces, colour budget,
+easing) the world *is* the register: start from it and borrow **one** mechanism from another
+pole — a pinned stage, a drawn object, a lag on objects — recorded in the deviation table.
+Do not default a *marketing page* to REPORT; it produced a well-set document with no award
+feel (Part IV, B1). Within a one-face, one-weight brand the EDITORIAL engine carried the most
+feel; REPORT caps interaction; BRUTALIST costs fidelity. List the inviolables (logotype,
+colour jurisdictions, corners) above the table and keep imports from foreign poles ≤ 3.
+
 ### 3 · Write the visual script
 
 Load `$REF/visual-script.md` and follow it: map the content onto the persuasion arc, write
 the motion system as ~6 generator rules, then per-section specs with numbers. Save as
 `visual-script.md` next to the deliverable. If the user is present, show the act list and
 register for a quick confirm before building; running autonomously, proceed. A page built
-without a script drifts generic — this step is never skipped.
+without a script drifts generic — this step is never skipped. Before handing the script to
+the build, run its **gates** (`visual-script.md` §5b): an object to look at, a mechanism the
+reader's hand moves, a wordmark that acts, a header that reacts, 12–16 viewport-heights from
+rooms (never padding), a boot state on framework pages. A "no" means the script is not done.
 
 ### 4 · Implement
 
@@ -83,12 +94,18 @@ the venue demands it, and state which you did.
 
 ### 5 · Verify in bounded passes
 
-Open the page in the browser. Do one full slow-scroll pass plus hover and interaction
-checks, then self-score against the 8 dimensions (hero first impression, layout, typography,
-color/mood, story structure, motion, interaction feedback, craft) using the checklist in
-`implementation.md` section 6. Bar for your own work: nothing below 8. Fix everything found
-in **one batch**, confirm with **at most one more pass**, and stop — report anything still
-below the bar rather than polishing further. Open-ended polish loops are banned.
+Open the page in the browser (or the Playwright tools in `implementation.md` §8f when the
+extension is down). Do the **two-pass walk** (1.1s and 2.5s settle, every frame read), the
+**timed hero capture** (0/200/500/900/1400/2400ms — no finished-state flash, furniture visible
+at t200), **flipbooks** over every pin and scrub, a **hover capture**, the header across every
+room boundary, and the phone and reduced-motion frames — the checklist in `implementation.md`
+section 6, items 1–17. Then self-score the 8 dimensions (hero first impression, layout,
+typography, color/mood, story structure, motion, interaction feedback, craft) **plus
+awardFeel and brandFidelity** — a page can score 8 on every craft dimension and 4 on
+awardFeel; that is the document failure mode. Bar for your own work: nothing below 8. Fix
+everything found in **one batch**, confirm with **at most one more pass**, and stop — report
+anything still below the bar rather than polishing further. Open-ended polish loops are
+banned.
 
 ## Mode B — extract <url>
 
@@ -127,7 +144,16 @@ to run the loop in `$REF/validation-lab.md`; do not start it unasked.
   gray-on-gray — the anti-patterns the knowledge base exists to prevent.
 - Restraint zones (sections specced as "still") stay still.
 - When brand constraints conflict with a register's numbers, the brand wins; note the
-  tension in the script rather than silently blending.
+  tension in the script rather than silently blending. The logotype's face, weight and
+  tracking are never an axis.
+- Every page names at least one object to look at and one mechanism the reader's hand
+  moves; a page of one-shot entrances is a document, however well set (Part IV, B2–B3).
+- Commit controls and prose are never scrub-bound; scrub windows for text end by top 75–85%.
+- Rooms are content + declared silence: reach the page length by adding rooms, never by
+  padding one; an exhibit's first complete state lands ≤ 1.2s after its room enters.
+- On a hydrated framework page the hero has a boot state set from the HTML (`<html
+  data-boot>`), never blank for > 300ms, with performed numbers hidden until they perform.
+- State words (Yes, live, Free, Not set) never take the measuring colour.
 - Extracted clones are local study artifacts: paraphrased copy, invented brand, placeholder
   media, never published (`validation-lab.md` section 5).
 
@@ -144,3 +170,16 @@ Appended after real uses — see FEEDBACK.md.
   intersection area (observe with `threshold: 0`), and oversized hollow type has phantom
   scrollable height (`overflow-y: clip`). Page went from ~8 to ~10 viewport-heights;
   e2e and reduced-motion checks stayed green.
+- **2026-09-12 — second real use: the same route, three takes juried for award-site feel.**
+  The first use had shipped a document — craft 8s, award feel 4. Three takes on the same
+  world, one borrowed mechanism each (pinned stage + drawn object / layered lag + overflow /
+  materiality + curtain stack), built blind from scripts and juried on two lenses. The
+  pinned-stage take won both (8 / 8); the lag take had the strongest viewports and lost the
+  brand (5); the materiality take had the best in-world objects and no interaction (6.5).
+  What it added: `design-principles.md` Part IV (B1–B11: brand register rule, the object
+  layer, scrub windows, dwell, rooms as content + silence, the boot state, type gaps from the
+  baseline, colour negatives, perceptibility, import budget, motion-aware verification),
+  `visual-script.md` §5b gates and the Stage / Silence / Arrival template lines,
+  `implementation.md` §8 (boot script, hero pin, curtain stack under a sticky collar,
+  generated contour object, mask geometry, the five Playwright tools) and checklist items
+  11–17. The three takes and their scripts stay in the app's `/v` gallery as the record.

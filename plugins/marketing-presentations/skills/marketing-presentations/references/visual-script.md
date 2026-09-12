@@ -64,7 +64,23 @@ off the pole, and never blend silently:
 | A14 colour | three flat hues | two marks with jurisdictions | the product's colour claim |
 
 Everything not in the table is taken from the pole as specified. (First real use: an app's
-marketing route; six rows, and the page kept its world while gaining the craft signals.)
+marketing route; six rows, and the page kept its world while gaining the craft signals — and
+read as a document, see below.)
+
+Two more rules for the table, from the second real use (three juried takes,
+`design-principles.md` Part IV):
+
+- **Start from the brand's register, borrow one mechanism.** The world's faces, palette,
+  corners and easing already are a register. Do not pick a pole bundle and bend the brand to
+  it; pick the brand and borrow *one* mechanism from another pole per page — a pinned stage,
+  a drawn object, a lag on objects only — and write that one row. A marketing page never
+  defaults to REPORT (B1).
+- **Inviolables are not axes, and imports have a budget.** The logotype's face, weight and
+  tracking, the colour jurisdictions and the corner radius are never traded; list them above
+  the table as inviolable. Every element imported from a pole the brand does not speak
+  (custom cursor, marquee, glitch blink, loader gate, transparent bar, extra weights) is a row
+  with a written reason or the world's equivalent; more than ~3 such rows and the page is no
+  longer the brand (B10).
 
 ## 3. Per-section spec template
 
@@ -76,8 +92,17 @@ Role: <one line — what this section does to the reader>
 Ground: <bg color token> | Height: <~px or vh> | Layout: <columns/positions with px>
 Type: <each text element: size(px or vw)/weight/case/tracking/line-height, measure width>
 Content: <the actual copy, or gist + target length>
-Media: <slot size + aspect ratio + MOOD SPEC — value key FIRST (light/dark ground), then
-       hue/texture; "none" if none>
+Media/Object: <slot size + aspect ratio + MOOD SPEC — for a brand build MATERIAL first (made
+       of the world's own marks?), then value key (light/dark ground), then hue/texture; a
+       generated object names its recipe and its reduced-motion frame; "none" if none — and
+       the page as a whole may not say "none" everywhere (B2)>
+Stage: <what the reader's hand moves here — pin length, sticky height, scrub window with its
+       end (top 75–85% for prose/controls, 40% only for display), lerp, dwell before release,
+       what is timed one-shot instead; "none — one-shot entrances only" if so (B3)>
+Silence: <the empty area of this room, by position and size, as a composition element; a room
+       is content + declared silence, never padding (B5)>
+Arrival: <time from room entry to the exhibit's first complete state, ≤1.2s, and the counters'
+       land time (B5)>
 Counts: <exact number of items/rows/dots/cards — counts are composition (S6)>
 Enter: <what animates in, mechanism + from→to + duration + ease + stagger; per element>
 Still: <what does NOT animate — the negative is spec (S3)>
@@ -98,7 +123,10 @@ validation cycles). Example shape:
 3. Easing voices: <the named set, 1–3 curves max, no bounce ever (S8, A5)>.
 4. Hover grammar: <the single swap mechanism reused everywhere (S11)>.
 5. Ambient life: <waveform spec: square/eased, min/max, period — or "still page" (A10)>.
-6. Signature moment: <the loader/intro/identity choreography (S7, S13)>.
+6. Signature moment: <the loader/intro/identity choreography (S7, S13); on a framework page
+   its clock is hydration-relative and the boot state shows the ground furniture (B6)>.
+7. What the hand moves: <the scroll-linked mechanisms — pins with their dwell, scrubbed
+   draws, docks, lags on objects — at least one; a page without one is a document (B3, B4)>.
 
 ## 5. Spec hygiene (each item below caused a scored gap when violated)
 
@@ -121,6 +149,29 @@ validation cycles). Example shape:
 - **Type-scale law**: keep the extreme ratio (S1) — monumental top, tiny annotation layer,
   and (outside the REPORT register) skip most of the 30–60px middle.
 - **Overflow is rationed intent** (S5): list each deliberate bleed; everything else contained.
+  A bleed across a hard cut must differ in value from the next room's ground (B4).
+- **Measure ledes and body, not only display** (B7): ch × the measured em of the actual cut
+  (Archivo 500 @22px ≈ 10.4px/glyph; Narrow 500 ≈ 0.43em); hand-break display lines only.
+- **Gaps from the baseline** (B7): statement → body ≥ 0.5× the statement's font-size measured
+  from the last baseline, not the line box.
+- **Rooms are content + declared silence** (B5): heights are sums of content and named empty
+  areas; reach the page length by adding rooms, never by a min-height.
+- **Phone is not undefined**: say how the performed-numbers row wraps (as a column) even on a
+  desktop-first script (B7).
+
+## 5b. Gates before handoff (yes/no — a "no" means the script is not done)
+
+1. Is there at least one **object** to look at, made of the world's material if the page has a
+   world, with its reduced-motion frame specified? (B2)
+2. Is there at least one mechanism the **reader's hand moves**, with its window, dwell and
+   what stays one-shot? (B3, B4)
+3. Does the **wordmark act** — born, docked, returned — and is the dock path checked against
+   the furniture it crosses? (S13, B3)
+4. Does the **header react** per room, driven from measured room tops? (S12, B4)
+5. Is the page **12–16 viewport-heights from rooms**, with no room padded past its content? (B5)
+6. On a framework page, is the **boot state** specified — furniture visible, numbers hidden,
+   clock from hydration? (B6)
+7. Are the **inviolables** listed and the **imports** ≤ 3 with reasons? (B10)
 
 ## 6. Formality dial
 
@@ -133,3 +184,8 @@ What to keep and what to relax:
 - Never relax into: smooth corporate type ladders (48/36/28…), bouncy easing, animate-
   everything, gray text on gray, generic decoration. Those are the anti-patterns the whole
   lab exists to avoid.
+- For a **brand build** the "relax" list is the default, not optional: keeping a cursor, a
+  glitch loop, a dark gate on a light brand or aggressive overflow needs a written reason in
+  the deviation table (B10). And do not relax into stillness either — restraint zones are for
+  list rows and hairlines, not for the whole page; a page with no stage, no object and no
+  scroll-linked motion is a document, and the jury scores it as one (B1–B3).

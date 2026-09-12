@@ -455,7 +455,25 @@ Before declaring done, load the page in a real browser (claude-in-chrome or Play
 9. **No horizontal scrollbar** (`overflow-x:clip` holding) while the scripted bleeds still
    bleed; check at 1440×900 and one other width.
 10. **Reduced-motion:** with `prefers-reduced-motion`, the page is fully readable at end state
-    (intro skipped, counters snapped, transitions off).
+    (intro skipped, counters snapped, transitions off) — read the frames, not just the counts:
+    a generated object must still be painted (§8).
+11. **Two-pass walk.** A 1.1s-settle walk AND a 2.5s-settle walk, every frame of both read.
+    Anything not complete at 1.2s after its room enters is a defect (arrival budget, B5), not
+    a walker artefact; anything different between the passes is a timing you have not seen.
+12. **Timed hero capture** at 0/200/500/900/1400/2400ms after load. t0→t500 must not show the
+    finished state, then blank, then re-entry (the pre-hydration flash, B6); t200 must show the
+    ground furniture, not empty paper.
+13. **Flipbooks over every pin and scrub** (100–150px steps, ~120ms waits): every rest position
+    shows a whole, still item; no sheet cropped at a viewport edge; no prose mid-reveal in the
+    lower viewport (B3, B4).
+14. **Hover capture** (`page.hover` + screenshot on one contents link, one CTA, one hot ask):
+    the walk scripts cannot see the hover grammar at all.
+15. **Header per room**: capture the collar across every room boundary; the readout and the
+    ground swap must change at each (B4).
+16. **Phone frames** (390×844) read, not just `scrollWidth − clientWidth`: a wrapped counter
+    row with an orphaned figure passes the overflow check and fails the jury (B7).
+17. **Score awardFeel and brandFidelity** beside the eight dimensions. A page can score 8 on
+    every craft dimension and 4 on awardFeel — the document failure mode (B11).
 
 
 ---
@@ -529,3 +547,131 @@ Read every frame, not just the hero; report `pending` (reveals that never fired)
 `errors` as gate failures. Add a reduced-motion context (`reducedMotion: "reduce"`) that
 asserts nothing is armed and performed numbers are printed at their targets, and a phone
 viewport that asserts `scrollWidth - clientWidth <= 1`.
+
+
+---
+
+## 8. Second real use — a brand build with stages, three takes juried (2026-09-12)
+
+The first real use (§7) kept the REPORT engine and shipped a page that scored well on craft
+and read as a document. Three takes on the same world, each borrowing one mechanism from
+another pole, were juried on award feel and brand fidelity; `design-principles.md` Part IV
+holds the rules, this section holds the mechanics that carried. All three ran inside a
+Next.js app whose scroll container is **not the window** (`html, body { overflow: hidden }`
+with an `overflow-y: auto` main): `window.scrollY` is always 0, scroll listeners, progress
+maths and IO roots use the scroll root, `position: sticky` works inside it, and the root gets
+`overflow-x: clip` for the rationed bleeds.
+
+### 8a. The boot state (required on any hydrated page — B6)
+
+`useLayoutEffect` arming runs 300–700ms after SSR painted the finished hero; the reader sees the
+end state, then a blank, then the entrance. The fix is set from the HTML before React exists:
+
+```html
+<!-- in the route's server component, before the landing markup -->
+<script dangerouslySetInnerHTML={{ __html: `
+  (function(){var d=document.documentElement;
+    if(matchMedia('(prefers-reduced-motion: reduce)').matches)return;
+    d.setAttribute('data-boot','');
+    setTimeout(function(){d.removeAttribute('data-boot')},4000);})();` }} />
+```
+```css
+/* pre-states keyed to the boot attribute — only ABOVE the fold; below-fold arming stays the §7 pattern */
+html[data-boot] .hero .line   { clip-path: inset(0 100% 0 0) }
+html[data-boot] .hero .cnt    { visibility: hidden }        /* numbers never visible at target before they perform */
+html[data-boot] .hero .map    { animation: survey-in 1200ms var(--ease) both }  /* the object can start from CSS, before hydration */
+/* what the boot state SHOWS: collar, neatline ticks, eyebrow — never empty ground for >300ms */
+```
+The engine removes `data-boot` when it mounts and takes the clock from there (marks are
+hydration-relative; declare the expected load→hydration offset). The 4s failsafe removes it
+regardless. Reduced motion never sets it, so the calm page is simply printed.
+
+### 8b. The hero pin — born wordmark, dock, drawn route (EDITORIAL engine; won both lenses)
+
+```
+<section class="pin" style="height:300vh">            // the pin
+  <div class="stage" style="position:sticky;top:0;height:100vh;overflow:hidden">
+    <svg class="map" viewBox="0 0 1440 900" preserveAspectRatio="xMidYMid slice">…contours, stations, <path class="route" pathLength="1000">…</svg>
+    <div class="twin">Job AI Hub</div>              // born at 223px, docks into the collar
+    <h1><span class="line">…</span>…</h1> lede, controls
+  </div>
+</section>
+```
+```js
+// one lerp on scrollTop; everything in the pin reads `y`
+let y=0, ys=0; const root=document.querySelector('[data-scroll-root]');
+function frame(){ y=root.scrollTop; ys+=(y-ys)*0.18; if(Math.abs(y-ys)<0.1)ys=y;
+  const q=Math.min(Math.max(ys/396,0),1);                       // dock over the first 396px
+  const b=bornRect, c=collarRect;                               // measured once (fonts.ready), re-measured on resize
+  twin.style.transform=`translate(${(c.left-b.left)*q}px,${(c.top-b.top)*q}px) scale(${1-(1-c.height/b.height)*q})`;
+  if(q===1) handOff();                                           // twin hidden, collar's own name shown — within 1px
+  const d=Math.min(Math.max((ys-216)/1188,0),1);                // route drawn 216→1404px
+  route.style.strokeDashoffset=1000*(1-d);
+  stations.forEach((s,i)=>s.toggleAttribute('data-in', d>=s.at)); // labels wipe in as the pen reaches them
+  requestAnimationFrame(frame);
+}
+```
+Title lines, lede and controls fire as **timed one-shots** when their threshold is crossed
+(600ms clip wipe, 80–100ms stagger) — never scrub-bound (B3). Dwell ≥ 400px before release.
+Check the dock path against every fixed element it crosses; bring the eyebrow in after the
+hand-off if the path runs over it. Station labels are SVG `<text>` (clip-path works on SVG
+text too; HTML labels cannot follow an `xMidYMid slice` map at other viewports) — set
+`text-rendering: geometricPrecision` and caps in the source to keep Chromium's tracking even.
+
+### 8c. Chapters as a curtain under-stack beneath a sticky collar (REPORT A7, brand build)
+
+Pure CSS as in §2c, with two adjustments the takes needed: slides pin at
+`top: var(--collar-h)` inside `height: calc(100vh - var(--collar-h))`, and the collar's
+readout / ground swap is driven from `scrollTop` against **measured room tops** in the same
+rAF loop — never from an IntersectionObserver on the sticky slides (dead). Each slide is one
+exhibit at exhibit scale, flat on the ground, no panel: a full-width board on a ~300px well,
+a horizontal log through stations, an A4 sheet on rock (value contrast against the next
+slide's ground), a ruled rubric with two empty trailing rows. Fill the slide or declare the
+silence; never leave 200px of ground under a short exhibit (B4, B5).
+
+### 8d. A generated object in the world's material (contour field)
+
+```
+value noise (3 octaves) → gain ×2 about the midline → marching squares at 6px cells
+  → polylines; the normalised octaves span ~[0.3, 0.7], so choose contour spacing AFTER the gain.
+```
+- **Build-time for the SVG map** (a TS constant of polylines; the no-JS page keeps the object).
+- **Canvas for a living plate or a terrain-cut wordmark**: DPR ≤ 2, ≤ 30fps, restrict the
+  dense pass to the glyphs' bounding box, pause when off-screen or `document.hidden`,
+  `document.fonts.load()` before `strokeText`/`fillText` (a system-font name otherwise flashes
+  in the plate), and read the family from the CSS variable next/font resolved.
+- **Perceptibility** (B9): the drift moves ≥ one line-spacing within ~4s somewhere in the
+  frame, or a dense hatched region does the moving, or drop the claim.
+- **Reduced motion / no JS**: paint one finished frame synchronously (canvas) or fall back to
+  a hatched fill with the same marks — verify by reading the reduced-motion frame.
+
+### 8e. Small mechanics that bit
+
+- **Masks under line-height < 1** clip descenders: `padding: .12em 0 .22em; margin: -.12em 0
+  -.22em` on the mask, park the line at 140% (B7).
+- **Hard-coded line masks** are `white-space: nowrap` with a measured width; a mask that
+  re-wraps produces orphans.
+- **Row-triggered counters under React**: child layout effects run before the parent's
+  arming, so a counter inside a revealed row watches its row's `data-in` with a
+  MutationObserver (start = row delay + 300ms) — and the whole sequence still lands ≤ 1.2s.
+- **A hover-completed ask** in the clip grammar: the answer word is parked in the same slot
+  and wipes/rises in on hover of the whole line; statement step; no accent when the colour
+  budget is spent (B8).
+- **Timed intros need no JS timeline**: every mount-armed element carries its mark as a CSS
+  `transition-delay`; only the object's focus and the counters keep timers.
+- **The walker can be poisoned by a dev-server HMR reload** mid-walk (61 "pending" with the
+  hero at scroll 9000+): run captures one at a time and re-run on a clean load.
+
+### 8f. Verification tools (Playwright, no extension needed)
+
+Five scripts, run from anywhere, resolving `@playwright/test` from the app checkout: a
+two-settle **walk** (prints `{total, frames, pending, errors}`), **seq** (frames at ms marks
+after load), **motion** (flipbook between two offsets), **checks** (phone overflow,
+reduced-motion armed count + frame, no-JS text) and **hover**. Reference copies live in the
+design-extraction lab at `worlds/expedition/r2/tools/`; the shape of each is the §7 walk
+script with a `ROOT` expression that finds the scroll container:
+
+```js
+const ROOT = `(document.querySelector("[data-scroll-root]") || document.scrollingElement)`;
+await p.evaluate(`${ROOT}.scrollTop = ${y}`);
+```

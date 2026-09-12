@@ -18,8 +18,11 @@ section-by-section persuasion arc — one notch more formal than the sites it le
 - **build** (default) — reads the content source you name (outline, doc, data, existing
   deck), picks a register (REPORT for formal/data, BRUTALIST for manifesto/ambition,
   EDITORIAL for brand/craft), writes `visual-script.md` next to the deliverable, builds the
-  page as one HTML file, then verifies it in the browser: one full pass, one batch of fixes,
-  at most one confirming pass. Desktop 1440×900 first; responsive only on request.
+  page as one HTML file, then verifies it in the browser: a two-pass walk, a timed hero
+  capture, flipbooks over every pin, a hover capture, one batch of fixes, at most one
+  confirming pass; scored on eight craft dimensions plus award feel and brand fidelity.
+  Desktop 1440×900 first; responsive only on request. A page inside an existing design world
+  starts from that world's register and borrows one mechanism, never a whole pole.
 - **extract `<url>`** — triages and extracts a reference site (an Awwwards pick, say) into
   `./design-extractions/<slug>/` (or a directory you name), then proposes a merge into the
   knowledge base in your skills checkout: confidence upgrades for confirmed principles, new
@@ -50,7 +53,11 @@ skill.
 What ships in `skills/marketing-presentations/references/`:
 
 - `design-principles.md` — 14 cross-validated spine principles + 15 style axes with
-  BRUTALIST / EDITORIAL / REPORT pole parameters, each item carrying its confidence tag.
+  BRUTALIST / EDITORIAL / REPORT pole parameters, each item carrying its confidence tag, and
+  Part IV: what a page that belongs to an existing brand world needs beyond craft (an object
+  to look at, a stage the reader's hand moves, a boot state, rooms as content + declared
+  silence) — validated by building three takes on one product world and juring them on
+  award feel and brand fidelity (2026-09-12).
 - `visual-script.md` — the authoring guide for the page's screenplay (persuasion arc,
   register choice, per-section spec template, motion as ~6 generator rules, formality dial).
 - `implementation.md` — single-file skeleton, three engine patterns, shared components,

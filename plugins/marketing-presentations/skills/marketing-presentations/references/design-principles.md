@@ -508,3 +508,171 @@ cycle 3 produced parameters; axes A12–A15 are new.
   open spring-vs-tween, hover-wipe timing feel, carousel drag physics, preface photo
   end-state — all built to defaults-by-instruction and not yet adjudicated; one visible-tab
   pass on the original would settle them.
+
+---
+
+## Part IV — Brand-constrained marketing pages: what three juried takes validated (2026-09-12)
+
+Evidence base: one existing product world (an app's design tokens, two faces at one display
+weight, a colour budget, a house easing, sharp corners) whose marketing page had been built with
+this skill on the REPORT register and scored well on craft while reading as a **typeset
+document** — seven same-shaped bands, nothing scroll-linked, no object to look at, the wordmark
+never acting, 9.7 viewport-heights. Three takes were built blind from visual scripts, one
+hypothesis each, and juried on two lenses (award-site feel; brand fidelity + craft) against it:
+
+| Take | Hypothesis | Engine | Award | Brand | Verdict |
+|---|---|---|---|---|---|
+| Field Table | pinned stages + one drawn object | EDITORIAL | **8** | **8** | PROVEN for the hero pin (wordmark born at 223px over a generated contour map docks into the collar; the route drawn by the reader's hand through four stations); the second pin — a horizontal pan of four exhibits — had no dwell and cropped sheets at every rest |
+| Survey Film | layered scroll lag + monumental overflow + hard-cut rooms | BRUTALIST (hand-written) | 8 | 5 | overflow and hard cuts PROVEN (the two strongest viewports of the exercise); lag DISPROVEN as a grammar for prose and controls; the feel arrived with imports the world does not speak (900-weight wordmark, no-ground collar, cursor, marquee, dark gate) |
+| Instrument | materiality + curtain under-stack + living data | REPORT | 6.5 | 9.5 | materiality PROVEN (terrain plate, name cut from the contours, hatched living bookend — the most brand-true objects of the four); curtain stack PROVEN as rhythm; "living data" DISPROVEN (a 14s drift on hairlines is invisible) |
+| baseline | — | REPORT | 4–6.5 | 9.5 | the document |
+
+Confidence: every item below is **validated-by-jury (1 world, 3 takes)** unless tagged
+otherwise. They are additions to Parts I–III, never replacements; where a Part I/II number is
+restated it is because the takes hit the same number from the other side.
+
+### B1. Register for a brand-constrained marketing page — start from the brand's register, borrow one mechanism
+- The bundle rule in §2 ("REPORT for formal, BRUTALIST for ambition, EDITORIAL for craft") is
+  for presentations with no world. **A page that belongs to a world takes its register from
+  the world** (the world's faces, palette, corners, easing are already a register) and then
+  **borrows ONE mechanism from another pole per take** — a stage, an object, a lag — and
+  records it in the deviation table. The winning take did exactly this; the losing take
+  imported a whole pole.
+- Within a one-face, one-weight brand: the **EDITORIAL engine** (pinned stage + one drawn
+  object + light-lerp scrub on fixed-stage furniture) carried the most award feel;
+  **REPORT caps interaction** (still page, one-shot entrances — the document failure mode);
+  **BRUTALIST costs fidelity** (it needs weights, a cursor and a gate the brand does not own).
+- REPORT is **never the default for a marketing page**; it is the default for a data
+  presentation. The first real use chose it because it was "closest to the world" and shipped
+  the document.
+
+### B2. The object layer is required — S14 addendum: *material* before value key
+- Every validated site had a thing to look at (film, 3D, an oversized image, a drawn scene). A
+  page with **zero media/object slots reads as a document regardless of craft**. The script
+  must name at least one object.
+- For a brand build, put **material** before value key in the mood spec: an object made of
+  the world's own marks (contour hairlines in the brand's contour colour, station squares, the
+  brand's ruled paper) beat an imported film in *both* fidelity and feel (Field Table's map and
+  Instrument's plate vs Survey Film's wireframe lattice). Then value key, then hue.
+- Generated objects are legitimate media when there are no assets: see `implementation.md` §8
+  for the contour-field recipe. Under reduced motion or no JS the object must still be there —
+  **paint one finished frame synchronously** or ship a static fallback with the same marks;
+  a page whose object vanishes for calm visitors lost its brand score on that alone.
+
+### B3. Scroll-linked motion is a requirement, and it has windows — A3/A4 addendum
+- A page with only one-shot entrances is a document. **Name at least one mechanism the
+  reader's hand moves**: a pin, a scrub, a drawn path, a dock. It goes in the generator rules.
+- **Scrub windows.** A scroll-bound reveal whose window ends at `top 40%` leaves the lower 40%
+  of every viewport permanently mid-reveal at rest. Prose, ledes and controls must end their
+  window by **top 75–85%** or be one-shot; only display type may run to 40%.
+- **Commit controls are never scrub-bound.** A CTA half-masked at a natural rest position was
+  a mark-down on both lenses. Timed one-shot for anything the reader must trust.
+- **BRUTALIST lag needs a text/object split** (A3 addendum): text masks at τ ≤ 0.3s and
+  settled within ~1s of the wheel stopping; τ 0.5–0.6 reserved for objects (a trailing sheet,
+  a sliding bookend). Lag on copy makes every stop unreadable.
+- The **hero pin** pattern that won: 300vh pin, sticky 100vh stage, one lerp (0.18) on
+  scrollTop driving (a) the wordmark twin from its born rect to the collar's measured rect
+  over the first ~400px, then a hand-off to the collar's own name, (b) an SVG route drawn by
+  `stroke-dashoffset` over ~1200px with station labels wiping in as the pen reaches them,
+  (c) title / lede / controls as **timed one-shots** at their thresholds, (d) a dwell of
+  ≥ 400px before release. The dock path must be **checked against every fixed element it
+  crosses** (S13 collision rule): the shrinking twin overprinted an eyebrow for 40px of scroll
+  — bring such furniture in after the dock, or route around it.
+
+### B4. Stages need dwell; curtain under-slides need filling — A7 addendum
+- **Horizontal pan pins**: the first item fully on screen and at rest for ≥ 0.5 vh of scroll
+  before the track moves, a matching dwell at the end, ≥ 40% of each item's travel as a hold
+  (or snap points), the current item fully inside the frame at any rest with the neighbour
+  peeking ≥ 120px. A linearly scrubbed track makes the reader read a moving, edge-cropped
+  sheet — the Field Table's second pin, and the single reason it did not sweep.
+- **Curtain under-stack** (REPORT A7) works exactly as written *and* is the right home for
+  chapter exhibits in a brand build: each exhibit is still while read, the rhythm change is
+  real, the header inverts per room. Two rules it needed: every slide is **filled** — content
+  + *declared* silence with a named position, never 200px of leftover ground under a short
+  exhibit; and an object that bleeds across a hard cut must **differ in value from the next
+  room's ground** (S5 addendum) or the crop edge disappears (a snow sheet into a snow slide).
+- With a **sticky collar** the slides pin at `top: <collar height>`; the readout is driven from
+  `scrollTop` in the rAF loop against **measured room tops**. An IntersectionObserver on a
+  sticky or clipped target is silently dead — the baseline's readout never left "00 · Cover".
+
+### B5. Rooms are content + declared silence — S9 addendum
+- Never budget a room taller than its content to hit the 12–19 vh target. Hit length by
+  **adding rooms** (a title card, a night plate, a bookend, an ask), never by padding
+  (`min-height`) — all three takes padded somewhere and the jury found every one.
+- **Arrival-to-landed ≤ 1.2s** (A12 addendum): the first visible state of an exhibit —
+  including its measured numbers — must be complete ≤ 1.2s after its room enters. A counter
+  stacked behind a row-wipe stagger and a 300ms delay landed at 2.3s, and the reader met a
+  blank sheet. Cap delay + stagger + duration for the *first* state; stagger the rest.
+- Timed chapter curtains (300 + 1000ms) are mid-wipe for every fast reader: cap a title
+  curtain at ~600ms total or fire it at `top 90%`.
+
+### B6. The boot state on framework pages — S7/§7 addendum (validated on 3 pages)
+- "Ship the finished state; arm below the fold" is insufficient **above** the fold on a
+  hydrated page: SSR paints the finished hero, hydration blanks it and re-runs (the baseline
+  and one take both flashed counters at target, then 0, then counted). Required pattern: a
+  **synchronous inline script sets `<html data-boot>`**, CSS pre-states keyed to it, the engine
+  lifts it, a 4s failsafe lifts it regardless, and it is skipped under reduced motion. Code in
+  `implementation.md` §8.
+- **The boot state is not blank.** An empty ground for > 300ms reads as a stalled load. The
+  boot shows the ground furniture (collar, neatline ticks, eyebrow) and may start the object's
+  survey-in from a CSS animation keyed to the boot attribute, before hydration takes over.
+- **Performed numbers are never visible at target before they perform.** Hide them under the
+  boot state or count from first paint.
+- **Intro clocks are hydration-relative.** Specify marks from hydration, declare the expected
+  load→hydration offset, verify with a timed capture against load.
+- S7 gates keep the brand's value key: a 2s rock gate on a paper brand inverted its first
+  impression. Gate ground = brand ground unless the register is dark; first-visit gate
+  ≤ 1.5s including hydration.
+
+### B7. Type in a brand build — S1/A2 addenda
+- **Statement → body gap ≥ 0.5 × the statement's font-size, measured from the baseline**,
+  not the line box. A 48px margin under a 0.98 line box reads as 15px; all three takes set it.
+- **Mask geometry for line-height < 1**: masks clip descenders. Carry the fix as a rule —
+  `padding: .12em 0 .22em; margin: -.12em 0 -.22em` on the mask, park the line at 140%.
+- **Hand-break display lines only.** Ledes and body let the browser wrap (or mask the
+  paragraph as one block); per-line hand breaks at a character count produce widows.
+  Hard-coded line masks are `white-space: nowrap` with a **measured** width on every pole.
+- The arithmetic audit measures **ledes and body too** (Archivo 500 @ 22px ≈ 10.4px/glyph,
+  400 @ 16px ≈ 7.6px/glyph; Archivo Narrow 500 ≈ 0.43em, not 0.36em), not only display
+  strings — a "62ch, 2 lines" lede set 4.
+- The **logotype is inviolable**: the wordmark's face, weight and tracking are not an axis.
+  A1's "must be genuinely ultra-black" is never licence to reset the brand mark (a 900-weight
+  wordmark beside the collar's 600 name was the single largest fidelity deduction).
+- Phone: a row of N performed figures with arrows is specified to **wrap as a column**;
+  "desktop-first" leaves it undefined and produced an orphaned figure.
+
+### B8. Colour in a brand build — S4/A14 addenda
+- A14's written jurisdiction carries the **mark count** and the **spent-budget rule**: when the
+  budget is used (two orange marks, both on the controls that commit), a later ask is set
+  with *no* accent — and read as craft, not omission.
+- The negative of S4: **state words never take the measuring colour**. "Yes", "live", "Free",
+  "Not set" are states; a price word at display size is a marketing word. Water/measuring ink
+  is for measured and scored figures only.
+- A no-ground collar (A15 transparent bar) prints over display type and controls when the
+  engine is unarmed or content scrolls under it. State what happens: a ground, a blur, or a
+  clearance margin above every room's first element — or keep the brand's tinted collar.
+
+### B9. Ambient life needs a perceptibility floor — A10 addendum
+- "≥ 10s periods, it breathes" is invisible on a light hairline field: nothing moved in any
+  capture of a 14s drift. A drifting object must move **≥ one line-spacing within ~4s
+  somewhere in the frame**, or use a dense hatched region (the terrain-cut bookend proves it),
+  or a moving readout — or drop the claim and save the CPU.
+
+### B10. Import budget and the deviation table — §2b addendum
+- Every element taken from a pole the brand does not speak (custom cursor, marquee airlocks,
+  glitch blink, loader gate, transparent bar, extra weights) **counts against fidelity**. List
+  each with the world's equivalent or drop it; more than ~3 imports and the page stops being
+  the brand. For a brand build the formality dial's "relax" list is the default, and keeping
+  any of it needs a written reason in the table.
+
+### B11. Verification that can see motion — §6 addendum
+- A 1.1s walker is blind to scrubbed engines and timed curtains and cannot tell "still
+  entering" from "never fired". Required: a **two-pass walk** (1.1s and 2.5s settle, both
+  read; anything not complete at 1.2s is a defect), a **timed capture** of the hero at
+  0/200/500/900/1400/2400ms after load (boot furniture at t200; flash detection at t0→t500),
+  **flipbooks** over every pin (motion capture at 100–150px steps), a **hover capture** (the
+  walk scripts cannot see the hover grammar at all), a **per-room header check**, and the
+  reduced-motion context read as frames, not counts. Tools in `implementation.md` §8.
+- Self-scoring adds two questions to the eight dimensions: **awardFeel** (would a jury
+  shortlist it) and **brandFidelity** (is it unmistakably the world). A page scored 8+ on every
+  craft dimension and 4 on awardFeel — the two are different questions.

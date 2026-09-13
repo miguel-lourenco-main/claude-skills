@@ -3,8 +3,12 @@
 
 Reports, for a date window:
   - assistant turns and output tokens per model, main session vs subagents
-  - Agent-tool spawns by (subagent type, requested model) and how many inherited a top-tier model
+  - how many subagents actually ran on a top-tier model (Opus/Fable), and which ones
+  - Agent-tool spawns by (subagent type, requested model, parent model)
   - share of main-session tool turns that were mechanical (git, CI, polling, inspection, ...)
+
+--record appends the result to this workstation's usage-review history and writes a markdown
+report; without --since it then starts where the previous recorded analysis ended.
 """
 import argparse
 import collections
@@ -13,6 +17,9 @@ import json
 import re
 import sys
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import review_state  # noqa: E402
 
 TOP_TIER = re.compile(r"opus|fable")
 MECHANICAL = [
@@ -37,23 +44,20 @@ def records(path):
                 continue
 
 
-def main():
-    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--since", required=True, help="YYYY-MM-DD or 'today'")
-    ap.add_argument("--until", help="YYYY-MM-DD inclusive (default: today)")
-    ap.add_argument("--projects-dir", default=str(Path.home() / ".claude" / "projects"))
-    ap.add_argument("--last-subagents", type=int, default=0, help="also list the N most recent subagent models")
-    args = ap.parse_args()
-    since, until = parse_day(args.since), parse_day(args.until or "today")
+def pct(part, whole):
+    return round(100 * part / whole, 1) if whole else 0.0
 
+
+def collect(projects_dir, since, until):
     turns = collections.Counter()
     out_tokens = collections.Counter()
     spawns = collections.Counter()
-    main_tool_turns = 0
+    top_spawn_desc = collections.Counter()
     mech = collections.Counter()
-    sub_first = []  # (timestamp, model, file) of each subagent transcript's first turn
+    main_tool_turns = 0
+    subagents = []  # (timestamp, model, file) per subagent transcript, from its first turn
 
-    for f in Path(args.projects_dir).rglob("*.jsonl"):
+    for f in Path(projects_dir).rglob("*.jsonl"):
         is_sub = "subagents" in f.parts
         first_seen = False
         for o in records(f):
@@ -75,13 +79,16 @@ def main():
             out_tokens[(where, model)] += (msg.get("usage") or {}).get("output_tokens", 0)
             if is_sub and not first_seen:
                 first_seen = True
-                sub_first.append((ts, model, f.name))
+                subagents.append((ts, model, f.name))
 
             tools = [c for c in msg.get("content") or [] if isinstance(c, dict) and c.get("type") == "tool_use"]
             for t in tools:
                 if t.get("name") == "Agent":
                     i = t.get("input") or {}
-                    spawns[(i.get("subagent_type") or "general-purpose", i.get("model") or "inherit", model)] += 1
+                    req = i.get("model") or "inherit"
+                    spawns[(i.get("subagent_type") or "general-purpose", req, model)] += 1
+                    if TOP_TIER.search(req) or (req == "inherit" and TOP_TIER.search(model)):
+                        top_spawn_desc[i.get("description") or "?"] += 1
             if not is_sub and tools:
                 main_tool_turns += 1
                 t = tools[0]
@@ -91,39 +98,111 @@ def main():
                     if kind:
                         mech[kind] += 1
 
-    print(f"Window {since} .. {until}\n")
-    print("Assistant turns / output tokens by model")
+    by_model = {w: {} for w in ("main", "subagent")}
+    for (w, m), n in turns.items():
+        by_model[w][m] = {"turns": n, "output_tokens": out_tokens[(w, m)]}
+    sub_turns = sum(v["turns"] for v in by_model["subagent"].values())
+    cheap_turns = sum(v["turns"] for m, v in by_model["subagent"].items() if not TOP_TIER.search(m))
+    top_subagents = sum(1 for _, m, _ in subagents if TOP_TIER.search(m))
+    mech_total = sum(mech.values())
+    return {
+        "window": {"since": since.isoformat(), "until": until.isoformat()},
+        "by_model": by_model,
+        "subagent_turns_cheap_pct": pct(cheap_turns, sub_turns),
+        "subagents_total": len(subagents),
+        "subagents_top_tier": top_subagents,
+        "subagents_top_tier_pct": pct(top_subagents, len(subagents)),
+        "spawns": [
+            {"type": t, "model": r, "parent": p, "count": n} for (t, r, p), n in spawns.most_common()
+        ],
+        "top_tier_spawn_descriptions": [d for d, _ in top_spawn_desc.most_common(15)],
+        "main_tool_turns": main_tool_turns,
+        "main_mechanical_turns": mech_total,
+        "main_mechanical_pct": pct(mech_total, main_tool_turns),
+        "main_mechanical_breakdown": dict(mech.most_common()),
+        "recent_subagents": [{"ts": ts[:19], "model": m, "file": n} for ts, m, n in sorted(subagents)[-10:]],
+    }
+
+
+def render(m, previous=None):
+    lines = [f"Window {m['window']['since']} .. {m['window']['until']}", ""]
+    lines.append("Assistant turns / output tokens by model")
     for where in ("main", "subagent"):
-        rows = sorted(((m, n) for (w, m), n in turns.items() if w == where), key=lambda r: -r[1])
-        total = sum(n for _, n in rows) or 1
-        print(f"  {where}:")
-        for m, n in rows:
-            print(f"    {m:32} {n:7} turns ({100 * n / total:5.1f}%)  {out_tokens[(where, m)] / 1e3:8.0f}k out")
+        rows = sorted(m["by_model"][where].items(), key=lambda r: -r[1]["turns"])
+        total = sum(v["turns"] for _, v in rows)
+        lines.append(f"  {where}:")
+        for model, v in rows:
+            lines.append(f"    {model:32} {v['turns']:7} turns ({pct(v['turns'], total):5.1f}%)"
+                         f"  {v['output_tokens'] / 1e3:8.0f}k out")
 
-    sub_total = sum(n for (w, _), n in turns.items() if w == "subagent") or 1
-    cheap = sum(n for (w, m), n in turns.items() if w == "subagent" and not TOP_TIER.search(m))
-    print(f"\n  subagent turns on Sonnet/Haiku: {100 * cheap / sub_total:.1f}%")
+    lines += [
+        "",
+        f"Subagent turns on Sonnet/Haiku: {m['subagent_turns_cheap_pct']}%   (target > 30%)",
+        f"Subagents that ran on Opus/Fable: {m['subagents_top_tier']} of {m['subagents_total']}"
+        f" ({m['subagents_top_tier_pct']}%)   (target < 20%)",
+        f"Main-session mechanical tool turns: {m['main_mechanical_turns']} of {m['main_tool_turns']}"
+        f" ({m['main_mechanical_pct']}%)   {m['main_mechanical_breakdown']}",
+    ]
+    if previous:
+        p = previous.get("metrics", {})
+        lines.append("")
+        lines.append(f"Change since the previous analysis ({previous.get('ran_on')}):")
+        for key, label in (("subagent_turns_cheap_pct", "subagent turns on Sonnet/Haiku"),
+                           ("subagents_top_tier_pct", "subagents on Opus/Fable"),
+                           ("main_mechanical_pct", "main mechanical turns")):
+            if key in p:
+                lines.append(f"  {label:32} {p[key]:5.1f}% -> {m[key]:5.1f}%  ({m[key] - p[key]:+.1f})")
 
-    if spawns:
-        total = sum(spawns.values())
-        inherited_top = sum(n for (_, req, parent), n in spawns.items() if req == "inherit" and TOP_TIER.search(parent))
-        print(f"\nAgent spawns: {total}; inherited a top-tier parent model with no explicit model: "
-              f"{inherited_top} ({100 * inherited_top / total:.1f}%)")
-        print("  note: spawns of agents whose frontmatter pins a model also count as 'inherit' here;")
-        print("  the subagent turn table above shows what actually ran.")
-        for (typ, req, parent), n in spawns.most_common(12):
-            print(f"    {n:4}  {typ:28} model={req:8} parent={parent}")
+    if m["spawns"]:
+        lines += ["", "Agent spawns (type, requested model, parent model):"]
+        for s in m["spawns"][:12]:
+            lines.append(f"    {s['count']:4}  {s['type']:28} model={s['model']:8} parent={s['parent']}")
+    if m["top_tier_spawn_descriptions"]:
+        lines += ["", "Spawns that ran (or would run) top-tier - check for misrouted mechanical work:"]
+        lines += [f"    - {d}" for d in m["top_tier_spawn_descriptions"]]
+    return "\n".join(lines)
 
-    if main_tool_turns:
-        m = sum(mech.values())
-        print(f"\nMain-session tool turns: {main_tool_turns}; mechanical Bash: {m} ({100 * m / main_tool_turns:.1f}%)")
-        for k, n in mech.most_common():
-            print(f"    {k:10} {n}")
 
+def main():
+    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("--since", help="YYYY-MM-DD or 'today' (default: end of the last recorded analysis, else 14 days ago)")
+    ap.add_argument("--until", help="YYYY-MM-DD inclusive (default: today)")
+    ap.add_argument("--projects-dir", default=str(Path.home() / ".claude" / "projects"))
+    ap.add_argument("--last-subagents", type=int, default=0, help="also list the N most recent subagent models")
+    ap.add_argument("--json", action="store_true", help="print metrics as JSON instead of text")
+    ap.add_argument("--record", action="store_true",
+                    help="record this analysis for the bi-weekly review and write a markdown report")
+    args = ap.parse_args()
+
+    until = parse_day(args.until or "today")
+    if args.since:
+        since = parse_day(args.since)
+    else:
+        last = review_state.check()["last"]
+        try:
+            since = dt.date.fromisoformat(last["metrics"]["window"]["until"])
+        except (TypeError, KeyError, ValueError):
+            since = until - dt.timedelta(days=review_state.INTERVAL_DAYS)
+
+    metrics = collect(args.projects_dir, since, until)
+    previous = review_state.check()["last"] if args.record else None
+    text = render(metrics, previous)
+
+    if args.record:
+        review_state.REPORTS_DIR.mkdir(parents=True, exist_ok=True)
+        report = review_state.REPORTS_DIR / f"{dt.date.today().isoformat()}.md"
+        report.write_text(f"# Usage review {dt.date.today().isoformat()}\n\n```text\n{text}\n```\n")
+        review_state.record(metrics, report)
+        text += f"\n\nRecorded for this workstation; report: {report}"
+
+    if args.json:
+        print(json.dumps(metrics, indent=2))
+    else:
+        print(text)
     if args.last_subagents:
         print(f"\nMost recent {args.last_subagents} subagents:")
-        for ts, model, name in sorted(sub_first)[-args.last_subagents:]:
-            print(f"    {ts[:19]}  {model:28} {name}")
+        for s in metrics["recent_subagents"][-args.last_subagents:]:
+            print(f"    {s['ts']}  {s['model']:28} {s['file']}")
     return 0
 
 

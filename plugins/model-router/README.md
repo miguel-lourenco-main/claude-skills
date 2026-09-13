@@ -21,6 +21,7 @@ model, and about a third of main-session tool turns were git, CI polling, sleeps
 | `/model-router:ship` | Sonnet | Commit and push |
 | `/model-router:routing-policy` | - | The policy on demand, plus how to run the analyzer |
 | `/model-router:setup` | - | Per-machine settings a plugin cannot ship |
+| `/model-router:usage-review` | Sonnet | Bi-weekly per-workstation analysis, recorded, with policy suggestions |
 | `scripts/analyze.py` | - | Measure turns and tokens per model over a date window |
 
 ## Install on each workstation
@@ -42,7 +43,24 @@ Edit `policy/ROUTING.md`, bump `version` in `.claude-plugin/plugin.json` and the
 push. Machines with auto-update pick it up on their next session; otherwise run
 `/plugin marketplace update claude-skills`.
 
-## Measuring
+## Bi-weekly usage review
+
+Every workstation reviews its own usage every 14 days. The record lives outside the plugin, in
+`~/.claude/model-router/usage-review.json`, with markdown reports in `~/.claude/model-router/reports/`.
+The session-start hook checks it on every session and asks Claude to run `/model-router:usage-review`
+when the last analysis is no longer valid:
+
+- no record on this machine, or the record can't be read
+- the record came from an older analyzer version (bump `ANALYZER_VERSION` in `scripts/review_state.py`
+  when the metrics change meaning)
+- the record belongs to another host (for example a synced home directory)
+- the record is dated in the future
+- the last analysis is 14 or more days old
+
+Each review picks up where the previous one ended, compares against it, and suggests policy changes.
+Those changes are made here, in the repo, so every workstation gets them.
+
+## Measuring by hand
 
 ```sh
 python3 plugins/model-router/scripts/analyze.py --since 2026-08-14 --until 2026-09-13   # baseline

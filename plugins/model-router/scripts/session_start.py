@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """SessionStart hook: emit policy/ROUTING.md as additionalContext.
 
-Also warns when this machine has not run /model-router:setup, since the subagent default model
-cannot ship inside a plugin and has to live in each machine's settings.json.
+Adds two per-workstation notes when they apply: /model-router:setup has not been run here, or the
+bi-weekly usage review is due (see review_state.py for what makes the last analysis invalid).
 """
 import json
 import os
@@ -25,6 +25,20 @@ if not configured:
         "\nNote: this machine has not run /model-router:setup, so subagents spawned without a model "
         "inherit the main session's model. Mention this to the user once if you spawn subagents.\n"
     )
+
+try:
+    sys.path.insert(0, str(root / "scripts"))
+    import review_state
+
+    status = review_state.check()
+    if status["due"]:
+        policy += (
+            f"\nUsage review due on this workstation: {status['reason']}. Tell the user in one line and "
+            "run /model-router:usage-review before starting their first task (it runs on Sonnet and "
+            "takes about a minute). If their first request is urgent, run it right after that task.\n"
+        )
+except Exception:  # a broken record must not break session start; the skill reports it
+    pass
 
 print(json.dumps({
     "hookSpecificOutput": {"hookEventName": "SessionStart", "additionalContext": policy}

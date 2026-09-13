@@ -28,3 +28,6 @@ A plugin cannot set environment variables, so these two settings go into this ma
 
    that its model is Sonnet. An explicit `model` on a spawn, or `model:` in an agent's frontmatter,
    still takes precedence.
+4. Record this workstation's first usage review, so the two-weekly schedule starts now. Run
+   `/model-router:usage-review`, passing the install date as `--since` when it asks. Until that
+   review exists, every new session reminds you to run it.

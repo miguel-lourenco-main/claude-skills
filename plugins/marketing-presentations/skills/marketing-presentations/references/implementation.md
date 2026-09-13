@@ -472,7 +472,12 @@ Before declaring done, load the page in a real browser (claude-in-chrome or Play
     ground swap must change at each (B4).
 16. **Phone frames** (390×844) read, not just `scrollWidth − clientWidth`: a wrapped counter
     row with an orphaned figure passes the overflow check and fails the jury (B7).
-17. **Score awardFeel and brandFidelity** beside the eight dimensions. A page can score 8 on
+17. **Record a visitor.** `recordVideo` at 1440×900 → GIF (12–15fps): a fresh load with 4s
+    of nothing, then wheel-scrolled (real wheel events, ~120px/60ms, 1.5–2s pauses at every
+    room), a hover pass, a phone pass. Step through the frames — hand-off pops, reversed
+    leave choreographies, counts performing off-screen and readouts that never change are
+    all invisible to stills at rest.
+18. **Score awardFeel and brandFidelity** beside the eight dimensions. A page can score 8 on
     every craft dimension and 4 on awardFeel — the document failure mode (B11).
 
 
@@ -661,6 +666,24 @@ value noise (3 octaves) → gain ×2 about the midline → marching squares at 6
   `transition-delay`; only the object's focus and the counters keep timers.
 - **The walker can be poisoned by a dev-server HMR reload** mid-walk (61 "pending" with the
   hero at scroll 9000+): run captures one at a time and re-run on a clean load.
+- **A dock's last frame must carry k = 1.** Writing the twin's transform only while
+  `k < 1` hides a twin drawn at k ≈ 0.96 and shows the docked name — a 4px/2px pop that no
+  still catches and every recording does. Write the transform every frame, including the
+  docking one.
+- **Leave is its own choreography.** A CSS transition reads its timing from the state it
+  enters, so base rules are the *leave* (the answer retreats, then the question returns
+  with a delay) and `:hover` rules are the *enter*; and both words must hold an `inset()` at
+  rest — `inset()` → `none` is not interpolable and snaps.
+- **"In view" needs an edge.** A performed number whose top 4px are inside the viewport is
+  not being read; gate the count on the figure being ≥ 80px inside (`rootMargin: 0 0 -80px`),
+  not on its room's top having entered.
+- **A short last room never reaches the collar.** At scroll end the last room is current,
+  or the readout never names the colophon.
+- **The calm page still has a collar.** The readout and the ground swap are text and a
+  class, not motion; run them from the scroll event when the engine stands down.
+- **Record, don't only walk.** The six defects above were invisible to stills and probes
+  and obvious in a 12fps GIF of a visitor scrolling; a recorded usage pass (video → GIF,
+  100ms stills of the first 4s) belongs in the verification checklist before hand-off.
 
 ### 8f. Verification tools (Playwright, no extension needed)
 

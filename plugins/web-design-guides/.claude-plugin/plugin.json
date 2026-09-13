@@ -1,0 +1,10 @@
+{
+  "name": "web-design-guides",
+  "description": "A web-designer agent plus four knowledge skills distilled from Lovable's public web-design guides (291 triaged, 47 kept): site architecture and navigation, marketing-page conversion (landing/home/SaaS, verticals, portfolios, SEO and Core Web Vitals floor), web UI foundations (responsive, dark mode, scroll and motion, mobile app and chat UX, UX process), and brand identity basics (logo type, font, colour, reversed marks). Each skill is a short rule set plus an index of per-guide notes loaded only when needed, so the context cost stays low; every statistic keeps its named source.",
+  "version": "0.1.0",
+  "author": {
+    "name": "migaloco",
+    "email": "migasoulou@gmail.com"
+  },
+  "keywords": ["web-design", "navigation", "information-architecture", "landing-page", "conversion", "responsive", "dark-mode", "branding", "agent"]
+}

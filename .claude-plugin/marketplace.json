@@ -123,6 +123,17 @@
     "name": "migaloco",
     "email": "migasoulou@gmail.com"
    }
+  },
+  {
+   "name": "web-design-guides",
+   "description": "A web-designer agent (plan a site or page, audit a URL or code with severity-ranked findings, answer design questions) plus four lazily-loaded knowledge skills distilled from Lovable's public web-design guides: site architecture and navigation, marketing-page conversion, web UI foundations, and brand identity basics. Rules are paraphrased and source-tagged; each skill is a short rule set plus an index of per-guide notes read only when needed.",
+   "source": "./plugins/web-design-guides",
+   "category": "design",
+   "version": "0.1.0",
+   "author": {
+    "name": "migaloco",
+    "email": "migasoulou@gmail.com"
+   }
   }
  ]
 }

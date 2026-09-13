@@ -27,6 +27,11 @@ under `plugins/<name>/` and are installed via this repo's marketplace manifest
   what a page inside an existing brand world needs beyond craft — an object, a stage the
   reader's hand moves, a boot state, recorded-visitor verification — from three juried takes
   on a real product landing. See `plugins/marketing-presentations/README.md`.
+- **plugins/web-design-guides/** — a `web-designer` agent plus four knowledge skills
+  (site architecture & navigation, marketing-page conversion, web UI foundations, brand identity
+  basics) distilled from Lovable's public web-design guides — 291 triaged, 47 kept, every rule
+  paraphrased and source-tagged; each skill is a short rule set + an index of per-guide notes
+  loaded only on demand. See `plugins/web-design-guides/README.md`.
 
 Plugins are **not** loaded via the `~/.claude/skills/` clone — they are registered as a marketplace.
 This repo's `.claude-plugin/marketplace.json` lists them. Register the marketplace once (per machine):

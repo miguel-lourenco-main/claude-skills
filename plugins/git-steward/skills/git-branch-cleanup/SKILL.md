@@ -2,6 +2,7 @@
 name: git-branch-cleanup
 description: This skill should be used when the user asks to "clean up branches", "prune merged branches", "delete stale/old branches", "remove gone branches", "tidy up my branches", "which branches can I delete", "show stale branches", or wants to audit or remove merged, stale, or upstream-gone branches locally and on the remote. Defaults to read-only analysis; deletion happens only in apply mode behind a confirmation gate.
 version: 0.1.0
+model: sonnet
 ---
 
 # git-branch-cleanup

@@ -2,6 +2,7 @@
 name: git-repo-health
 description: This skill should be used when the user asks to "check repo health", "what's the state of this repo", "give me a git status overview", "how healthy is my repo", "show repo activity/dormancy", "is this repo stale", "audit repo health", or wants a snapshot of branches, sync status, working-tree cleanliness, activity, contributors, or large files for one or more repositories. Read-only — it reports and points at remediation, never changes anything.
 version: 0.1.0
+model: sonnet
 ---
 
 # git-repo-health

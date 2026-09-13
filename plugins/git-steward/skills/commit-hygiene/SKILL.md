@@ -2,6 +2,7 @@
 name: commit-hygiene
 description: This skill should be used when the user asks to "write a commit message", "draft a conventional commit", "lint my commit messages", "check my commits", "fix my commit message", "reword the last commit", "clean up commit messages", or wants Conventional-Commit formatting for staged changes or to reword un-pushed commits. Defaults to read-only linting/drafting; rewording happens only in apply mode behind a confirmation gate, and only for un-pushed commits.
 version: 0.1.0
+model: sonnet
 ---
 
 # commit-hygiene

@@ -10,7 +10,7 @@
    "description": "Multi-repo git stewardship: branch pruning, commit & history hygiene, secret/large-file removal, repo health, work-item triage, and CI pipeline health — plus a fleet-wide CI watchdog that monitors every pipeline in every repo and autofixes failures (gated by default, autonomous per policy). Analyze (read-only) and apply (mutating) modes stack from a single operation to a single repo to the whole fleet.",
    "source": "./plugins/git-steward",
    "category": "git",
-   "version": "0.8.0",
+   "version": "0.8.1",
    "author": {
     "name": "migaloco",
     "email": "migasoulou@gmail.com"
@@ -108,6 +108,17 @@
    "source": "./plugins/marketing-presentations",
    "category": "design",
    "version": "1.1.0",
+   "author": {
+    "name": "migaloco",
+    "email": "migasoulou@gmail.com"
+   }
+  },
+  {
+   "name": "model-router",
+   "description": "Quota-aware model routing for Claude Code: keeps the main session on a strong model and pushes mechanical work to cheaper tiers. Ships a standing routing policy (injected at session start), Haiku/Sonnet worker agents (ci-watcher, sweeper, mechanic, reviewer, sysadmin), Sonnet-pinned status-report and ship skills, a one-time per-machine setup that defaults bare subagents to Sonnet, and a bi-weekly per-workstation usage review (flagged at session start when due or when the last analysis is invalid) that measures where the tokens went.",
+   "source": "./plugins/model-router",
+   "category": "llm",
+   "version": "0.2.0",
    "author": {
     "name": "migaloco",
     "email": "migasoulou@gmail.com"

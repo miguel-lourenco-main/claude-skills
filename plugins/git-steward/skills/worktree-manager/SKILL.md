@@ -2,6 +2,7 @@
 name: worktree-manager
 description: This skill should be used when the user asks to "list my worktrees", "clean up git worktrees", "prune worktrees", "remove a worktree", "add a worktree", or mentions stale/leftover `git worktree` directories. Analyze lists worktrees and flags prunable ones; apply prunes/removes/adds them. Optimize-tier — runs in a fleet/repo pass only with --optimize, or standalone on request.
 version: 0.1.0
+model: sonnet
 ---
 
 # worktree-manager

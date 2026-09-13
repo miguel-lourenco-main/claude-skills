@@ -578,6 +578,12 @@ restated it is because the takes hit the same number from the other side.
   ≥ 400px before release. The dock path must be **checked against every fixed element it
   crosses** (S13 collision rule): the shrinking twin overprinted an eyebrow for 40px of scroll
   — bring such furniture in after the dock, or route around it.
+- **The drawn object never shares area with display type** (validated by owner review +
+  a 6-viewport geometry probe, 2026-09-13): the route was first drawn on the full-bleed map
+  and the bottom-anchored title sat on it; moved into the title's own grid (the area right
+  of the short lines, a row above the title on narrow screens) it cleared the type by ≥ 24px
+  at 1024–1920px and on a phone. Anything the reader's hand draws is content, and content
+  gets a layout cell; only the ambient object layer may run under type.
 
 ### B4. Stages need dwell; curtain under-slides need filling — A7 addendum
 - **Horizontal pan pins**: the first item fully on screen and at rest for ≥ 0.5 vh of scroll

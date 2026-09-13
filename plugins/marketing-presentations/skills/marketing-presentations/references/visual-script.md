@@ -167,6 +167,8 @@ validation cycles). Example shape:
    what stays one-shot? (B3, B4)
 3. Does the **wordmark act** — born, docked, returned — and is the dock path checked against
    the furniture it crosses? (S13, B3)
+3b. Does everything the **reader's hand draws** have its own layout cell, clear of the display
+   type at every width — and does it wait for the dock to finish? (B3)
 4. Does the **header react** per room, driven from measured room tops? (S12, B4)
 5. Is the page **12–16 viewport-heights from rooms**, with no room padded past its content? (B5)
 6. On a framework page, is the **boot state** specified — furniture visible, numbers hidden,

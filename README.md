@@ -23,8 +23,10 @@ under `plugins/<name>/` and are installed via this repo's marketplace manifest
 - **plugins/marketing-presentations/** — HTML presentations, decks and report pages that feel
   like high-end marketing/landing pages: content → visual script → single-file scroll page, with
   `extract <url>` to grow the knowledge base from a reference site. Principles and numbers were
-  validated by three award-site extract→blind-clone→evaluate cycles (8.3–8.6/10). See
-  `plugins/marketing-presentations/README.md`.
+  validated by three award-site extract→blind-clone→evaluate cycles (8.3–8.6/10); 1.1.0 adds
+  what a page inside an existing brand world needs beyond craft — an object, a stage the
+  reader's hand moves, a boot state, recorded-visitor verification — from three juried takes
+  on a real product landing. See `plugins/marketing-presentations/README.md`.
 
 Plugins are **not** loaded via the `~/.claude/skills/` clone — they are registered as a marketplace.
 This repo's `.claude-plugin/marketplace.json` lists them. Register the marketplace once (per machine):

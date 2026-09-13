@@ -681,7 +681,24 @@ value noise (3 octaves) → gain ×2 about the midline → marching squares at 6
   or the readout never names the colophon.
 - **The calm page still has a collar.** The readout and the ground swap are text and a
   class, not motion; run them from the scroll event when the engine stands down.
-- **Record, don't only walk.** The six defects above were invisible to stills and probes
+- **What the hand draws lives in the type's grid, never under it.** A route drawn on a
+  full-bleed `slice`-scaled object while the title is bottom-anchored and sized in `vw`
+  cannot be kept apart from the type: the two scale by different rules, and the owner's
+  first remark on the grafted page was the title sitting on the journey. Put the drawn
+  thing in a grid area the type leaves free (right of the short lines, above the long one;
+  a row above the title below 1024px), in a box whose coordinates are fractions, and let
+  CSS keep them apart at every size. Verify with a rect/point probe across ≥ 5 viewports
+  (text client rects via `Range.getClientRects()`, the path sampled with
+  `getPointAtLength` × `getScreenCTM()`), not with one screenshot.
+- **A clip, not a dashoffset, for a route in a non-uniform box.** In a box with
+  `preserveAspectRatio="none"` a `pathLength` dash no longer tracks screen length; if the
+  route's x only increases (vertical-tangent S-curves between stops do this, and keep a
+  label set right of its square clear of the line), a left→right `clip-path` reveals exactly
+  the path drawn so far — the entrance verb again. At r = 0 close the clip completely: a
+  negative inset meant to spare the stroke's width prints half of a vertical first segment.
+- **Nothing of the object while the wordmark passes over it.** Start the drawn journey the
+  instant the dock completes, first square included; on a phone the twin rises up the same
+  left edge the journey row starts on. The six defects above were invisible to stills and probes
   and obvious in a 12fps GIF of a visitor scrolling; a recorded usage pass (video → GIF,
   100ms stills of the first 4s) belongs in the verification checklist before hand-off.
 

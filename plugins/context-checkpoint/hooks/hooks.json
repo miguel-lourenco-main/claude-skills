@@ -1,0 +1,17 @@
+{
+  "description": "At every N% of context, after a cold-cache pause, or on a task-boundary prompt, inject a keep-or-compact checkpoint the model answers in one line.",
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/scripts/context_checkpoint.py\"",
+            "timeout": 10,
+            "statusMessage": "context checkpoint"
+          }
+        ]
+      }
+    ]
+  }
+}

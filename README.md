@@ -32,6 +32,12 @@ under `plugins/<name>/` and are installed via this repo's marketplace manifest
   basics) distilled from Lovable's public web-design guides — 291 triaged, 47 kept, every rule
   paraphrased and source-tagged; each skill is a short rule set + an index of per-guide notes
   loaded only on demand. See `plugins/web-design-guides/README.md`.
+- **plugins/context-checkpoint/** — deliberate context compaction: a `UserPromptSubmit` hook that
+  reads the live context size from the session transcript and, every 15% of the window, after a
+  cold-cache pause, or on a task-boundary prompt, makes the model decide in one line whether to
+  keep or compact — on relevance and freshness of what is in context, not its size. Ships a
+  `--status` reading and a skill with the criteria and the measurements behind them. See
+  `plugins/context-checkpoint/README.md`.
 
 Plugins are **not** loaded via the `~/.claude/skills/` clone — they are registered as a marketplace.
 This repo's `.claude-plugin/marketplace.json` lists them. Register the marketplace once (per machine):

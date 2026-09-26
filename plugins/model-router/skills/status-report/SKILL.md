@@ -2,6 +2,7 @@
 name: status-report
 description: Pull the latest changes and report where a repository stands, on the cheap Sonnet tier. Use when the user says "pull the latest changes and make a status update", "take stock of the current state", "status report", "what's the state of the project", "faz um status report", "puxa as últimas changes", or starts a session with "I worked in another session, catch up".
 model: sonnet
+effort: low
 ---
 
 # Status report

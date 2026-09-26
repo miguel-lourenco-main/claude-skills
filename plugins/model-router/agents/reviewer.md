@@ -12,7 +12,7 @@ model: sonnet
 2. Find concrete problems only. Each finding needs a location (file + slide/section/line), the exact
    quoted text, why it is a problem for this reader or lens, and a suggested rewrite or fix.
 3. Rank by severity: blocker (misleading or wrong), major (confusing, inconsistent), minor (polish).
-4. If writing skills such as a humanizer or plain-report skill are available and the lens is about
+4. If writing skills such as writing-craft:plain-report are available and the lens is about
    prose, load and apply them.
 5. Do not edit files unless the prompt explicitly asks you to apply the fixes.
 

@@ -2,6 +2,7 @@
 name: ship
 description: Commit and push the current work on the cheap Sonnet tier, following the repo's commit conventions. Use when the user says "commit and push", "faz commit e push", "commit this", "push the latest", "commit and push any pending work".
 model: sonnet
+effort: low
 ---
 
 # Ship

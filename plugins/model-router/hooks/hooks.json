@@ -1,9 +1,9 @@
 {
-  "description": "Inject the model-routing policy at the start of every session (and after clear/compact, when context is rebuilt).",
+  "description": "Inject the model-routing policy at the start of every session (and after clear/compact/fork, when context is rebuilt).",
   "hooks": {
     "SessionStart": [
       {
-        "matcher": "startup|resume|clear|compact",
+        "matcher": "startup|resume|clear|compact|fork",
         "hooks": [
           {
             "type": "command",

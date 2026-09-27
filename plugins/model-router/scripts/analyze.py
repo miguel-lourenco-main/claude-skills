@@ -6,6 +6,8 @@ Reports, for a date window:
   - how many subagents actually ran on a top-tier model (Opus/Fable), and which ones
   - Agent-tool spawns by (subagent type, requested model, parent model)
   - share of main-session tool turns that were mechanical (git, CI, polling, inspection, ...)
+  - what the Jev decider did (~/.claude/model-router/decisions.jsonl): spawns re-tiered, kept,
+    guarded, failed open; prompts advised; latency and cost
 
 --record appends the result to this workstation's usage-review history and writes a markdown
 report; without --since it then starts where the previous recorded analysis ended.
@@ -46,6 +48,51 @@ def records(path):
 
 def pct(part, whole):
     return round(100 * part / whole, 1) if whole else 0.0
+
+
+def collect_decisions(path, since, until):
+    """Summarise the decider's log for the window; empty dict when there is no log."""
+    c = collections.Counter()
+    latency, cost = [], 0.0
+    try:
+        lines = Path(path).read_text().splitlines()
+    except OSError:
+        return {}
+    for line in lines:
+        try:
+            d = json.loads(line)
+            day = dt.date.fromisoformat(d.get("ts", "")[:10])
+        except ValueError:
+            continue
+        if not since <= day <= until:
+            continue
+        ev = d.get("event")
+        if ev == "spawn":
+            c["spawns"] += 1
+            if d.get("error"):
+                c["spawn_failed_open"] += 1
+            elif d.get("applied"):
+                c["spawn_retiered"] += 1
+                if d.get("reason", "").startswith("pinned") or d.get("reason") == "user pin":
+                    c["spawn_pin_enforced"] += 1
+            elif "kept" in d.get("reason", ""):
+                c["spawn_guarded"] += 1
+            elif "< " in d.get("reason", ""):
+                c["spawn_low_confidence"] += 1
+        elif ev == "prompt":
+            c["prompts"] += 1
+            if d.get("error"):
+                c["prompt_failed_open"] += 1
+            elif d.get("route"):
+                c["prompt_advised"] += 1
+        if d.get("latency_ms") is not None:
+            latency.append(d["latency_ms"])
+        cost += float(d.get("cost_usd") or 0)
+    out = dict(c)
+    if latency:
+        out["latency_ms_median"] = sorted(latency)[len(latency) // 2]
+    out["cost_usd"] = round(cost, 5)
+    return out
 
 
 def collect(projects_dir, since, until):
@@ -121,6 +168,7 @@ def collect(projects_dir, since, until):
         "main_mechanical_pct": pct(mech_total, main_tool_turns),
         "main_mechanical_breakdown": dict(mech.most_common()),
         "recent_subagents": [{"ts": ts[:19], "model": m, "file": n} for ts, m, n in sorted(subagents)[-10:]],
+        "jev": collect_decisions(review_state.STATE_DIR / "decisions.jsonl", since, until),
     }
 
 
@@ -152,6 +200,16 @@ def render(m, previous=None):
                            ("main_mechanical_pct", "main mechanical turns")):
             if key in p:
                 lines.append(f"  {label:32} {p[key]:5.1f}% -> {m[key]:5.1f}%  ({m[key] - p[key]:+.1f})")
+
+    j = m.get("jev") or {}
+    if j.get("spawns") or j.get("prompts"):
+        lines += ["", f"Jev decider: {j.get('spawns', 0)} spawns seen, {j.get('spawn_retiered', 0)} re-tiered "
+                      f"({j.get('spawn_pin_enforced', 0)} by pin), {j.get('spawn_guarded', 0)} guarded, "
+                      f"{j.get('spawn_low_confidence', 0)} below threshold, {j.get('spawn_failed_open', 0)} failed open; "
+                      f"{j.get('prompts', 0)} prompts, {j.get('prompt_advised', 0)} advised to delegate; "
+                      f"median {j.get('latency_ms_median', '-')} ms, ${j.get('cost_usd', 0)}"]
+    elif "jev" in m:
+        lines += ["", "Jev decider: no decisions logged in this window (no key, or hooks not installed)"]
 
     if m["spawns"]:
         lines += ["", "Agent spawns (type, requested model, parent model):"]

@@ -16,6 +16,14 @@ Tiers, cheapest first:
   and debugging that Opus stalled on. Never pick it for a subagent or a workflow stage yourself; if
   a stage needs it, say so and let the user run it in the main session.
 
+Who decides: for Agent spawns, Jev (TypeSafe's decision model) does, in a hook, from this same tier
+table. Give every spawn an honest `description` and `prompt` and your best `model`; the hook may
+re-tier it and then tells you so in one `[model-router]` line. It never assigns Fable, never lowers
+a task Jev scores as judgement-heavy or risky, and stays silent when unsure, so your choice still
+matters. Your own prompts are read the same way: a `[model-router]` line saying a prompt is delegate
+work means rule 7 applies, or one line on why it stays here. Workflow `agent()` stages and `fork`
+do not pass through the hook, so rules 3 and 4 remain yours to apply.
+
 Delegation rules:
 1. Never poll or babysit in the main session, and never issue a bare `sleep` (the harness blocks it).
    A command you started here goes in a background Bash or a `Monitor` until-loop, which report back
@@ -23,7 +31,8 @@ Delegation rules:
    (Haiku); act on its report.
 2. Workers: `model-router:sweeper` (research/extraction batches), `model-router:mechanic` (apply a precise
    spec), `model-router:reviewer` (text, persona, consistency passes), `model-router:sysadmin` (machine
-   issues). All Sonnet. Do not override their `model` upward unless the Sonnet result failed (rule 5).
+   issues). All Sonnet, and the hook holds them there: a `model: opus` on one of them is undone.
+   Escalate only after the Sonnet result failed (rule 5), on a general-purpose agent.
 3. Every fan-out (sweeps, waves, parallel fixes, persona panels) passes `model` explicitly: `sonnet` by
    default, `opus` only for the stage that needs judgement (synthesis, jury, hard design).
 4. In Workflow scripts set `model` on every agent() call: builders, sweepers and verifiers `sonnet`
@@ -35,3 +44,5 @@ Delegation rules:
    `/model-router:ship` and `/model-router:status-report`, which run on Sonnet.
 7. When the user's request is plainly T1 work in a session running Opus/Fable (a quick question, a
    machine issue), delegate it instead of doing it inline.
+8. The user's word wins: "use opus" / "usa o sonnet" in their prompt pins that model for every spawn
+   of that turn, over Jev and over the pinned workers.

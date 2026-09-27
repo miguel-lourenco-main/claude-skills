@@ -1,7 +1,21 @@
 {
   "name": "model-router",
-  "description": "Quota-aware model routing for Claude Code: keeps the main session on a strong model and pushes mechanical work to cheaper tiers. Ships a standing routing policy (injected at session start), Haiku/Sonnet worker agents (ci-watcher, sweeper, mechanic, reviewer, sysadmin), Sonnet-pinned status-report and ship skills, a one-time per-machine setup that defaults bare subagents to Sonnet, and a bi-weekly per-workstation usage review (flagged at session start when due or when the last analysis is invalid) that measures where the tokens went.",
-  "version": "0.3.0",
-  "author": { "name": "migaloco", "email": "migasoulou@gmail.com" },
-  "keywords": ["model", "routing", "quota", "usage", "subagents", "haiku", "sonnet", "opus"]
+  "description": "Quota-aware model routing for Claude Code: keeps the main session on a strong model and pushes mechanical work to cheaper tiers. Jev (TypeSafe's decision model) decides the tier of every Agent spawn in a PreToolUse hook and advises on prompts that are delegate work, failing open without a key. Ships the standing routing policy (injected at session start), Haiku/Sonnet worker agents (ci-watcher, sweeper, mechanic, reviewer, sysadmin), Sonnet-pinned status-report and ship skills, a per-machine setup, and a bi-weekly per-workstation usage review that measures where the tokens went and what the decider did.",
+  "version": "0.4.0",
+  "author": {
+    "name": "migaloco",
+    "email": "migasoulou@gmail.com"
+  },
+  "keywords": [
+    "model",
+    "routing",
+    "quota",
+    "usage",
+    "subagents",
+    "haiku",
+    "sonnet",
+    "opus",
+    "jev",
+    "typesafe"
+  ]
 }

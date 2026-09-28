@@ -17,8 +17,14 @@ token warnings), so the model cannot make the call unless something asks it to.
 | Component | Purpose |
 |---|---|
 | `hooks/hooks.json` + `scripts/context_checkpoint.py` | The checkpoint: fires every 15% of context, after ≥ 55 min idle (cold cache), or on a task-boundary prompt; silent below 120k and right after a compaction |
-| `scripts/context_checkpoint.py --status` | Current context reading for this cwd's newest session |
+| The digest (a cheap model) | Five lines on every firing — what is **in flight**, **closed**, **stale**, **poison**, and what the **next task needs** — printed to the console and handed to the decider. ~1 s, ~$0.0003 |
+| The decider (Jev) | Grades that digest: `P(compact)`, `relevance` 0–4, `loss_risk` 0–4, with calibrated probabilities. The hook combines them by arithmetic, and a high loss risk vetoes a compact. ~0.5 s, ~$0.00004 |
+| `scripts/context_checkpoint.py --status` | Context reading, which decider and digest model resolve, and the biggest dumps in the window |
+| `scripts/context_checkpoint.py --dry-run` | Run the whole chain now and print exactly what the hook would emit |
 | `/context-checkpoint` | The decision criteria, per-machine tuning, and `RATIONALE.md` with the measurements |
+
+Without a key it degrades to what it did before: the criteria are injected and the session's own
+model makes the call. Every stage is timeboxed; nothing here can block a prompt.
 
 ## Install on each workstation
 

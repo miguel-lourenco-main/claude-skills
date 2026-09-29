@@ -77,8 +77,17 @@ DEFAULTS = {
     "jev_url": "https://openrouter.ai/api/v1/systemone",
     "jev_model": "jev-latest",
     "jev_timeout_s": 12,
+    # Where a key file may sit. Globbed, and deliberately wider than one path: the key started
+    # inside the marketplace checkout, moving it out of that working tree was the right call, and
+    # the hook went silently keyless for a day because its one hard-coded path had moved. A
+    # config for this is not the answer either — the failure is invisible (`--status` says
+    # "no key", nothing else does), so the default has to find a key that was put somewhere
+    # reasonable.
     "jev_key_files": ["~/.claude/context-checkpoint/jev.env",
-                      "~/.claude/plugins/marketplaces/claude-skills/plugins/model-router/jev.env"],
+                      "~/.claude/model-router/jev.env",
+                      "~/.claude/*/jev.env",
+                      "~/.claude/*.env",
+                      "~/.config/jobhunt/jev.env"],
     "jev_key_envs": ["OPENROUTER_API_KEY", "TYPESAFE_API_KEY", "JEV_API_KEY"],
     "compact_at": 0.55,         # P(compact) at or above this, and the loss veto clear, => compact
     "loss_veto": 2.5,           # loss_risk (0-4) above this keeps the context whatever P(compact) says
@@ -389,14 +398,15 @@ def jev_key(cfg):
         v = os.environ.get(name)
         if v:
             return v.strip()
-    for f in cfg["jev_key_files"]:
-        try:
-            for line in open(os.path.expanduser(f)):
-                k, _, v = line.partition("=")
-                if k.strip() in cfg["jev_key_envs"] and v.strip():
-                    return v.strip().strip('"').strip("'")
-        except Exception:
-            continue
+    for pattern in cfg["jev_key_files"]:
+        for f in sorted(glob.glob(os.path.expanduser(pattern))):
+            try:
+                for line in open(f):
+                    k, _, v = line.partition("=")
+                    if k.strip() in cfg["jev_key_envs"] and v.strip():
+                        return v.strip().strip('"').strip("'")
+            except Exception:
+                continue
     return None
 
 

@@ -82,8 +82,9 @@ Write `~/.claude/context-checkpoint/config.json`; any key overrides the default:
 | `digest_timeout_s` / `jev_timeout_s` | 35 / 12 | per-stage budgets; a timeout degrades, never blocks |
 
 **The key.** Read from `OPENROUTER_API_KEY`, `TYPESAFE_API_KEY` or `JEV_API_KEY` in the
-environment, else from `~/.claude/context-checkpoint/jev.env` or the model-router plugin's
-`jev.env`, as `NAME=value`. Keep it out of any working tree: a marketplace checkout is a git repo,
+environment, else from the first `NAME=value` line found under `~/.claude/context-checkpoint/`,
+`~/.claude/model-router/`, any `~/.claude/*/jev.env`, `~/.claude/*.env`, or
+`~/.config/jobhunt/jev.env` (`jev_key_files` is a list of globs, so add your own). Keep it out of any working tree: a marketplace checkout is a git repo,
 and the monorepo's `.gitignore` covers `*.env` for exactly this reason.
 
 To silence the whole thing: disable the plugin (`/plugin`), or set `min_ctx_tokens` above the

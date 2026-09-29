@@ -110,14 +110,24 @@ def load_cfg():
     return cfg
 
 
-def window_tokens(cfg):
+def window_tokens(cfg, running_model=""):
+    """The window this session actually has.
+
+    `running_model` is the id the transcript's own `message.model` carries, and it is preferred
+    over `~/.claude/settings.json` because settings holds whatever the person typed or picked —
+    `/model` writes the alias `"opus"`, which matches no entry here and silently resolved a 1M
+    session to 200k, reporting 263%. The transcript carries `claude-opus-5`. First-hand beats
+    configuration; settings stays as the fallback for a transcript with no assistant turn yet.
+    """
     if cfg.get("window_tokens"):
         return int(cfg["window_tokens"])
-    try:
-        with open(os.path.join(HOME, ".claude", "settings.json")) as f:
-            model = (json.load(f).get("model") or "").lower()
-    except Exception:
-        model = ""
+    model = (running_model or "").lower()
+    if not model:
+        try:
+            with open(os.path.join(HOME, ".claude", "settings.json")) as f:
+                model = (json.load(f).get("model") or "").lower()
+        except Exception:
+            model = ""
     if "[1m]" in model or any(m in model for m in NATIVE_1M):
         return 1_000_000
     return 200_000
@@ -559,8 +569,9 @@ def status(argv):
     path = argv[0] if argv else newest_transcript(os.getcwd())
     if not path or not os.path.exists(path):
         print("no transcript found"); return
-    cfg = load_cfg(); window = window_tokens(cfg)
+    cfg = load_cfg()
     (ctx, last_t, compacted, tool_tok, model), inv = scan(path)
+    window = window_tokens(cfg, model)
     pct = int(ctx * 100 / window) if ctx else 0
     idle = int((dt.datetime.now(dt.timezone.utc) - last_t).total_seconds() // 60) if last_t else 0
     key = jev_key(cfg)
@@ -585,8 +596,9 @@ def dry_run(argv):
     path = argv[0] if argv else newest_transcript(os.getcwd())
     if not path or not os.path.exists(path):
         print("no transcript found"); return
-    cfg = load_cfg(); window = window_tokens(cfg)
-    (ctx, last_t, _, tool_tok, _), inv = scan(path)
+    cfg = load_cfg()
+    (ctx, last_t, _, tool_tok, model), inv = scan(path)
+    window = window_tokens(cfg, model)
     pct = int(ctx * 100 / window) if ctx else 0
     idle = int((dt.datetime.now(dt.timezone.utc) - last_t).total_seconds() // 60) if last_t else 0
     dig, ans, call, took = assess(cfg, path, inv, pct, idle, "dry run", inv["recent_prompts"][-1] if inv["recent_prompts"] else "")
@@ -608,10 +620,10 @@ def main():
     sid = inp.get("session_id") or "unknown"
     if not path or not os.path.exists(path):
         return
-    (ctx, last_t, compacted, tool_tok, _), inv = scan(path)
+    (ctx, last_t, compacted, tool_tok, model), inv = scan(path)
     if compacted or ctx <= 0:
         return  # right after a compaction the usage line is stale; wait for the next turn
-    window = window_tokens(cfg)
+    window = window_tokens(cfg, model)
     pct = int(ctx * 100 / window)
     step = int(cfg["step_pct"])
     band = pct // step

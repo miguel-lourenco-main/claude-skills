@@ -69,7 +69,16 @@ DEFAULTS = {
     "digest_api_url": "https://openrouter.ai/api/v1/chat/completions",
     "digest_api_model": "google/gemini-2.5-flash-lite",   # ~$0.0003 a digest at 1M context
     "digest_model": "haiku",    # the CLI fallback's model: the cheapest rung on the subscription
-    "digest_timeout_s": 35,     # the CLI path needs the room; the API path answers in about one second
+    # The WHOLE budget for stages 2 and 3, and the only number that keeps this hook inside the
+    # harness's own timeout. That timeout is not ours: the plugin's hooks.json asks for 45s, but a
+    # hook registered by hand in settings.json carries whatever was written there — 10s on the
+    # machine this was built on — and a hook that overruns is KILLED, so it produces nothing at
+    # all rather than degrading. Stage timeouts are therefore ceilings, not the budget: each
+    # stage gets whatever is left of this, and a stage that cannot fit is skipped instead of
+    # started. 8s leaves room under a 10s registration for the interpreter and the transcript
+    # read; raise it if your own registration is generous.
+    "max_seconds": 8,
+    "digest_timeout_s": 35,     # a ceiling; the CLI path needs the room, the API path answers in about one second
     "digest_chars": 9000,       # how much recent transcript the cheap model is shown
 
     # --- stage 3: the decision model ------------------------------------------------------
@@ -312,7 +321,7 @@ def transcript_tail(path, limit):
     return "\n\n".join(reversed(tail))
 
 
-def _digest_api(cfg, key, prompt):
+def _digest_api(cfg, key, prompt, budget):
     import urllib.request
     body = json.dumps({
         "model": cfg["digest_api_model"],
@@ -324,34 +333,42 @@ def _digest_api(cfg, key, prompt):
         cfg["digest_api_url"], data=body,
         headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
     )
-    with urllib.request.urlopen(req, timeout=float(cfg["digest_timeout_s"])) as r:
+    with urllib.request.urlopen(req, timeout=budget) as r:
         d = json.load(r)
     return ((d.get("choices") or [{}])[0].get("message") or {}).get("content") or ""
 
 
-def _digest_cli(cfg, prompt):
+def _digest_cli(cfg, prompt, budget):
     # The child would fire this same hook; CHILD_ENV is what stops that, not the token floor.
     env = dict(os.environ, **{CHILD_ENV: "1"})
     p = subprocess.run(
         ["claude", "-p", "--model", str(cfg["digest_model"]), "--allowed-tools", ""],
         input=prompt, capture_output=True, text=True,
-        timeout=float(cfg["digest_timeout_s"]), env=env,
+        timeout=budget, env=env,
     )
     return (p.stdout or "").strip()
 
 
-def digest(cfg, inv, path, key=None):
-    """Five lines about this context, written by the cheapest rung. None if it cannot."""
+def digest(cfg, inv, path, key, budget):
+    """Five lines about this context, written by the cheapest rung.
+
+    `budget` is how many seconds are left of the whole hook's allowance. Returns None when the
+    model cannot answer inside it — or when there was never enough time to ask, which is the
+    case worth designing for: the CLI path takes about 24s, so under a small budget the honest
+    move is to skip the digest and leave the seconds to the decider, not to start something that
+    will be cut off.
+    """
+    api = cfg.get("digest_via") == "api" or (cfg.get("digest_via", "auto") == "auto" and key)
+    need = 2.0 if api else 20.0
+    if budget < need:
+        return None
     prompt = DIGEST_PROMPT.format(
         inventory=json.dumps(inv, indent=1)[:6000],
         tail=transcript_tail(path, int(cfg["digest_chars"])),
     )
-    via = cfg.get("digest_via", "auto")
+    budget = min(budget, float(cfg["digest_timeout_s"]))
     try:
-        if via == "api" or (via == "auto" and key):
-            out = _digest_api(cfg, key, prompt)
-        else:
-            out = _digest_cli(cfg, prompt)
+        out = _digest_api(cfg, key, prompt, budget) if api else _digest_cli(cfg, prompt, budget)
     except Exception:
         return None
     if not out:
@@ -420,7 +437,7 @@ def jev_key(cfg):
     return None
 
 
-def ask_jev(cfg, key, state):
+def ask_jev(cfg, key, state, budget):
     """One decision call. Returns the parsed answers, or None.
 
     urllib rather than requests: a hook may not assume a third-party package is installed in
@@ -433,7 +450,7 @@ def ask_jev(cfg, key, state):
         headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
     )
     try:
-        with urllib.request.urlopen(req, timeout=float(cfg["jev_timeout_s"])) as r:
+        with urllib.request.urlopen(req, timeout=budget) as r:
             d = json.load(r)
     except Exception:
         return None
@@ -548,18 +565,28 @@ def newest_transcript(cwd):
 
 
 def assess(cfg, path, inv, pct, idle_min, trigger, prompt=""):
-    """Stages 2 and 3. Returns (digest|None, answers|None, verdict|None, seconds)."""
+    """Stages 2 and 3, inside one total budget. Returns (digest|None, answers|None, verdict, s).
+
+    The decider is reserved its own slice before the digest is allowed to spend anything. A
+    verdict with a thin state beats a good digest and no verdict: the digest is what the person
+    reads, the verdict is what the hook is for.
+    """
     t0 = dt.datetime.now()
+    left = lambda: float(cfg["max_seconds"]) - (dt.datetime.now() - t0).total_seconds()
     key = jev_key(cfg)
-    dig = digest(cfg, inv, path, key) if cfg.get("digest") else None
+    deciding = cfg.get("decider", "auto") in ("auto", "jev") and bool(key)
+    reserve = min(float(cfg["jev_timeout_s"]), 3.0) if deciding else 0.0
+
+    dig = digest(cfg, inv, path, key, left() - reserve) if cfg.get("digest") else None
+
     ans = call = None
-    if cfg.get("decider", "auto") in ("auto", "jev") and key:
+    if deciding and left() > 0.5:
         state = {"context_pct": pct, "idle_minutes": idle_min, "trigger": trigger,
                  "newest_user_prompt": (prompt or "")[:400]}
         # Without a digest the decider still gets facts rather than nothing — the inventory is
         # already structured, it simply has no judgement in it.
         state.update(dig or {"inventory": json.dumps(inv)[:4000]})
-        ans = ask_jev(cfg, key, state)
+        ans = ask_jev(cfg, key, state, min(left(), float(cfg["jev_timeout_s"])))
         if ans:
             call = verdict(cfg, ans)
     return dig, ans, call, (dt.datetime.now() - t0).total_seconds()

@@ -7,7 +7,7 @@
           {
             "type": "command",
             "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/scripts/context_checkpoint.py\"",
-            "timeout": 45,
+            "timeout": 15,
             "statusMessage": "context checkpoint"
           }
         ]

@@ -79,7 +79,8 @@ Write `~/.claude/context-checkpoint/config.json`; any key overrides the default:
 | `jev_model` / `jev_url` | `jev-latest` / OpenRouter `/systemone` | the decision model and its endpoint |
 | `compact_at` | 0.55 | `P(compact)` at or above this, with the veto clear, means compact |
 | `loss_veto` | 2.5 | `loss_risk` (0–4) above this keeps the context whatever `P(compact)` says |
-| `digest_timeout_s` / `jev_timeout_s` | 35 / 12 | per-stage budgets; a timeout degrades, never blocks |
+| `max_seconds` | 8 | **the whole budget for the digest and the decision.** Stages draw from it in order and a stage that cannot fit is skipped rather than started |
+| `digest_timeout_s` / `jev_timeout_s` | 35 / 12 | per-stage *ceilings*, not the budget — whichever is smaller applies |
 
 **The key.** Read from `OPENROUTER_API_KEY`, `TYPESAFE_API_KEY` or `JEV_API_KEY` in the
 environment, else from the first `NAME=value` line found under `~/.claude/context-checkpoint/`,
@@ -89,6 +90,28 @@ and the monorepo's `.gitignore` covers `*.env` for exactly this reason.
 
 To silence the whole thing: disable the plugin (`/plugin`), or set `min_ctx_tokens` above the
 window. To keep the checkpoint but stop spending: `"digest": false, "decider": "model"`.
+
+### Why there is a total budget
+
+A hook that overruns its registration is **killed**, so it produces nothing at all instead of
+degrading — the worst outcome of the four this plugin is built to avoid. And the registration's
+timeout is not ours: `hooks/hooks.json` asks for 15 s, but a hook wired by hand into
+`settings.json` carries whatever was written there, which on the machine this was built for was
+**10 s**. So the stages share one `max_seconds` and each takes what is left:
+
+| budget | what happens | measured |
+|---|---|---|
+| 8 s (default), API digest | digest + verdict | 1.7 s |
+| 3 s | digest skipped, **verdict still returned** | 0.3 s |
+| 8 s, `digest_via: cli` | CLI needs ~24 s, so the digest is skipped rather than cut off | 0.3 s |
+| 25 s, `digest_via: cli` | both run | 19.1 s |
+
+The decider is reserved its slice before the digest may spend anything, because the verdict is
+what the hook is *for* and the digest is what the person reads. Losing the digest costs a
+paragraph; losing the verdict costs the whole checkpoint.
+
+If your registration allows more, raise `max_seconds` and the registration's own `timeout`
+together — they are two numbers describing one thing, and only the smaller ever applies.
 
 ## 4 · What it does not do
 

@@ -18,6 +18,8 @@ model, and about a third of main-session tool turns were git, CI polling, sleeps
 | `scripts/advise_prompt.py` (UserPromptSubmit) | Jev | - | Records a user pin ("use opus"); when Jev is confident a prompt is delegate work, injects one line naming the delegate |
 | `scripts/jev.py` | - | - | The System One client, the questions, the decision rules, `--check`, `--explain`, `--samples`, `--status` |
 | `policy/tiers.json` | - | - | The tier and route criteria in the words Jev sees |
+| `scripts/jev_decide.py` | Jev | - | The shared client other plugins call for their own decisions: a CLI, question builders, an answer that is never an exception |
+| `/model-router:decision-model` | Sonnet | - | When a decision belongs to Jev, how to shape the question, and when not to ask |
 | `model-router:ci-watcher` | Haiku | low | Wait on pipelines, MRs, shells, agents via `Monitor` until-loops; report failures. Read-only |
 | `model-router:sweeper` | Sonnet | default | One slice of a research or extraction sweep |
 | `model-router:mechanic` | Sonnet | low | Apply an already-decided change |
@@ -92,12 +94,35 @@ half off.
 cannot change a subagent's model. Measured on 2.1.283 (2026-09-27) it can, up and down; the raw
 payloads are in `research/2026-09-27-hook-model-rewrite/`. Because that is undocumented,
 `scripts/verify_hook.sh` re-proves it in four throwaway sessions after each upgrade, and
-`scripts/test_jev.py` (21 hermetic tests against a mock of `/v1/systemone`) covers the rules.
+`scripts/test_jev.py` (29 hermetic tests against a mock of `/v1/systemone`) covers the rules.
 `scripts/mock_jev.py` lets a whole session run against a canned answer, which is how the hook
 wiring was verified end to end: a spawn requested on Opus ran on Haiku.
 
 Workflow `agent()` stages and `fork` do not pass through the hook (measured, same folder), so
 policy rules 3 and 4 still apply to them.
+
+## Jev for other plugins' decisions (0.5.0)
+
+Which tier runs a spawn is one decision. Others have the same shape (bounded answer, repeats,
+expensive to get wrong): is this CI failure a flake, does this work belong on the open branch.
+`scripts/jev_decide.py` is the client those callers use, and `/model-router:decision-model` says
+when a decision belongs to Jev and when it does not.
+
+```bash
+echo '{"state": {...}, "questions": {...}}' | python3 scripts/jev_decide.py
+python3 scripts/jev_decide.py --self-test
+```
+
+It makes the same request as the hooks (`jev.post`) and differs from them in three ways:
+
+- **It never raises.** No key, a timeout or an outage return `{"ok": false, "reason": ...}`, and
+  every caller keeps a fallback.
+- **It looks for a key more widely.** The router's own configuration first, then any other
+  plugin's `jev.env`. The hooks do not: they rewrite a subagent's model, so they run only where
+  the router itself was given a key.
+- **It writes nothing to the sample log**, which stays about routing.
+
+Do not use it to ask which tier runs a task. The spawn hook already asks Jev that.
 
 ## Changing the policy
 

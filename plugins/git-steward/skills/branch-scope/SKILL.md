@@ -79,6 +79,15 @@ It is not an argument for one enormous branch. A branch nobody can review is wor
 someone can; the split rules above exist precisely for that. Nor is it licence to batch unrelated
 work to save cycles — the reader pays for that, later and with interest.
 
+## When the call is close
+
+Most of the time the rules above settle it. When they genuinely do not — a change that touches an
+adjacent surface, or a branch that has grown past what one reader can hold — the decision is
+bounded, it repeats, and being wrong costs a full merge cycle. That is the shape
+`model-router:decision-model` is for: one `noul` ("does this belong on the open branch?") and a
+`score` for reviewability, answered in ~0.4s, combined with the rules here in your own arithmetic.
+Keep the rules as the fallback; they are the reason, and a probability is not one.
+
 ## Additional resources
 
 - **`${CLAUDE_PLUGIN_ROOT}/skills/work-items/SKILL.md`** — starting a tracker item; its apply mode

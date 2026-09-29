@@ -125,10 +125,10 @@ def credentials():
 
 # --- the call ------------------------------------------------------------------------------
 
-def ask(state, questions, timeout=None):
-    """One System One call. Returns (answers, meta) or raises JevUnavailable."""
-    route, base, model, key = credentials()
-    cfg = config()
+def post(route, base, model, key, state, questions, timeout):
+    """One System One request on an already resolved route. Returns (response, latency_ms) or
+    raises JevUnavailable. The only place this plugin talks to Jev: ask() below and the shared
+    client (jev_decide.py) both go through it."""
     body = json.dumps({"model": model, "state": state, "questions": questions}).encode()
     req = urllib.request.Request(
         f"{base}/v1/systemone", data=body, method="POST",
@@ -137,19 +137,28 @@ def ask(state, questions, timeout=None):
                  "X-Title": "model-router"})
     t0 = time.monotonic()
     try:
-        with urllib.request.urlopen(req, timeout=timeout or cfg["timeout"]) as resp:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
             data = json.loads(resp.read().decode())
     except urllib.error.HTTPError as e:
         detail = e.read()[:300].decode(errors="replace")
         raise JevUnavailable(f"HTTP {e.code} from {route}: {detail}") from e
     except (urllib.error.URLError, TimeoutError, OSError, ValueError) as e:
         raise JevUnavailable(f"{route}: {e}") from e
-    answers = data.get("answers")
-    if not isinstance(answers, dict):
+    if not isinstance(data, dict) or not isinstance(data.get("answers"), dict):
         raise JevUnavailable(f"{route}: no answers in response")
+    return data, round((time.monotonic() - t0) * 1000)
+
+
+def ask(state, questions, timeout=None):
+    """One System One call for the router's own hooks. Returns (answers, meta) or raises
+    JevUnavailable, and keeps the exchange in the sample log."""
+    route, base, model, key = credentials()
+    cfg = config()
+    data, latency_ms = post(route, base, model, key, state, questions, timeout or cfg["timeout"])
+    answers = data["answers"]
     usage = data.get("usage") or {}
     meta = {"route": route, "model": data.get("model", model),
-            "latency_ms": round((time.monotonic() - t0) * 1000),
+            "latency_ms": latency_ms,
             "input_tokens": usage.get("input_tokens"), "cost_usd": usage.get("cost")}
     record_sample({"model": model, "state": state, "questions": questions}, data, meta, keep=cfg["samples_keep"])
     return answers, meta

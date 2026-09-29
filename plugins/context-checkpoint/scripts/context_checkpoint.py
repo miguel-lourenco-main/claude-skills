@@ -69,7 +69,16 @@ DEFAULTS = {
     "digest_api_url": "https://openrouter.ai/api/v1/chat/completions",
     "digest_api_model": "google/gemini-2.5-flash-lite",   # ~$0.0003 a digest at 1M context
     "digest_model": "haiku",    # the CLI fallback's model: the cheapest rung on the subscription
-    "digest_timeout_s": 35,     # the CLI path needs the room; the API path answers in about one second
+    # The WHOLE budget for stages 2 and 3, and the only number that keeps this hook inside the
+    # harness's own timeout. That timeout is not ours: the plugin's hooks.json asks for 45s, but a
+    # hook registered by hand in settings.json carries whatever was written there — 10s on the
+    # machine this was built on — and a hook that overruns is KILLED, so it produces nothing at
+    # all rather than degrading. Stage timeouts are therefore ceilings, not the budget: each
+    # stage gets whatever is left of this, and a stage that cannot fit is skipped instead of
+    # started. 8s leaves room under a 10s registration for the interpreter and the transcript
+    # read; raise it if your own registration is generous.
+    "max_seconds": 8,
+    "digest_timeout_s": 35,     # a ceiling; the CLI path needs the room, the API path answers in about one second
     "digest_chars": 9000,       # how much recent transcript the cheap model is shown
 
     # --- stage 3: the decision model ------------------------------------------------------
@@ -77,8 +86,17 @@ DEFAULTS = {
     "jev_url": "https://openrouter.ai/api/v1/systemone",
     "jev_model": "jev-latest",
     "jev_timeout_s": 12,
+    # Where a key file may sit. Globbed, and deliberately wider than one path: the key started
+    # inside the marketplace checkout, moving it out of that working tree was the right call, and
+    # the hook went silently keyless for a day because its one hard-coded path had moved. A
+    # config for this is not the answer either — the failure is invisible (`--status` says
+    # "no key", nothing else does), so the default has to find a key that was put somewhere
+    # reasonable.
     "jev_key_files": ["~/.claude/context-checkpoint/jev.env",
-                      "~/.claude/plugins/marketplaces/claude-skills/plugins/model-router/jev.env"],
+                      "~/.claude/model-router/jev.env",
+                      "~/.claude/*/jev.env",
+                      "~/.claude/*.env",
+                      "~/.config/jobhunt/jev.env"],
     "jev_key_envs": ["OPENROUTER_API_KEY", "TYPESAFE_API_KEY", "JEV_API_KEY"],
     "compact_at": 0.55,         # P(compact) at or above this, and the loss veto clear, => compact
     "loss_veto": 2.5,           # loss_risk (0-4) above this keeps the context whatever P(compact) says
@@ -101,14 +119,24 @@ def load_cfg():
     return cfg
 
 
-def window_tokens(cfg):
+def window_tokens(cfg, running_model=""):
+    """The window this session actually has.
+
+    `running_model` is the id the transcript's own `message.model` carries, and it is preferred
+    over `~/.claude/settings.json` because settings holds whatever the person typed or picked —
+    `/model` writes the alias `"opus"`, which matches no entry here and silently resolved a 1M
+    session to 200k, reporting 263%. The transcript carries `claude-opus-5`. First-hand beats
+    configuration; settings stays as the fallback for a transcript with no assistant turn yet.
+    """
     if cfg.get("window_tokens"):
         return int(cfg["window_tokens"])
-    try:
-        with open(os.path.join(HOME, ".claude", "settings.json")) as f:
-            model = (json.load(f).get("model") or "").lower()
-    except Exception:
-        model = ""
+    model = (running_model or "").lower()
+    if not model:
+        try:
+            with open(os.path.join(HOME, ".claude", "settings.json")) as f:
+                model = (json.load(f).get("model") or "").lower()
+        except Exception:
+            model = ""
     if "[1m]" in model or any(m in model for m in NATIVE_1M):
         return 1_000_000
     return 200_000
@@ -293,7 +321,7 @@ def transcript_tail(path, limit):
     return "\n\n".join(reversed(tail))
 
 
-def _digest_api(cfg, key, prompt):
+def _digest_api(cfg, key, prompt, budget):
     import urllib.request
     body = json.dumps({
         "model": cfg["digest_api_model"],
@@ -305,34 +333,42 @@ def _digest_api(cfg, key, prompt):
         cfg["digest_api_url"], data=body,
         headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
     )
-    with urllib.request.urlopen(req, timeout=float(cfg["digest_timeout_s"])) as r:
+    with urllib.request.urlopen(req, timeout=budget) as r:
         d = json.load(r)
     return ((d.get("choices") or [{}])[0].get("message") or {}).get("content") or ""
 
 
-def _digest_cli(cfg, prompt):
+def _digest_cli(cfg, prompt, budget):
     # The child would fire this same hook; CHILD_ENV is what stops that, not the token floor.
     env = dict(os.environ, **{CHILD_ENV: "1"})
     p = subprocess.run(
         ["claude", "-p", "--model", str(cfg["digest_model"]), "--allowed-tools", ""],
         input=prompt, capture_output=True, text=True,
-        timeout=float(cfg["digest_timeout_s"]), env=env,
+        timeout=budget, env=env,
     )
     return (p.stdout or "").strip()
 
 
-def digest(cfg, inv, path, key=None):
-    """Five lines about this context, written by the cheapest rung. None if it cannot."""
+def digest(cfg, inv, path, key, budget):
+    """Five lines about this context, written by the cheapest rung.
+
+    `budget` is how many seconds are left of the whole hook's allowance. Returns None when the
+    model cannot answer inside it — or when there was never enough time to ask, which is the
+    case worth designing for: the CLI path takes about 24s, so under a small budget the honest
+    move is to skip the digest and leave the seconds to the decider, not to start something that
+    will be cut off.
+    """
+    api = cfg.get("digest_via") == "api" or (cfg.get("digest_via", "auto") == "auto" and key)
+    need = 2.0 if api else 20.0
+    if budget < need:
+        return None
     prompt = DIGEST_PROMPT.format(
         inventory=json.dumps(inv, indent=1)[:6000],
         tail=transcript_tail(path, int(cfg["digest_chars"])),
     )
-    via = cfg.get("digest_via", "auto")
+    budget = min(budget, float(cfg["digest_timeout_s"]))
     try:
-        if via == "api" or (via == "auto" and key):
-            out = _digest_api(cfg, key, prompt)
-        else:
-            out = _digest_cli(cfg, prompt)
+        out = _digest_api(cfg, key, prompt, budget) if api else _digest_cli(cfg, prompt, budget)
     except Exception:
         return None
     if not out:
@@ -389,18 +425,19 @@ def jev_key(cfg):
         v = os.environ.get(name)
         if v:
             return v.strip()
-    for f in cfg["jev_key_files"]:
-        try:
-            for line in open(os.path.expanduser(f)):
-                k, _, v = line.partition("=")
-                if k.strip() in cfg["jev_key_envs"] and v.strip():
-                    return v.strip().strip('"').strip("'")
-        except Exception:
-            continue
+    for pattern in cfg["jev_key_files"]:
+        for f in sorted(glob.glob(os.path.expanduser(pattern))):
+            try:
+                for line in open(f):
+                    k, _, v = line.partition("=")
+                    if k.strip() in cfg["jev_key_envs"] and v.strip():
+                        return v.strip().strip('"').strip("'")
+            except Exception:
+                continue
     return None
 
 
-def ask_jev(cfg, key, state):
+def ask_jev(cfg, key, state, budget):
     """One decision call. Returns the parsed answers, or None.
 
     urllib rather than requests: a hook may not assume a third-party package is installed in
@@ -413,7 +450,7 @@ def ask_jev(cfg, key, state):
         headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
     )
     try:
-        with urllib.request.urlopen(req, timeout=float(cfg["jev_timeout_s"])) as r:
+        with urllib.request.urlopen(req, timeout=budget) as r:
             d = json.load(r)
     except Exception:
         return None
@@ -528,18 +565,28 @@ def newest_transcript(cwd):
 
 
 def assess(cfg, path, inv, pct, idle_min, trigger, prompt=""):
-    """Stages 2 and 3. Returns (digest|None, answers|None, verdict|None, seconds)."""
+    """Stages 2 and 3, inside one total budget. Returns (digest|None, answers|None, verdict, s).
+
+    The decider is reserved its own slice before the digest is allowed to spend anything. A
+    verdict with a thin state beats a good digest and no verdict: the digest is what the person
+    reads, the verdict is what the hook is for.
+    """
     t0 = dt.datetime.now()
+    left = lambda: float(cfg["max_seconds"]) - (dt.datetime.now() - t0).total_seconds()
     key = jev_key(cfg)
-    dig = digest(cfg, inv, path, key) if cfg.get("digest") else None
+    deciding = cfg.get("decider", "auto") in ("auto", "jev") and bool(key)
+    reserve = min(float(cfg["jev_timeout_s"]), 3.0) if deciding else 0.0
+
+    dig = digest(cfg, inv, path, key, left() - reserve) if cfg.get("digest") else None
+
     ans = call = None
-    if cfg.get("decider", "auto") in ("auto", "jev") and key:
+    if deciding and left() > 0.5:
         state = {"context_pct": pct, "idle_minutes": idle_min, "trigger": trigger,
                  "newest_user_prompt": (prompt or "")[:400]}
         # Without a digest the decider still gets facts rather than nothing — the inventory is
         # already structured, it simply has no judgement in it.
         state.update(dig or {"inventory": json.dumps(inv)[:4000]})
-        ans = ask_jev(cfg, key, state)
+        ans = ask_jev(cfg, key, state, min(left(), float(cfg["jev_timeout_s"])))
         if ans:
             call = verdict(cfg, ans)
     return dig, ans, call, (dt.datetime.now() - t0).total_seconds()
@@ -549,8 +596,9 @@ def status(argv):
     path = argv[0] if argv else newest_transcript(os.getcwd())
     if not path or not os.path.exists(path):
         print("no transcript found"); return
-    cfg = load_cfg(); window = window_tokens(cfg)
+    cfg = load_cfg()
     (ctx, last_t, compacted, tool_tok, model), inv = scan(path)
+    window = window_tokens(cfg, model)
     pct = int(ctx * 100 / window) if ctx else 0
     idle = int((dt.datetime.now(dt.timezone.utc) - last_t).total_seconds() // 60) if last_t else 0
     key = jev_key(cfg)
@@ -575,8 +623,9 @@ def dry_run(argv):
     path = argv[0] if argv else newest_transcript(os.getcwd())
     if not path or not os.path.exists(path):
         print("no transcript found"); return
-    cfg = load_cfg(); window = window_tokens(cfg)
-    (ctx, last_t, _, tool_tok, _), inv = scan(path)
+    cfg = load_cfg()
+    (ctx, last_t, _, tool_tok, model), inv = scan(path)
+    window = window_tokens(cfg, model)
     pct = int(ctx * 100 / window) if ctx else 0
     idle = int((dt.datetime.now(dt.timezone.utc) - last_t).total_seconds() // 60) if last_t else 0
     dig, ans, call, took = assess(cfg, path, inv, pct, idle, "dry run", inv["recent_prompts"][-1] if inv["recent_prompts"] else "")
@@ -598,10 +647,10 @@ def main():
     sid = inp.get("session_id") or "unknown"
     if not path or not os.path.exists(path):
         return
-    (ctx, last_t, compacted, tool_tok, _), inv = scan(path)
+    (ctx, last_t, compacted, tool_tok, model), inv = scan(path)
     if compacted or ctx <= 0:
         return  # right after a compaction the usage line is stale; wait for the next turn
-    window = window_tokens(cfg)
+    window = window_tokens(cfg, model)
     pct = int(ctx * 100 / window)
     step = int(cfg["step_pct"])
     band = pct // step

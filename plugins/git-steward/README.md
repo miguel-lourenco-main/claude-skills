@@ -15,7 +15,7 @@ Or add it to a marketplace and `/plugin install git-steward`.
 
 - **Tier 1 — atomic skills** (each independently usable):
   - **core** (always run in a pass): `git-repo-health`, `git-branch-cleanup`, `commit-hygiene`,
-    `git-history-surgery`, `work-items`, `pipeline-health`
+    `git-history-surgery`, `work-items`, `pipeline-health`, `branch-scope`
   - **optimize** (only with `--optimize`): `worktree-manager`, `gitignore-guard`, `repo-consistency`,
     `dependency-health`, `release-changelog`, `stale-repo-triage`
 - **Tier 2 — `repo-steward`**: runs the in-scope skills on one repo and aggregates.

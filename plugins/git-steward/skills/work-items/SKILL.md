@@ -16,9 +16,9 @@ item by creating a branch and opening a draft MR/PR.
 
 - **analyze** (default): fetch, classify, rank, report. No changes. Trigger on "triage/what should I
   work on/review the backlog/classify".
-- **apply** (execute): start the top (or named) item — branch + draft MR/PR. Trigger on "start/pick up/
-  begin the top one/draft an MR for #N". Gated (Tier 2 — pushes a branch, opens a draft). When
-  ambiguous, analyze.
+- **apply** (execute): start the top (or named) item. Trigger on "start/pick up/begin the top one/
+  draft an MR for #N". Gated (Tier 2 — pushes a branch, opens a draft). When ambiguous, analyze.
+  **A new branch is not the default outcome** — see *Where the work goes* below.
 
 ## How to use
 
@@ -35,6 +35,25 @@ unauthenticated, it returns `{available:false, reason:...}` — report that and 
 Present a ranked table (rank, importance, scope, title, url) and a short "do these first, because…"
 recommendation for the top few. Then optionally seed the agent's todo/plan with the top N via
 `TaskCreate`.
+
+### Where the work goes (before apply)
+
+Starting an item does **not** imply a new branch. Read
+`${CLAUDE_PLUGIN_ROOT}/skills/branch-scope/SKILL.md` first: a branch costs a pipeline per push and,
+on a `rebase_merge` project, its own sequential merge cycle — when one MR lands, every other open
+one flips to `need_rebase` and its pipeline is wasted. One branch may close several items.
+
+So check what is already in flight and prefer adding a commit to it when the item shares a service,
+a surface or a root cause:
+
+```bash
+git -C <repo> for-each-ref --format='%(refname:short) %(upstream:track)' refs/heads --no-merged <default>
+glab mr list -R <project>   # or gh pr list -R <repo>
+```
+
+Create a branch only when `branch-scope` says the work is separately reviewable and revertable.
+When it is, name it for what it will carry in total rather than for the one item that started it,
+and list every item it closes in the MR description.
 
 ### Apply (gated)
 ```bash
@@ -60,5 +79,7 @@ to refine a generic `low/medium` when the title or description clearly indicates
 
 ## Additional resources
 
+- **`${CLAUDE_PLUGIN_ROOT}/skills/branch-scope/SKILL.md`** — what belongs on one branch, and when
+  an existing branch should take the work instead. Consulted before this skill creates anything.
 - **`references/classification.md`** — full importance/scope tier tables and the `work-items/v1` schema.
 - **`${CLAUDE_PLUGIN_ROOT}/shared/FORGE.md`** — GitLab/GitHub abstraction and degradation.

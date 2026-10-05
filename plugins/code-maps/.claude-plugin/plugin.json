@@ -1,0 +1,17 @@
+{
+  "name": "code-maps",
+  "description": "Maps of a codebase as navigable HTML pages, built from what the code compiles to and does rather than from reading it. Ships java-diagrams: class and package diagrams for a Java project, read from bytecode, cross-checked against jdeps, every view verified against the extracted graph and bounded so it stays readable. And execution-trace: a run trace that follows one execution from the command line to its last effect, step by step like a debugger, redrawn through layers (process, code, state, data, disk), with excerpts cut from the source at build time, call arrows read from bytecode and classes filtered by a measured class-load log.",
+  "version": "0.1.0",
+  "author": {
+    "name": "migaloco",
+    "email": "migasoulou@gmail.com"
+  },
+  "keywords": [
+    "diagrams",
+    "uml",
+    "java",
+    "architecture",
+    "execution-flow",
+    "artifact"
+  ]
+}

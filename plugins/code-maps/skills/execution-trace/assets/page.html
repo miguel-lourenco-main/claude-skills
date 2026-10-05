@@ -1,0 +1,443 @@
+<title>Run Trace</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+/* The page of the execution-trace skill. It draws whatever trace-data.json says and knows nothing
+   about any project: steps on the left, one diagram in the middle, the facts behind whatever is
+   selected on the right. The lenses redraw the same run. Format: references/data-format.md. */
+:root {
+  --bg: #EEF1F1; --panel: #FBFCFC; --sunk: #E3E8E8; --rule: #CBD5D5;
+  --fg: #121A1B; --fg-2: #3F5053; --muted: #64777A;
+  --accent: #0B5D5E; --accent-soft: #D5E8E7;
+  --changed: #8A5A00; --changed-soft: #FBEBC8;
+  --gap: #8E2B34; --gap-soft: #F6E1E2;
+  --g-box: #FDFEFE; --g-line: #55666A; --g-faint: #B5C1C2; --g-frame: #C3CECF; --g-pkg: #E6EBEB;
+  --h-step: #CFE6E4; --h-frame: #DDE3E4; --h-class: #DCE5F5; --h-slot: #F6E9CB; --h-file: #DCEEDD; --h-ext: #ECEEEE; --h-human: #E9DDF3;
+  --sans: "Archivo", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #0D1314; --panel: #141C1D; --sunk: #0A0F10; --rule: #2A383A;
+  --fg: #E6EEEE; --fg-2: #B3C3C4; --muted: #8A9C9E;
+  --accent: #5EC4C1; --accent-soft: #143536;
+  --changed: #F0C063; --changed-soft: #3A2C0C;
+  --gap: #F09AA2; --gap-soft: #3A1A1E;
+  --g-box: #182122; --g-line: #93A5A8; --g-faint: #3D4C4F; --g-frame: #344446; --g-pkg: #111A1B;
+  --h-step: #17403F; --h-frame: #263133; --h-class: #24344F; --h-slot: #47391A; --h-file: #1F3B25; --h-ext: #1F2829; --h-human: #3A2B4D;
+  color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #0D1314; --panel: #141C1D; --sunk: #0A0F10; --rule: #2A383A;
+  --fg: #E6EEEE; --fg-2: #B3C3C4; --muted: #8A9C9E;
+  --accent: #5EC4C1; --accent-soft: #143536;
+  --changed: #F0C063; --changed-soft: #3A2C0C;
+  --gap: #F09AA2; --gap-soft: #3A1A1E;
+  --g-box: #182122; --g-line: #93A5A8; --g-faint: #3D4C4F; --g-frame: #344446; --g-pkg: #111A1B;
+  --h-step: #17403F; --h-frame: #263133; --h-class: #24344F; --h-slot: #47391A; --h-file: #1F3B25; --h-ext: #1F2829; --h-human: #3A2B4D;
+  color-scheme: dark }
+
+* { box-sizing: border-box }
+[hidden] { display: none !important }
+html, body { height: 100% }
+body { background: var(--bg); color: var(--fg); font: 14px/1.45 var(--sans); margin: 0; display: flex; flex-direction: column }
+button { font: inherit; color: inherit; cursor: pointer }
+code, pre, .mono { font-family: var(--mono) }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px }
+
+header { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 18px; padding: 10px 16px; border-bottom: 1px solid var(--rule) }
+header h1 { font-size: 17px; font-weight: 700; margin: 0 }
+header .facts { color: var(--muted); font-size: 12.5px; min-width: 0; overflow-wrap: anywhere }
+header .facts code { color: var(--fg-2) }
+
+main { flex: 1; min-height: 0; display: grid; grid-template-columns: 208px minmax(0, 1fr) minmax(280px, 400px) }
+nav, aside { overflow: auto; background: var(--panel); font-size: 13px }
+nav { border-right: 1px solid var(--rule); padding: 10px 0 }
+aside { border-left: 1px solid var(--rule); padding: 14px 16px 40px; overflow-wrap: anywhere }
+nav .stage { font: 600 10.5px var(--sans); letter-spacing: .09em; text-transform: uppercase; color: var(--muted); margin: 12px 14px 3px }
+nav button { display: grid; grid-template-columns: 22px 1fr; gap: 6px; align-items: baseline; width: 100%; text-align: left; background: none;
+             border: 0; border-left: 3px solid transparent; padding: 4px 12px 4px 11px }
+nav button .n { font: 500 11.5px var(--mono); color: var(--muted); font-variant-numeric: tabular-nums }
+nav button .nm { font: 500 12.5px var(--mono) }
+nav button:hover { background: var(--sunk) }
+nav button[aria-current="true"] { border-left-color: var(--accent); background: var(--accent-soft); font-weight: 600 }
+nav button.all .nm { font: 600 13px var(--sans) }
+nav button.human .nm::after { content: " · person"; color: var(--muted); font-family: var(--sans); font-size: 11px }
+nav button.gap { color: var(--gap) } nav button.gap .n { color: var(--gap) }
+
+section { display: flex; flex-direction: column; min-width: 0; min-height: 0 }
+.bar { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; padding: 8px 16px; border-bottom: 1px solid var(--rule) }
+.crumbs { font: 500 13px var(--mono); min-width: 0; overflow-wrap: anywhere }
+.crumbs b { font: 700 14px var(--sans); margin-right: 8px }
+.tabs { display: flex; gap: 2px; margin-left: auto; flex-wrap: wrap }
+.tabs button, .zoom button, .move button { background: none; border: 1px solid transparent; border-radius: 4px; padding: 3px 10px; color: var(--muted) }
+.tabs button[aria-pressed="true"] { color: var(--fg); border-color: var(--accent); background: var(--accent-soft); font-weight: 600 }
+.zoom, .move { display: flex; gap: 2px }
+.zoom button, .move button { border-color: var(--rule); min-width: 30px; color: var(--fg-2) }
+.move button:disabled { opacity: .35; cursor: default }
+.move button[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-soft); color: var(--fg); font-weight: 600 }
+#claim { padding: 7px 16px; border-bottom: 1px solid var(--rule); color: var(--fg-2); font-size: 13px; max-width: none }
+#stage { flex: 1; min-height: 0; overflow: auto; padding: 18px; cursor: grab; touch-action: none; overscroll-behavior: contain }
+#stage.drag { cursor: grabbing; user-select: none }
+#stage svg { display: block }
+#stage .fail { color: var(--gap); max-width: 60ch }
+
+/* the drawing */
+#stage svg text { font-family: var(--mono); fill: var(--fg-2); font-size: 11.5px }
+#stage svg text.t { font-weight: 600; font-size: 12.5px; fill: var(--fg) }
+#stage svg text.cl { font: 600 10.5px var(--sans); letter-spacing: .09em; text-transform: uppercase; fill: var(--muted) }
+#stage svg text.el { font: 500 11px var(--sans); fill: var(--muted) }
+#stage svg rect.elbg { fill: var(--bg) }
+#stage svg rect.cluster { fill: var(--g-pkg); stroke: var(--g-frame); stroke-width: 1 }
+g.node { cursor: pointer }
+#stage.drag g.node { cursor: grabbing }
+g.node rect.box { fill: var(--g-box) }
+g.node rect.line { fill: none; stroke: var(--g-line); stroke-width: 1 }
+g.node rect.head { stroke: none }
+g.node.k-step rect.head { fill: var(--h-step) } g.node.k-frame rect.head { fill: var(--h-frame) }
+g.node.k-class rect.head { fill: var(--h-class) } g.node.k-slot rect.head, g.node.k-data rect.head { fill: var(--h-slot) }
+g.node.k-file rect.head { fill: var(--h-file) } g.node.k-ext rect.head { fill: var(--h-ext) }
+g.node.k-alt rect.head { fill: var(--h-step) } g.node.k-human rect.head { fill: var(--h-human) }
+g.node.k-ext rect.line, g.node.k-alt rect.line { stroke-dasharray: 5 4 }
+g.node.k-gap rect.line { stroke: var(--gap); stroke-dasharray: 6 4; stroke-width: 1.5 } g.node.k-gap rect.head { fill: var(--gap-soft) }
+g.node.k-gap text.t { fill: var(--gap) }
+g.node rect.row-chg { fill: var(--changed-soft) } g.node text.row-chg { fill: var(--changed); font-weight: 600 }
+g.node rect.row-void { fill: none; stroke: var(--changed); stroke-dasharray: 3 3 } g.node text.row-void { fill: var(--changed) }
+g.node.core rect.line { stroke-width: 2 }
+g.node.sel rect.line { stroke: var(--accent); stroke-width: 2.5 }
+g.edge path { fill: none; stroke: var(--g-line); stroke-width: 1.3 }
+g.edge.k-seq path { stroke: var(--g-faint); stroke-dasharray: 2 4 }
+g.edge.k-read path { stroke: var(--g-line); stroke-dasharray: 5 3 }
+g.edge.k-write path { stroke: var(--changed); stroke-width: 1.6 }
+g.edge.k-alt path { stroke: var(--accent); stroke-dasharray: 6 4 }
+g.edge.k-gap path { stroke: var(--gap); stroke-dasharray: 6 4; stroke-width: 1.6 }
+marker path { fill: var(--g-line) } marker.k-write path { fill: var(--changed) } marker.k-alt path { fill: var(--accent) }
+marker.k-gap path { fill: var(--gap) } marker.k-seq path { fill: var(--g-faint) }
+#stage.lit g.node:not(.on), #stage.lit g.edge:not(.on) { opacity: .2 }
+g.node, g.edge { transition: opacity .12s }
+
+/* the facts */
+aside h2 { font-size: 16px; margin: 0 0 2px; font-weight: 700; line-height: 1.25 }
+aside h2 .nm { font: 600 13px var(--mono); color: var(--accent); display: block }
+aside .kind { font: 600 10.5px var(--sans); letter-spacing: .09em; text-transform: uppercase; color: var(--muted); margin-bottom: 4px }
+aside p { margin: 7px 0; color: var(--fg-2); max-width: 62ch }
+aside h3 { font: 600 10.5px var(--sans); letter-spacing: .09em; text-transform: uppercase; color: var(--muted); margin: 16px 0 4px }
+aside ol, aside ul.work { margin: 4px 0; padding-left: 1.3em; color: var(--fg-2); display: flex; flex-direction: column; gap: 4px; max-width: 62ch }
+aside .lead { color: var(--fg); font-size: 14px }
+aside .who { font-size: 12.5px; color: var(--muted); margin: 2px 0 0 }
+aside .badges { display: flex; flex-wrap: wrap; gap: 5px; margin: 8px 0 }
+.badge { font: 500 11.5px var(--mono); border: 1px solid var(--rule); border-radius: 4px; padding: 1px 7px; color: var(--fg-2) }
+.badge.on { border-color: var(--accent); color: var(--accent) }
+.open { background: var(--fg); color: var(--bg); border: 0; border-radius: 5px; padding: 6px 12px; font-weight: 600; margin: 6px 0 2px }
+.notbuilt { border: 2px dashed var(--gap); background: var(--gap-soft); color: var(--gap); border-radius: 5px; padding: 8px 10px; font-weight: 600; margin: 8px 0 }
+details { border-top: 1px solid var(--rule); margin-top: 12px; padding-top: 8px }
+summary { cursor: pointer; font: 600 11px var(--sans); letter-spacing: .09em; text-transform: uppercase; color: var(--muted) }
+details > div { display: flex; flex-direction: column; gap: 12px; margin-top: 10px; min-width: 0 }
+.sub { font-weight: 600; font-size: 13px; margin: 0; color: var(--fg) }
+.note { font-size: 12.5px; color: var(--fg-2); margin: 0 }
+.loc { font: 500 11.5px var(--mono); color: var(--muted) }
+.block { display: flex; flex-direction: column; gap: 5px; min-width: 0 }
+.scroll { overflow-x: auto; max-width: 100% }
+pre { margin: 0; font-size: 11.5px; line-height: 1.55; background: var(--sunk); border: 1px solid var(--rule); border-radius: 4px;
+      padding: 8px 10px; overflow-x: auto; tab-size: 4 }
+pre.code { padding-left: 0 }
+pre.code .ln { display: inline-block; width: 3.4em; text-align: right; padding-right: .9em; color: var(--muted); user-select: none }
+pre .k { color: var(--accent) } pre .c { color: var(--muted); font-style: italic } pre .null { color: var(--muted) }
+table { border-collapse: collapse; width: 100%; font-size: 12.5px }
+th { text-align: left; font: 600 10.5px var(--sans); letter-spacing: .06em; text-transform: uppercase; color: var(--muted); padding: 3px 8px 3px 0;
+     border-bottom: 1px solid var(--rule); white-space: nowrap }
+td { padding: 4px 8px 4px 0; border-bottom: 1px solid var(--rule); vertical-align: top }
+tr:last-child td { border-bottom: 0 }
+td.f { font-family: var(--mono); font-weight: 500; white-space: nowrap; overflow-wrap: normal } td.v { font-family: var(--mono) }
+td.num { font-family: var(--mono); text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap }
+.nil { color: var(--muted) }
+tr.chg td { background: var(--changed-soft) } tr.chg td.f { color: var(--changed) }
+.was { color: var(--muted); text-decoration: line-through; margin-right: .5em }
+.by { display: block; font-size: 11px; color: var(--changed) }
+.mark { font: 600 10.5px var(--mono); border-radius: 3px; padding: 0 5px; white-space: nowrap }
+.mark.new { background: var(--changed-soft); color: var(--changed) } .mark.written { background: var(--accent-soft); color: var(--accent) }
+.mark.read { border: 1px solid var(--rule); color: var(--muted) }
+tr.idle td { color: var(--muted) }
+ul.rows { list-style: none; margin: 8px 0; padding: 0; display: flex; flex-direction: column }
+ul.rows li { border-bottom: 1px solid var(--rule); padding: 6px 0; display: flex; flex-direction: column; gap: 2px }
+ul.rows .f { font: 500 12.5px var(--mono); color: var(--fg) } ul.rows .c { font-size: 12.5px; color: var(--fg-2) }
+ul.rows i { font: 600 10px var(--sans); letter-spacing: .06em; text-transform: uppercase; color: var(--muted); font-style: normal; margin-right: 4px }
+.finding { border: 1px solid var(--rule); border-radius: 4px; padding: 7px 9px; display: flex; flex-direction: column; gap: 3px }
+.finding .top { display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: baseline; font: 500 12.5px var(--mono) }
+.finding p { margin: 0; font-size: 12.5px }
+blockquote { margin: 0; border-left: 3px solid var(--rule); padding: 2px 0 2px 10px } blockquote p { margin: 0; color: var(--fg) }
+.legend { display: grid; grid-template-columns: 58px 1fr; gap: 6px 10px; align-items: center; font-size: 12.5px; color: var(--fg-2); margin-top: 10px }
+.legend svg { width: 58px; height: 16px; overflow: visible }
+.legend .sw { width: 58px; height: 16px; border: 1px solid var(--g-line); border-radius: 2px }
+
+@media (max-width: 900px) {
+  html, body { height: auto }
+  main { display: flex; flex-direction: column }
+  nav { border: 0; border-bottom: 1px solid var(--rule); display: flex; overflow-x: auto; padding: 6px 8px; gap: 2px }
+  nav .stage { display: none }
+  nav button { width: auto; white-space: nowrap; border-left: 0; border-bottom: 3px solid transparent; padding: 4px 8px; grid-template-columns: auto auto }
+  nav button[aria-current="true"] { border-bottom-color: var(--accent) }
+  #stage { flex: none; max-height: 75vh }
+  aside { border: 0; border-top: 1px solid var(--rule) }
+  .tabs { margin-left: 0 }
+}
+@media (prefers-reduced-motion: reduce) { g.node, g.edge { transition: none } }
+</style>
+
+<header>
+  <h1 id="title"></h1>
+  <span class="facts" id="facts"></span>
+</header>
+<main>
+  <nav id="rail" aria-label="Steps"></nav>
+  <section>
+    <div class="bar">
+      <div class="crumbs" id="crumbs"></div>
+      <div class="move"><button id="prev" aria-label="Previous step">←</button><button id="next" aria-label="Next step">→</button></div>
+      <div class="tabs" id="tabs" role="group" aria-label="Layer"></div>
+      <div class="move" id="codeMode" hidden><button id="code-key">Key classes</button><button id="code-all">All classes</button></div>
+      <div class="zoom" title="Ctrl + scroll to zoom; scroll or drag to move"><button id="z-out" aria-label="Zoom out">−</button><button id="z-fit">Fit</button><button id="z-one">1:1</button><button id="z-in" aria-label="Zoom in">+</button></div>
+    </div>
+    <div id="claim"></div>
+    <div id="stage"></div>
+  </section>
+  <aside id="side"></aside>
+</main>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/dagre/0.8.5/dagre.min.js"></script>
+<script>
+const DATA = /*FLOW_DATA*/null;
+const LENSES = DATA ? DATA.lenses.map(l => [l.id, l.label, l.whole || "", l.step || "", !!l.flat]) : [];
+const store = { get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v) } catch (e) { return d } },
+                set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)) } catch (e) {} } };
+const S = { lens: store.get("lens", null), scope: null, sel: null, scale: null };
+if (!LENSES.some(l => l[0] === S.lens)) S.lens = LENSES.length ? LENSES[0][0] : null;
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const val = v => v === null || v === undefined || v === "" ? '<span class="nil">∅</span>' : esc(typeof v === "object" ? JSON.stringify(v) : v);
+const bytes = n => n < 1024 ? n + " B" : n < 1048576 ? (n / 1024).toFixed(1) + " KB" : (n / 1048576).toFixed(1) + " MB";
+const steps = DATA ? DATA.steps : [];
+steps.forEach((s, i) => s.n = i);
+const stepOf = id => steps.find(s => s.id === id);
+
+/* ── the graph for a lens and a scope ── */
+function scoped(lens, scope) {
+  const g = DATA.graphs[lens];
+  if (!scope) return { nodes: g.nodes, edges: g.edges, clusters: g.clusters, core: new Set() };
+  if (lens === "code") {
+    const c = (DATA.codeSteps || {})[scope];
+    if (c && !S.allCode && c.key && c.key.nodes.length) { const ids = new Set(c.key.nodes);
+      return { nodes: c.nodes.filter(n => ids.has(n.id)), edges: c.key.edges, clusters: c.clusters, core: new Set(c.nodes.filter(n => n.entry && ids.has(n.id)).map(n => n.id)),
+               note: "Showing the " + ids.size + " key classes of this step, with the real calls between them. The step reaches " + c.nodes.length + " in all.", more: c.nodes.length }; }
+    return c ? { nodes: c.nodes, edges: c.edges, clusters: c.clusters, core: new Set(c.nodes.filter(n => n.entry).map(n => n.id)), note: c.note, all: true }
+             : { nodes: [], edges: [], clusters: [], core: new Set() };
+  }
+  const core = new Set(g.nodes.filter(n => n.step === scope).map(n => n.id));
+  const edges = g.edges.filter(e => (e.kind !== "seq") && (core.has(e.from) || core.has(e.to)));
+  const ids = new Set(core); edges.forEach(e => { ids.add(e.from); ids.add(e.to); });
+  return { nodes: g.nodes.filter(n => ids.has(n.id)), edges, clusters: LENSES.find(l => l[0] === lens)[4] ? [] : g.clusters, core };
+}
+
+/* ── layout (dagre) and drawing (SVG) ── */
+const rowText = r => typeof r === "string" ? r : r.t;
+function size(n) {
+  const w = Math.max(n.title.length * 7.7, ...n.rows.map(r => rowText(r).length * 6.95), 96) + 22;
+  return { width: Math.ceil(w), height: 26 + (n.rows.length ? n.rows.length * 17 + 8 : 0) };
+}
+function draw(view, wide) {
+  const g = new dagre.graphlib.Graph({ compound: true, multigraph: true });
+  g.setGraph({ rankdir: wide ? "LR" : "TB", nodesep: 26, ranksep: wide ? 64 : 46, edgesep: 14, marginx: 14, marginy: 14 });
+  g.setDefaultEdgeLabel(() => ({}));
+  const used = new Set(view.nodes.map(n => n.cluster).filter(Boolean));
+  view.clusters.filter(c => used.has(c.id)).forEach(c => g.setNode(c.id, { label: c.label, cluster: true }));
+  view.nodes.forEach(n => { g.setNode(n.id, Object.assign({ n }, size(n))); if (n.cluster && g.hasNode(n.cluster)) g.setParent(n.id, n.cluster); });
+  view.edges.forEach((e, i) => g.setEdge(e.from, e.to, { e, label: e.label || "", width: e.label ? e.label.length * 6.2 + 10 : 0,
+                                                        height: e.label ? 16 : 0, labelpos: "c" }, "e" + i));
+  dagre.layout(g);
+  const G = g.graph(), kinds = ["flow", "read", "write", "alt", "gap", "seq"];
+  let out = '<svg xmlns="http://www.w3.org/2000/svg" role="img" viewBox="0 0 ' + Math.ceil(G.width) + " " + Math.ceil(G.height) + '"><defs>' +
+    kinds.map(k => '<marker id="a-' + k + '" class="k-' + k + '" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z"/></marker>').join("") + "</defs>";
+  g.nodes().filter(v => g.node(v).cluster).forEach(v => { const c = g.node(v);
+    out += '<rect class="cluster" x="' + (c.x - c.width / 2) + '" y="' + (c.y - c.height / 2) + '" width="' + c.width + '" height="' + c.height + '" rx="5"/>' +
+           '<text class="cl" x="' + (c.x - c.width / 2 + 8) + '" y="' + (c.y - c.height / 2 + 14) + '">' + esc(c.label) + "</text>"; });
+  g.edges().forEach(ed => { const d = g.edge(ed), p = d.points, k = d.e.kind || "flow";
+    let path = "M" + p[0].x + " " + p[0].y;
+    for (let i = 1; i < p.length - 1; i++) { const mx = (p[i].x + p[i + 1].x) / 2, my = (p[i].y + p[i + 1].y) / 2;
+      path += " Q" + p[i].x + " " + p[i].y + " " + (i === p.length - 2 ? p[i + 1].x + " " + p[i + 1].y : mx + " " + my); }
+    if (p.length === 2) path += " L" + p[1].x + " " + p[1].y;
+    out += '<g class="edge k-' + k + '" data-from="' + esc(d.e.from) + '" data-to="' + esc(d.e.to) + '"><path d="' + path + '" marker-end="url(#a-' + k + ')"/>';
+    if (d.label && d.x !== undefined) out += '<rect class="elbg" x="' + (d.x - d.width / 2) + '" y="' + (d.y - 8) + '" width="' + d.width + '" height="16"/>' +
+                    '<text class="el" text-anchor="middle" x="' + d.x + '" y="' + (d.y + 4) + '">' + esc(d.label) + "</text>";
+    out += "</g>"; });
+  g.nodes().filter(v => !g.node(v).cluster).forEach(v => { const d = g.node(v), n = d.n, x = d.x - d.width / 2, y = d.y - d.height / 2;
+    out += '<g class="node k-' + n.kind + (view.core.has(n.id) ? " core" : "") + '" data-id="' + esc(n.id) + '" tabindex="0" role="button" aria-label="' + esc(n.title) + '">' +
+      '<rect class="box" x="' + x + '" y="' + y + '" width="' + d.width + '" height="' + d.height + '" rx="3"/>' +
+      '<rect class="head" x="' + x + '" y="' + y + '" width="' + d.width + '" height="26" rx="3"/>' +
+      '<rect class="line" x="' + x + '" y="' + y + '" width="' + d.width + '" height="' + d.height + '" rx="3"/>' +
+      '<text class="t" x="' + (x + 10) + '" y="' + (y + 17) + '">' + esc(n.title) + "</text>";
+    n.rows.forEach((r, i) => { const cls = typeof r === "string" ? "" : (r.cls || ""), ry = y + 26 + 4 + i * 17;
+      if (cls) out += '<rect class="row-' + cls + '" x="' + (x + 4) + '" y="' + ry + '" width="' + (d.width - 8) + '" height="16" rx="2"/>';
+      out += '<text class="' + (cls ? "row-" + cls : "") + '" x="' + (x + 10) + '" y="' + (ry + 12) + '">' + esc(rowText(r)) + "</text>"; });
+    out += "</g>"; });
+  return { svg: out + "</svg>", w: G.width, h: G.height };
+}
+
+let drawn = null;
+function setScale(s) {
+  S.scale = Math.max(.12, Math.min(3, s));
+  const svg = $("stage").querySelector("svg"); if (!svg || !drawn) return;
+  svg.setAttribute("width", drawn.w * S.scale); svg.setAttribute("height", drawn.h * S.scale);
+}
+/* zoom keeping the point under (cx, cy) — stage coordinates — where it is */
+function zoomAt(factor, cx, cy) {
+  const st = $("stage"); if (!drawn) return;
+  const pad = 18, before = S.scale, px = (st.scrollLeft + cx - pad) / before, py = (st.scrollTop + cy - pad) / before;
+  setScale(before * factor);
+  st.scrollLeft = px * S.scale + pad - cx; st.scrollTop = py * S.scale + pad - cy;
+}
+function fit() { const st = $("stage"); return Math.min(1, (st.clientWidth - 36) / drawn.w); }
+
+/* ── the facts pane ── */
+function json(v) {
+  return "<pre>" + esc(JSON.stringify(v, null, 2)).replace(/(&quot;(?:[^&\\]|\\.|&(?!quot;))*?&quot;)(\s*:)/g, '<span class="k">$1</span>$2')
+    .replace(/\bnull\b/g, '<span class="null">null</span>') + "</pre>";
+}
+function code(e) {
+  const lines = e.code.split("\n").map((l, i) => '<span class="ln">' + (e.from + i) + "</span>" + (/^\s*(\/\/|\*|\/\*)/.test(l) ? '<span class="c">' + esc(l) + "</span>" : esc(l)));
+  return '<div class="block"><div class="loc">' + esc(e.file.split("/").slice(-3).join("/")) + ":" + e.from + "–" + e.to + '</div><pre class="code">' + lines.join("\n") + "</pre></div>";
+}
+const kv = rows => '<div class="scroll"><table><tbody>' + rows.map(r => '<tr><td class="f">' + esc(r[0]) + "</td><td>" + esc(r[1]) + "</td></tr>").join("") + "</tbody></table></div>";
+const det = (key, title, body) => "<details" + (S.lens === key ? " open" : "") + "><summary>" + title + "</summary><div>" + body + "</div></details>";
+
+function stepFacts(s) {
+  const d = s.detail || {}, rich = t => esc(t).replace(/`([^`]+)`/g, "<code>$1</code>"), para = t => "<p>" + rich(t) + "</p>";
+  let h = '<div class="kind">Step ' + (s.n + 1) + " of " + steps.length + " · " + esc(s.stage) + "</div><h2>" + (s.name && s.name !== s.title ? '<span class="nm">' + esc(s.name) + "</span>" : "") + esc(s.title) + "</h2>";
+  if (s.banner) h += '<div class="notbuilt">' + esc(s.banner) + "</div>";
+  h += '<p class="lead">' + rich(s.what) + "</p>";
+  if (s.badges && s.badges.length) h += '<div class="badges">' + s.badges.map(b => '<span class="badge' + (b.on ? " on" : "") + '">' + esc(b.text) + "</span>").join("") + "</div>";
+  if (S.scope !== s.id) h += '<button class="open" data-open="' + esc(s.id) + '">Open this step</button>';
+  (d.sections || []).forEach(sec => { h += "<h3>" + esc(sec.title) + "</h3>";
+    if (sec.note) h += '<p class="who">' + esc(sec.note) + "</p>";
+    [].concat(sec.text || []).forEach(t => h += para(t));
+    if (sec.list) h += "<ol>" + sec.list.map(w => "<li>" + rich(w) + "</li>").join("") + "</ol>";
+    if (sec.loc) h += '<p class="loc">' + esc(sec.loc) + "</p>";
+    if (sec.code) h += '<div style="display:flex;flex-direction:column;gap:10px">' + sec.code.map(code).join("") + "</div>"; });
+  return h;
+}
+const KIND = Object.assign({ class: "Class", slot: "State", data: "Data", file: "File", ext: "Outside the program", alt: "Alternative path" }, DATA ? DATA.kinds : null);
+const KINDPKG = "Package";
+function nodeFacts(n) {
+  const d0 = n.detail || {};
+  let h = '<div class="kind">' + (d0.uses ? KINDPKG : KIND[n.kind] || "") + "</div><h2>" + esc(n.title) + '</h2><p class="lead">' + esc(rowText(n.rows[0] || "")) + "</p>";
+  const d = d0;
+  (d.text || []).filter(Boolean).forEach(t => h += "<p>" + esc(t) + "</p>");
+  if (d.uses) h += '<div class="scroll" style="margin-top:10px"><table><thead><tr><th>Class</th><th>Used in steps</th></tr></thead><tbody>' + d.uses.map(r =>
+      '<tr><td class="f">' + esc(r[0]) + "</td><td>" + esc(r[1]) + "</td></tr>").join("") + "</tbody></table></div>";
+  if (d.methods && d.methods.length) h += '<h3>Methods this step reaches</h3><p class="mono">' + d.methods.map(esc).join("<br>") + "</p>";
+  if (d.table) h += '<ul class="rows">' + d.table.rows.map(r => '<li><span class="f">' + esc(r[0]) + "</span>" + r.slice(1).map((c, i) => c ? '<span class="c"><i>' +
+      esc(d.table.head[i + 1] || "") + "</i> " + esc(c) + "</span>" : "").join("") + "</li>").join("") + "</ul>";
+  if (d.kv) h += kv(d.kv);
+  if (d.file) h += "<h3>The file itself: " + esc(d.file.name) + "</h3><pre>" + esc(d.file.text) + "</pre>";
+  if (d.code && d.code.length) h += '<h3>In the code</h3><div style="display:flex;flex-direction:column;gap:10px">' + d.code.map(code).join("") + "</div>";
+  if (d.json) h += "<h3>The value itself</h3>" + json(d.json);
+  return h;
+}
+const LEGEND = Object.assign({
+  boxes: [["step", "a step of the run"], ["frame", "before the steps begin"], ["human", "done by a person"], ["class", "a class"], ["slot", "state, or data"], ["file", "a file on disk"]],
+  lines: [["flow", "runs next, or calls"], ["write", "writes"], ["read", "reads"], ["alt", "another mode, or conditional"], ["gap", "not built"]] }, DATA ? DATA.legend : null);
+function legend() {
+  const line = (k, t) => '<svg><g class="edge k-' + k + '"><path d="M2 8H50" marker-end="url(#a-' + k + ')"/></g></svg><span>' + esc(t) + "</span>";
+  const box = (c, t) => '<span class="sw" style="background:var(--h-' + c + ')"></span><span>' + esc(t) + "</span>";
+  return '<div class="kind">Whole run</div><h2>' + esc(DATA.subject || DATA.title) + "</h2>" + (DATA.intro || []).map(t => "<p>" + esc(t) + "</p>").join("") +
+    "<p>Pick a layer above to redraw the run through it. Click a box for its facts; click a step on the left to draw only that step.</p>" +
+    '<div class="legend">' + LEGEND.boxes.map(b => box(b[0], b[1])).join("") + LEGEND.lines.map(l => line(l[0], l[1])).join("") + "</div>";
+}
+function renderSide() {
+  const all = S.lens === "code" && S.scope && DATA.codeSteps[S.scope] ? DATA.codeSteps[S.scope].nodes : DATA.graphs[S.lens].nodes;
+  const n = S.sel && all.find(x => x.id === S.sel);
+  const s = n && n.step && n.kind !== "alt" ? stepOf(n.step) : (!n && S.scope ? stepOf(S.scope) : null);
+  $("side").innerHTML = s ? stepFacts(s) : n ? nodeFacts(n) : legend();
+  $("side").querySelectorAll("[data-open]").forEach(b => b.onclick = () => go(b.dataset.open));
+  $("side").scrollTop = 0;
+}
+
+/* ── wiring ── */
+function light() {
+  const st = $("stage"); st.classList.toggle("lit", !!S.sel);
+  st.querySelectorAll("g.node, g.edge").forEach(x => x.classList.remove("on", "sel"));
+  if (!S.sel) return;
+  const near = new Set([S.sel]);
+  st.querySelectorAll("g.edge").forEach(e => { if (e.dataset.from === S.sel || e.dataset.to === S.sel) { e.classList.add("on"); near.add(e.dataset.from); near.add(e.dataset.to); } });
+  st.querySelectorAll("g.node").forEach(n => { if (near.has(n.dataset.id)) n.classList.add("on"); if (n.dataset.id === S.sel) n.classList.add("sel"); });
+}
+function render() {
+  const lens = LENSES.find(l => l[0] === S.lens), s = S.scope && stepOf(S.scope);
+  $("crumbs").innerHTML = s ? "<b>" + esc(s.title) + "</b>" + (s.n + 1) + " · " + esc(s.name) : "<b>The whole run</b>" + steps.length + " steps";
+  const scopedView = scoped(S.lens, S.scope);
+  $("claim").textContent = (s ? lens[3] : lens[2]) + (scopedView.note ? " " + scopedView.note : "");
+  document.querySelectorAll("#tabs button").forEach(b => b.setAttribute("aria-pressed", b.dataset.lens === S.lens));
+  document.querySelectorAll("#rail button").forEach(b => b.setAttribute("aria-current", (b.dataset.id || null) === S.scope));
+  const i = s ? s.n : -1; $("prev").disabled = i < 0; $("next").disabled = i >= steps.length - 1;
+  const cm = S.lens === "code" && S.scope && DATA.codeSteps[S.scope]; $("codeMode").hidden = !cm;
+  if (cm) { $("code-all").textContent = "All classes (" + cm.nodes.length + ")"; $("code-key").setAttribute("aria-pressed", !S.allCode); $("code-all").setAttribute("aria-pressed", !!S.allCode); }
+  const view = scopedView, st = $("stage");
+  if (!view.nodes.length) { st.innerHTML = '<p class="note">' + (S.lens === "code" ? "No code is drawn here: nothing in the repository does this step." : "Nothing to draw for this step in this layer.") + "</p>"; drawn = null; }
+  else { try { drawn = draw(view, (!!S.scope || S.lens === "code") && st.clientWidth > 700); st.innerHTML = drawn.svg; st.querySelector("svg").setAttribute("aria-label", (s ? s.title + ": " : "The whole run: ") + $("claim").textContent);
+           setScale(S.scope ? Math.max(.55, fit()) : Math.max(.5, fit())); }
+         catch (e) { st.innerHTML = '<p class="fail">The diagram could not be laid out (' + esc(e.message) + ").</p>"; drawn = null; } }
+  st.scrollTop = 0; st.scrollLeft = 0;
+  { const first = st.querySelector("g.node.core") || (S.lens === "code" ? st.querySelector("g.node") : null);
+    if (first) { const r = first.getBoundingClientRect(), b = st.getBoundingClientRect();
+      st.scrollTop = Math.max(0, r.top - b.top - b.height / 2 + r.height / 2); st.scrollLeft = Math.max(0, r.left - b.left - b.width / 3); } }
+  st.querySelectorAll("g.node").forEach(n => { const pick = () => { S.sel = S.sel === n.dataset.id ? null : n.dataset.id; light(); renderSide(); };
+    n.onclick = pick; n.onkeydown = e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); pick(); } };
+    n.ondblclick = () => { const x = DATA.graphs[S.lens].nodes.find(y => y.id === n.dataset.id); if (x && x.step) go(x.step); }; });
+  light(); renderSide();
+  try { history.replaceState(null, "", "#" + (S.scope || "all") + "." + S.lens); } catch (e) {}
+}
+function go(scope, lens) { S.scope = scope || null; if (lens) { S.lens = lens; store.set("lens", lens); } S.sel = null; render(); }
+function fromHash() {
+  const [a, b] = location.hash.slice(1).split(".");
+  if (LENSES.some(l => l[0] === b)) S.lens = b;
+  S.scope = stepOf(a) ? a : null;
+}
+
+if (!DATA) $("stage").innerHTML = '<p class="fail">No data inlined. This file is the template: build the page with <code>tracekit.write_page</code>.</p>';
+else if (typeof dagre === "undefined") $("stage").innerHTML = '<p class="fail">The layout library did not load, so the diagrams cannot be drawn.</p>';
+else {
+  $("title").textContent = DATA.title; $("facts").innerHTML = DATA.command ? "<code>" + esc(DATA.command) + "</code>" : "";
+  let h = '<button class="all"><span class="n">∑</span><span class="nm">Whole run</span></button>', stage = "";
+  steps.forEach(s => { if (s.stage !== stage) { stage = s.stage; h += '<div class="stage">' + esc(stage) + "</div>"; }
+    h += '<button data-id="' + s.id + '" class="' + (s.kind === "gap" ? "gap" : s.kind === "human" ? "human" : "") + '"><span class="n">' + (s.n + 1) + '</span><span class="nm">' + esc(s.name) + "</span></button>"; });
+  $("rail").innerHTML = h;
+  $("rail").querySelectorAll("button").forEach(b => b.onclick = () => go(b.dataset.id));
+  LENSES.forEach(l => { const b = document.createElement("button"); b.textContent = l[1]; b.dataset.lens = l[0]; b.onclick = () => go(S.scope, l[0]); $("tabs").appendChild(b); });
+  const move = d => { const i = S.scope ? stepOf(S.scope).n + d : (d > 0 ? 0 : -1); if (i >= 0 && i < steps.length) go(steps[i].id); else if (i < 0) go(null); };
+  $("prev").onclick = () => move(-1); $("next").onclick = () => move(1);
+  $("code-key").onclick = () => { S.allCode = false; S.sel = null; render(); }; $("code-all").onclick = () => { S.allCode = true; S.sel = null; render(); };
+  const mid = () => [$("stage").clientWidth / 2, $("stage").clientHeight / 2];
+  $("z-in").onclick = () => zoomAt(1.25, ...mid()); $("z-out").onclick = () => zoomAt(1 / 1.25, ...mid());
+  $("z-fit").onclick = () => drawn && setScale(Math.min(fit(), ($("stage").clientHeight - 36) / drawn.h)); $("z-one").onclick = () => setScale(1);
+  document.addEventListener("keydown", e => { if (e.altKey || e.ctrlKey || e.metaKey || /INPUT|TEXTAREA|SELECT/.test(e.target.tagName)) return;
+    if (e.key === "ArrowRight") move(1); else if (e.key === "ArrowLeft") move(-1);
+    else if (/^[1-9]$/.test(e.key) && LENSES[+e.key - 1]) go(S.scope, LENSES[+e.key - 1][0]); });
+  /* drag or scroll to move, Ctrl+wheel or pinch to zoom */
+  const st = $("stage"), pts = new Map(); let drag = null, pinch = null, moved = false;
+  const at = e => { const b = st.getBoundingClientRect(); return [e.clientX - b.left, e.clientY - b.top]; };
+  /* plain wheel scrolls the stage as usual; with Ctrl (or a trackpad pinch, which arrives as Ctrl+wheel) it zooms */
+  st.addEventListener("wheel", e => { if (!drawn || !(e.ctrlKey || e.metaKey)) return; e.preventDefault();
+    const step = e.deltaMode === 1 ? e.deltaY * 16 : e.deltaY; zoomAt(Math.exp(-step * .004), ...at(e)); }, { passive: false });
+  st.addEventListener("pointerdown", e => { if (e.button > 0) return; pts.set(e.pointerId, e); moved = false;
+    if (pts.size === 1) drag = { x: e.clientX, y: e.clientY, l: st.scrollLeft, t: st.scrollTop };
+    else if (pts.size === 2) { const [a, b] = [...pts.values()]; drag = null; pinch = { d: Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY) }; } });
+  window.addEventListener("pointermove", e => { if (!pts.has(e.pointerId)) return; pts.set(e.pointerId, e);
+    if (pinch && pts.size === 2) { const [a, b] = [...pts.values()], d = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY), box = st.getBoundingClientRect();
+      if (pinch.d > 0) zoomAt(d / pinch.d, (a.clientX + b.clientX) / 2 - box.left, (a.clientY + b.clientY) / 2 - box.top); pinch.d = d; moved = true; return; }
+    if (!drag) return; const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
+    if (!moved && Math.hypot(dx, dy) < 4) return;
+    moved = true; st.classList.add("drag"); st.scrollLeft = drag.l - dx; st.scrollTop = drag.t - dy; });
+  const up = e => { pts.delete(e.pointerId); if (pts.size < 2) pinch = null; if (!pts.size) { drag = null; st.classList.remove("drag"); } };
+  window.addEventListener("pointerup", up); window.addEventListener("pointercancel", up);
+  /* a drag that ends on a box must not select it */
+  st.addEventListener("click", e => { if (moved) { e.stopPropagation(); e.preventDefault(); moved = false; } }, true);
+  window.addEventListener("hashchange", () => { fromHash(); S.sel = null; render(); });
+  fromHash(); render();
+}
+</script>

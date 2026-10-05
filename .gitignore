@@ -26,3 +26,9 @@ ui-ux-references/vault/
 *.log
 .DS_Store
 __pycache__/
+
+# Per-machine API keys for plugins (model-router, context-checkpoint). Never committed:
+# a marketplace checkout is a git repo, and an untracked key file is one `git add -A` from
+# being published to every workstation that pulls it.
+*.env
+!*.env.example

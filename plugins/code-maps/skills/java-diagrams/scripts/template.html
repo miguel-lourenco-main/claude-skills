@@ -1,0 +1,390 @@
+<title>__TITLE__ class map</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: a drafting sheet. Package tree on the left, one bounded diagram in the middle,
+   the facts behind whatever is selected on the right. */
+:root {
+  --bg: #f4f5f2; --panel: #fbfbf9; --fg: #1b2430; --muted: #687385; --rule: #d9dcd6; --accent: #2c5ea8; --warn: #b3421c;
+  --g-box: #fdfdfb; --g-line: #56606e; --g-frame: #b9c0cb; --g-faint: #b4bac3; --g-dep: #7d8794;
+  --g-head-class: #e4ebf6; --g-head-interface: #dff1e8; --g-head-data: #f5ecd9; --g-head-ghost: #eeeeea;
+  --g-pkg: #eef1f6; --g-pkg-out: #f6f6f3;
+  --sans: "IBM Plex Sans", "Helvetica Neue", Arial, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #14181d; --panel: #1a1f26; --fg: #e3e7ec; --muted: #94a0b0; --rule: #2d343e; --accent: #7fb0f5; --warn: #f08a5d;
+  --g-box: #1d232b; --g-line: #8793a3; --g-frame: #3b4551; --g-faint: #4a5563; --g-dep: #8a96a6;
+  --g-head-class: #26354d; --g-head-interface: #1f3d32; --g-head-data: #453a22; --g-head-ghost: #2a2f36;
+  --g-pkg: #232b36; --g-pkg-out: #1c2128; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #14181d; --panel: #1a1f26; --fg: #e3e7ec; --muted: #94a0b0; --rule: #2d343e; --accent: #7fb0f5; --warn: #f08a5d;
+  --g-box: #1d232b; --g-line: #8793a3; --g-frame: #3b4551; --g-faint: #4a5563; --g-dep: #8a96a6;
+  --g-head-class: #26354d; --g-head-interface: #1f3d32; --g-head-data: #453a22; --g-head-ghost: #2a2f36;
+  --g-pkg: #232b36; --g-pkg-out: #1c2128; color-scheme: dark }
+
+html, body { height: 100%; }
+body { background: var(--bg); color: var(--fg); font: 14px/1.45 var(--sans); display: flex; flex-direction: column; }
+button, input { font: inherit; color: inherit; }
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+header { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 20px; padding: 10px 16px; border-bottom: 1px solid var(--rule); }
+header h1 { font-size: 16px; font-weight: 600; margin: 0; }
+header .facts { color: var(--muted); font-size: 12.5px; font-variant-numeric: tabular-nums; }
+header .search { margin-left: auto; position: relative; min-width: 0; flex: 0 1 280px; }
+#q { width: 100%; padding: 5px 9px; background: var(--panel); border: 1px solid var(--rule); border-radius: 4px; }
+#hits { position: absolute; z-index: 5; top: 100%; right: 0; left: 0; margin-top: 2px; background: var(--panel); border: 1px solid var(--rule); border-radius: 4px; max-height: 50vh; overflow: auto; box-shadow: 0 6px 18px rgb(0 0 0 / .14); }
+#hits button { display: block; width: 100%; text-align: left; padding: 5px 9px; background: none; border: 0; cursor: pointer; }
+#hits button:hover, #hits button:focus-visible { background: var(--bg); }
+#hits small { color: var(--muted); font-family: var(--mono); font-size: 11px; display: block; overflow-wrap: anywhere; }
+
+main { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(180px, 250px) minmax(0, 1fr) minmax(220px, 320px); }
+nav, aside { overflow: auto; padding: 12px 16px; background: var(--panel); font-size: 13px; }
+nav { border-right: 1px solid var(--rule); }
+aside { border-left: 1px solid var(--rule); overflow-wrap: anywhere; }
+nav ul { list-style: none; margin: 0; padding: 0 0 0 12px; }
+nav > ul { padding: 0; }
+nav li > div { display: flex; gap: 4px; align-items: baseline; }
+nav .tw { width: 14px; flex: none; background: none; border: 0; padding: 0; cursor: pointer; color: var(--muted); }
+nav a { color: var(--fg); flex: 1; min-width: 0; padding: 1px 0; overflow-wrap: anywhere; }
+nav a.here { color: var(--accent); font-weight: 600; }
+nav .n { color: var(--muted); font-size: 11.5px; font-variant-numeric: tabular-nums; }
+
+section { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+.bar { display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: center; padding: 8px 16px; border-bottom: 1px solid var(--rule); }
+.crumbs { font-family: var(--mono); font-size: 12.5px; min-width: 0; overflow-wrap: anywhere; }
+.crumbs b { font-weight: 500; }
+.tabs { display: flex; gap: 2px; margin-left: auto; }
+.tabs button, .zoom button { background: none; border: 1px solid transparent; border-radius: 4px; padding: 3px 9px; cursor: pointer; color: var(--muted); }
+.tabs button[aria-pressed="true"] { color: var(--fg); border-color: var(--rule); background: var(--panel); font-weight: 500; }
+.tabs button:disabled { opacity: .4; cursor: default; }
+.zoom { display: flex; gap: 2px; }
+.zoom button { border-color: var(--rule); min-width: 30px; }
+#stage { flex: 1; min-height: 0; overflow: auto; padding: 16px; cursor: grab; }
+#stage.drag { cursor: grabbing; user-select: none; }
+#stage svg { display: block; }
+#note { padding: 6px 16px; border-top: 1px solid var(--rule); color: var(--muted); font-size: 12.5px; }
+#note:empty { display: none; }
+
+/* the drawing: Graphviz colours are fixed tokens, remapped here so both themes work */
+#stage svg text { font-family: Helvetica, Arial, "Liberation Sans", "Nimbus Sans", sans-serif; }
+#stage g.node, #stage g.edge { cursor: pointer; }
+#stage g.edge path { transition: opacity .12s; }
+#stage.lit g.edge:not(.on), #stage.lit g.node:not(.on) { opacity: .18; }
+#stage g.edge:hover path, #stage g.edge.sel path { stroke-width: 2.6px; }
+#stage g.node.sel > polygon:last-of-type, #stage g.node.sel > path { stroke: var(--accent); stroke-width: 2px; }
+#stage g.edge .hit { stroke: transparent; stroke-width: 12px; fill: none; }
+
+table.dsm { border-collapse: collapse; font-size: 12px; font-variant-numeric: tabular-nums; }
+table.dsm th, table.dsm td { border: 1px solid var(--rule); padding: 3px 7px; text-align: right; white-space: nowrap; }
+table.dsm th { font-weight: 500; text-align: left; background: var(--panel); }
+table.dsm thead th { text-align: center; }
+table.dsm td.x { background: var(--rule); }
+table.dsm td button { background: none; border: 0; padding: 0; cursor: pointer; color: var(--accent); }
+table.dsm td.m button { color: var(--warn); font-weight: 600; }
+
+aside h2 { font-size: 14px; margin: 0 0 2px; font-weight: 600; }
+aside h3 { font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin: 14px 0 4px; font-weight: 500; }
+aside p { margin: 4px 0; }
+aside .sub { color: var(--muted); font-family: var(--mono); font-size: 11.5px; }
+aside ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 5px; }
+aside code, aside .m { font-family: var(--mono); font-size: 11.5px; }
+aside .m { display: block; padding-left: 1.4em; text-indent: -1.4em; }
+aside .k { color: var(--muted); }
+.legend { display: grid; grid-template-columns: 54px 1fr; gap: 4px 8px; align-items: center; font-size: 12px; color: var(--muted); }
+.legend svg { width: 54px; height: 12px; overflow: visible; }
+
+@media (max-width: 860px) {
+  body { height: auto; }
+  main { display: flex; flex-direction: column; }
+  nav, aside { border: 0; border-bottom: 1px solid var(--rule); max-height: 30vh; }
+  aside { order: 3; max-height: none; border-top: 1px solid var(--rule); }
+  #stage { min-height: 60vh; }
+  header .search { flex-basis: 100%; margin-left: 0; }
+}
+@media (prefers-reduced-motion: reduce) { #stage g.edge path { transition: none; } }
+</style>
+
+<header>
+  <h1 id="title"></h1>
+  <span class="facts" id="facts"></span>
+  <div class="search"><input id="q" type="search" placeholder="Find a class or package" autocomplete="off" aria-label="Find a class or package"><div id="hits" hidden></div></div>
+</header>
+<main>
+  <nav aria-label="Packages"><ul id="tree"></ul></nav>
+  <section>
+    <div class="bar">
+      <div class="crumbs" id="crumbs"></div>
+      <div class="tabs" id="tabs">
+        <button id="tab-p" type="button">Packages</button><button id="tab-c" type="button">Classes</button><button id="tab-m" type="button">Matrix</button>
+      </div>
+      <div class="zoom"><button id="zo" type="button" aria-label="Zoom out">−</button><button id="zf" type="button">Fit</button><button id="zi" type="button" aria-label="Zoom in">+</button></div>
+    </div>
+    <div id="stage"></div>
+    <div id="note"></div>
+  </section>
+  <aside id="side" aria-live="polite"></aside>
+</main>
+
+<script>
+const D = "__DATA__";
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const pkgByName = new Map(D.packages.map(p => [p.full, p]));
+const unitById = new Map(D.units.map((u, i) => [u.id, i]));
+const rel = full => full === D.root ? (full.split('.').pop() || '(default)') : full.startsWith(D.root + '.') ? full.slice(D.root.length + 1) : full;
+const key = full => full || '_';
+const pkgTarget = full => D.views['p.' + key(full)] ? 'p.' + key(full) : D.views['c.' + key(full)] ? 'c.' + key(full) : null;
+const link = (hash, text, cls) => `<a href="#${hash}"${cls ? ` class="${cls}"` : ''}>${esc(text)}</a>`;
+const unitLink = i => link('u.' + D.units[i].id, D.units[i].name);
+
+// theme: remap the drawing's fixed colours onto tokens
+{
+  const map = { box: '--g-box', text: '--fg', muted: '--muted', line: '--g-line', frame: '--g-frame', faint: '--g-faint', dep: '--g-dep',
+    headClass: '--g-head-class', headInterface: '--g-head-interface', headData: '--g-head-data', headGhost: '--g-head-ghost',
+    pkg: '--g-pkg', pkgOut: '--g-pkg-out', inherit: '--fg', assoc: '--accent', mutual: '--warn' };
+  let css = '';
+  for (const [k, v] of Object.entries(map)) {
+    const c = D.ink[k];
+    css += `#stage svg [fill="${c}"]{fill:var(${v})}#stage svg [stroke="${c}"]{stroke:var(${v})}`;
+  }
+  css += '#stage svg [fill="black"]{fill:var(--fg)}#stage svg [stroke="black"]{stroke:var(--g-line)}#stage svg [fill="white"]{fill:var(--g-box)}';
+  document.head.appendChild(Object.assign(document.createElement('style'), { textContent: css }));
+}
+
+$('title').textContent = D.title;
+$('facts').textContent = `${D.report.classes} classes · ${D.report.packages} packages · ${D.report.relationships} relationships, all accounted for in ${D.report.views} views`;
+
+// ── package tree ──
+const open = new Set([D.root]);
+function tree(full) {
+  const p = pkgByName.get(full);
+  const kids = p.children.length;
+  const t = pkgTarget(full);
+  const label = full === D.root ? (full || '(default package)') : p.name;
+  let h = `<li><div>${kids ? `<button class="tw" type="button" data-tw="${esc(full)}" aria-label="Toggle ${esc(label)}">${open.has(full) ? '▾' : '▸'}</button>` : '<span class="tw"></span>'}`;
+  h += t ? `<a href="#${t}" data-pkg="${esc(full)}">${esc(label)}</a>` : `<span>${esc(label)}</span>`;
+  h += ` <span class="n">${p.total}</span></div>`;
+  if (kids && open.has(full)) h += '<ul>' + p.children.map(tree).join('') + '</ul>';
+  return h + '</li>';
+}
+function drawTree(current) {
+  for (let f = current; f !== null && f !== undefined; f = pkgByName.get(f)?.parent) open.add(f);
+  $('tree').innerHTML = tree(D.root);
+  for (const a of $('tree').querySelectorAll('a')) a.classList.toggle('here', a.dataset.pkg === current);
+}
+$('tree').addEventListener('click', e => {
+  const t = e.target.closest('[data-tw]');
+  if (!t) return;
+  const f = t.dataset.tw;
+  open.has(f) ? open.delete(f) : open.add(f);
+  $('tree').innerHTML = tree(D.root);
+});
+
+// ── search ──
+$('q').addEventListener('input', () => {
+  const q = $('q').value.trim().toLowerCase();
+  if (!q) { $('hits').hidden = true; return; }
+  const out = [];
+  for (const u of D.units) if (u.name.toLowerCase().includes(q)) out.push([u.name.toLowerCase().startsWith(q) ? 0 : 1, u.name, u.pkg, 'u.' + u.id]);
+  for (const p of D.packages) { const t = pkgTarget(p.full); if (t && p.name.toLowerCase().includes(q)) out.push([2, p.name, p.full, t]); }
+  out.sort((a, b) => a[0] - b[0] || a[1].localeCompare(b[1]));
+  $('hits').innerHTML = out.slice(0, 30).map(o => `<button type="button" data-go="${esc(o[3])}">${esc(o[1])}<small>${esc(o[2])}</small></button>`).join('') || '<button type="button" disabled>Nothing matches</button>';
+  $('hits').hidden = false;
+});
+$('hits').addEventListener('click', e => { const b = e.target.closest('[data-go]'); if (b) { location.hash = b.dataset.go; $('hits').hidden = true; $('q').value = ''; } });
+document.addEventListener('click', e => { if (!e.target.closest('.search')) $('hits').hidden = true; });
+
+// ── view ──
+let cur = null, scale = 1, natural = [0, 0], matrix = false;
+const svgCache = new Map();
+async function svgOf(id) {
+  if (svgCache.has(id)) return svgCache.get(id);
+  const bin = Uint8Array.from(atob(D.views[id].svg), c => c.charCodeAt(0));
+  const text = await new Response(new Blob([bin]).stream().pipeThrough(new DecompressionStream('gzip'))).text();
+  svgCache.set(id, text);
+  return text;
+}
+
+async function show(id) {
+  if (!D.views[id]) id = pkgTarget(D.root) || Object.keys(D.views)[0];
+  cur = { id, v: D.views[id] };
+  const v = cur.v;
+  const pkg = v.pkg;
+  drawTree(pkg);
+
+  // crumbs
+  const chain = [];
+  for (let f = pkg; f !== null && f !== undefined; f = pkgByName.get(f)?.parent) chain.unshift(f);
+  let crumbs = chain.map((f, i) => { const t = pkgTarget(f); const name = i === 0 ? (f || '(default)') : pkgByName.get(f).name; return t && !(v.kind !== 'focus' && f === pkg) ? link(t, name) : `<b>${esc(name)}</b>`; }).join(' . ');
+  if (v.kind === 'focus') crumbs += ` . <b>${esc(D.units[v.focus].name)}</b>`;
+  $('crumbs').innerHTML = crumbs;
+
+  // tabs
+  const hasP = !!D.views['p.' + key(pkg)], hasC = !!D.views['c.' + key(pkg)];
+  $('tab-p').disabled = !hasP; $('tab-c').disabled = !hasC; $('tab-m').disabled = v.kind === 'focus';
+  if (v.kind === 'focus') matrix = false;
+  $('tab-p').setAttribute('aria-pressed', v.kind === 'packages' && !matrix);
+  $('tab-c').setAttribute('aria-pressed', v.kind === 'classes' && !matrix);
+  $('tab-m').setAttribute('aria-pressed', matrix);
+
+  const notes = [];
+  if (v.stacked) notes.push(`${v.stacked} ${v.kind === 'packages' ? 'packages' : 'classes'} with identical connections are drawn as stacks`);
+  if (v.folded) notes.push(`${v.folded} with the fewest connections are folded into one box`);
+  if (v.hidden) notes.push(`${v.hidden} relationships run inside a single box and show in its own view`);
+  if (v.kind !== 'focus') notes.push('an arrow touching the frame connects to the package as a whole');
+  if (v.kind === 'focus') notes.push('only relationships of this class are shown');
+  $('note').textContent = notes.length ? notes.join(' · ') + '.' : '';
+
+  if (matrix) drawMatrix(); else await drawSvg();
+  sideDefault();
+}
+
+async function drawSvg() {
+  const stage = $('stage');
+  stage.innerHTML = await svgOf(cur.id);
+  const svg = stage.querySelector('svg');
+  natural = [parseFloat(svg.getAttribute('width')) * 4 / 3, parseFloat(svg.getAttribute('height')) * 4 / 3];
+  for (const g of svg.querySelectorAll('g.edge')) {
+    const p = g.querySelector('path');
+    if (p) { const hit = p.cloneNode(); hit.setAttribute('class', 'hit'); hit.removeAttribute('stroke-dasharray'); g.insertBefore(hit, g.firstChild); }
+  }
+  const avail = stage.clientWidth - 34;
+  setScale(Math.max(0.55, Math.min(1, avail / natural[0])));
+  stage.scrollTo(Math.max(0, (natural[0] * scale - stage.clientWidth) / 2), 0);
+}
+function setScale(s) {
+  scale = Math.max(0.2, Math.min(3, s));
+  const svg = $('stage').querySelector('svg');
+  if (!svg) return;
+  svg.setAttribute('width', natural[0] * scale);
+  svg.setAttribute('height', natural[1] * scale);
+}
+$('zi').onclick = () => setScale(scale * 1.25);
+$('zo').onclick = () => setScale(scale / 1.25);
+$('zf').onclick = () => setScale(Math.min(($('stage').clientWidth - 34) / natural[0], ($('stage').clientHeight - 34) / natural[1]));
+$('stage').addEventListener('wheel', e => { if (!e.ctrlKey && !e.metaKey) return; e.preventDefault(); setScale(scale * (e.deltaY < 0 ? 1.1 : 1 / 1.1)); }, { passive: false });
+{ // drag to pan
+  const st = $('stage'); let from = null, moved = false;
+  st.addEventListener('pointerdown', e => { if (e.button === 0) { from = [e.clientX + st.scrollLeft, e.clientY + st.scrollTop]; moved = false; } });
+  st.addEventListener('pointermove', e => { if (!from) return; const x = from[0] - e.clientX, y = from[1] - e.clientY; if (Math.abs(x - st.scrollLeft) + Math.abs(y - st.scrollTop) > 4) { moved = true; st.classList.add('drag'); } if (moved) st.scrollTo(x, y); });
+  addEventListener('pointerup', () => { from = null; setTimeout(() => { st.classList.remove('drag'); moved = false; }, 0); });
+  st.addEventListener('click', e => { if (moved) { e.stopPropagation(); e.preventDefault(); } }, true);
+}
+
+const nodeOf = id => cur.v.nodes.find(n => n.id === id);
+const nodeName = id => { if (id === 'scope') return rel(cur.v.pkg) + ' (the whole package)'; const n = nodeOf(id); return n.type === 'unit' ? D.units[n.unit].name : n.text.main; };
+function nodeTarget(n) {
+  if (n.type === 'unit') return 'u.' + D.units[n.unit].id;
+  if (n.type === 'own') return 'c.' + key(n.pkg);
+  if (n.type === 'pkg') return pkgTarget(n.pkg);
+  return null;
+}
+
+$('stage').addEventListener('click', e => {
+  const cell = e.target.closest('[data-edge]');
+  if (cell) return sideEdge(cur.v.edges.find(x => x.id === cell.dataset.edge));
+  const g = e.target.closest('g.node, g.edge');
+  for (const s of $('stage').querySelectorAll('.sel')) s.classList.remove('sel');
+  if (!g) return sideDefault();
+  g.classList.add('sel');
+  if (g.classList.contains('edge')) return sideEdge(cur.v.edges.find(x => x.id === g.id));
+  const n = nodeOf(g.id);
+  const t = nodeTarget(n);
+  if (t && t !== cur.id) location.hash = t; else sideNode(n);
+});
+$('stage').addEventListener('mouseover', e => {
+  const g = e.target.closest('g.node');
+  const st = $('stage');
+  for (const s of st.querySelectorAll('.on')) s.classList.remove('on');
+  if (!g) return st.classList.remove('lit');
+  st.classList.add('lit');
+  g.classList.add('on');
+  for (const ed of cur.v.edges) {
+    const ends = [ed.f, ed.t];
+    if (!ends.includes(g.id)) continue;
+    document.getElementById(ed.id)?.classList.add('on');
+    for (const x of ends) if (x !== 'scope') document.getElementById(x)?.classList.add('on');
+  }
+});
+$('stage').addEventListener('mouseleave', () => { $('stage').classList.remove('lit'); });
+
+function drawMatrix() {
+  const v = cur.v;
+  const ids = [...v.nodes.map(n => n.id)];
+  if (v.edges.some(e => e.f === 'scope' || e.t === 'scope')) ids.push('scope');
+  const cell = new Map(v.edges.map(e => [e.f + ' ' + e.t, e]));
+  let h = '<table class="dsm"><thead><tr><th>depends on →</th>' + ids.map((_, i) => `<th title="${esc(nodeName(ids[i]))}">${i + 1}</th>`).join('') + '</tr></thead><tbody>';
+  ids.forEach((r, i) => {
+    h += `<tr><th>${i + 1}. ${esc(nodeName(r))}</th>`;
+    ids.forEach((c, j) => {
+      const e = cell.get(r + ' ' + c);
+      const mutual = e && cell.has(c + ' ' + r);
+      h += i === j ? '<td class="x"></td>' : e ? `<td${mutual ? ' class="m"' : ''}><button type="button" data-edge="${e.id}">${e.c.length}</button></td>` : '<td></td>';
+    });
+    h += '</tr>';
+  });
+  $('stage').innerHTML = h + '</tbody></table>';
+}
+
+// ── side panel ──
+const LEGEND = `<h3>Reading the drawing</h3><div class="legend">
+<svg viewBox="0 0 54 12"><path d="M2 6H42" stroke="var(--fg)" fill="none"/><path d="M42 1.5L52 6L42 10.5Z" fill="var(--panel)" stroke="var(--fg)"/></svg><span>extends</span>
+<svg viewBox="0 0 54 12"><path d="M2 6H42" stroke="var(--fg)" fill="none" stroke-dasharray="4 3"/><path d="M42 1.5L52 6L42 10.5Z" fill="var(--panel)" stroke="var(--fg)"/></svg><span>implements</span>
+<svg viewBox="0 0 54 12"><path d="M2 6H51M44 2L52 6L44 10" stroke="var(--accent)" fill="none"/></svg><span>holds in a field (named on the arrow; * many, 0..1 optional)</span>
+<svg viewBox="0 0 54 12"><path d="M2 6H51" stroke="var(--g-dep)" fill="none" stroke-dasharray="4 3"/><path d="M44 2L52 6L44 10" stroke="var(--g-dep)" fill="none"/></svg><span>uses: creates, calls, takes or returns</span>
+<svg viewBox="0 0 54 12"><path d="M2 6H51M44 2L52 6L44 10" stroke="var(--g-dep)" fill="none" stroke-width="2.2"/></svg><span>several relationships, counted on the arrow</span>
+<svg viewBox="0 0 54 12"><path d="M2 6H51M44 2L52 6L44 10" stroke="var(--g-faint)" fill="none"/></svg><span>between packages: also reachable through other arrows</span>
+<svg viewBox="0 0 54 12"><path d="M2 6H51M44 2L52 6L44 10" stroke="var(--warn)" fill="none" stroke-width="1.6"/></svg><span>the two ends depend on each other</span>
+</div><p class="k" style="margin-top:10px">Click a box to open it, an arrow to see what it stands for. Ctrl + wheel zooms.</p>`;
+
+function sideDefault() {
+  const v = cur.v;
+  if (v.kind === 'focus') return sideUnit(v.focus, true);
+  const p = pkgByName.get(v.pkg);
+  let h = `<h2>${esc(rel(v.pkg))}</h2><p class="sub">${esc(v.pkg)}</p>`;
+  if (D.notes[v.pkg]) h += `<p>${esc(D.notes[v.pkg])}</p>`;
+  h += `<p>${p.total} classes${p.children.length ? ` in ${p.children.length} sub-packages${p.units.length ? `, ${p.units.length} of them directly here` : ''}` : ''}.</p>`;
+  if (v.kind === 'classes' && p.units.length) h += '<h3>Classes here</h3><ul>' + p.units.map(i => `<li>${unitLink(i)}</li>`).join('') + '</ul>';
+  $('side').innerHTML = h + LEGEND;
+}
+function sideUnit(i, withLegend) {
+  const u = D.units[i];
+  let h = `<h2>${esc(u.name)}</h2><p class="sub">${esc(u.kind)}${u.abstract ? ', abstract' : ''} · ${link(pkgTarget(u.pkg) || '', u.pkg)}</p>`;
+  if (u.source) h += `<p class="sub">${esc(u.source)}${u.line ? ':' + u.line : ''}</p>`;
+  if (u.ann) h += `<p class="k">${u.ann.map(a => '@' + esc(a)).join(' ')}</p>`;
+  if (u.sup) h += `<h3>Extends</h3><p class="m">${esc(u.sup)}</p>`;
+  if (u.ifs) h += `<h3>Implements</h3>` + u.ifs.map(x => `<span class="m">${esc(x)}</span>`).join('');
+  if (u.fields.length) h += `<h3>Fields (${u.fields.length})</h3>` + u.fields.map(f => `<span class="m">${esc(f)}</span>`).join('');
+  if (u.methods.length) h += `<h3>Methods (${u.methods.length})</h3>` + u.methods.map(f => `<span class="m">${esc(f)}</span>`).join('');
+  if (u.nested) h += `<h3>Nested types</h3>` + u.nested.map(f => `<span class="m">${esc(f)}</span>`).join('');
+  $('side').innerHTML = h + (withLegend ? LEGEND : '');
+}
+function sideNode(n) {
+  if (n.type === 'unit') return sideUnit(n.unit);
+  let h = `<h2>${esc(n.text.main)}</h2>`;
+  if (n.parts) h += '<ul>' + n.parts.map(p => p.unit !== undefined ? `<li>${unitLink(p.unit)}</li>` : `<li>${(p.own ? 'c.' + key(p.pkg) : pkgTarget(p.pkg)) ? link(p.own ? 'c.' + key(p.pkg) : pkgTarget(p.pkg), rel(p.pkg) + (p.own ? ' · own classes' : '')) : esc(rel(p.pkg))}</li>`).join('') + '</ul>';
+  $('side').innerHTML = h;
+}
+function sideEdge(e) {
+  if (!e) return;
+  let h = `<h2>${esc(nodeName(e.f))} → ${esc(nodeName(e.t))}</h2><p class="k">${e.c.length} ${e.c.length === 1 ? 'relationship' : 'relationships'}</p><ul>`;
+  const rows = e.c.map(i => D.pairs[i]).sort((a, b) => D.units[a.f].name.localeCompare(D.units[b.f].name) || D.units[a.t].name.localeCompare(D.units[b.t].name));
+  for (const p of rows.slice(0, 150)) {
+    h += `<li>${unitLink(p.f)} → ${unitLink(p.t)}`;
+    for (const [k, n, via, line] of p.ev) {
+      h += `<span class="m"><span class="k">${esc(k)}${n > 1 ? ' ×' + n : ''}</span>${via.length ? ' ' + esc(via.join(', ')) : ''}${line ? ` <span class="k">${esc(D.units[p.f].source || '')}:${line}</span>` : ''}</span>`;
+    }
+    h += '</li>';
+  }
+  if (rows.length > 150) h += `<li class="k">and ${rows.length - 150} more — open either end to see them drawn</li>`;
+  $('side').innerHTML = h + '</ul>';
+}
+
+$('tab-p').onclick = () => { matrix = false; location.hash === '#p.' + key(cur.v.pkg) ? show(cur.id) : location.hash = 'p.' + key(cur.v.pkg); };
+$('tab-c').onclick = () => { matrix = false; location.hash === '#c.' + key(cur.v.pkg) ? show(cur.id) : location.hash = 'c.' + key(cur.v.pkg); };
+$('tab-m').onclick = () => { matrix = true; show(cur.id); };
+addEventListener('hashchange', () => { matrix = false; show(decodeURIComponent(location.hash.slice(1))); });
+show(decodeURIComponent(location.hash.slice(1)));
+</script>

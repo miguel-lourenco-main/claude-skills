@@ -1,0 +1,8 @@
+{
+  "name": "java-diagrams-scripts",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@hpcc-js/wasm-graphviz": "1.21.0"
+  }
+}

@@ -1,161 +1,172 @@
 {
- "name": "claude-skills",
- "owner": {
-  "name": "migaloco",
-  "email": "migasoulou@gmail.com"
- },
- "plugins": [
-  {
-   "name": "git-steward",
-   "description": "Multi-repo git stewardship: branch pruning, commit & history hygiene, secret/large-file removal, repo health, work-item triage, and CI pipeline health — plus a fleet-wide CI watchdog that monitors every pipeline in every repo and autofixes failures (gated by default, autonomous per policy). Analyze (read-only) and apply (mutating) modes stack from a single operation to a single repo to the whole fleet.",
-   "source": "./plugins/git-steward",
-   "category": "git",
-   "version": "0.8.1",
-   "author": {
+  "name": "claude-skills",
+  "owner": {
     "name": "migaloco",
     "email": "migasoulou@gmail.com"
-   }
   },
-  {
-   "name": "ui-ux-studio",
-   "description": "UI/UX design studio: a director skill that orchestrates real-world-inspired UI work — deciding when to design from rules, when to pull concrete references, and when the reference library is too thin and must be grown by discovering + extracting new sites; its variations mode builds the same brief as N style-skill-driven variants (one taste skill per variant, built in isolation) with a compare page. Bundles the ui-ux-references example library, a ui-ux-gallery skill to browse it in the browser, a style-tweaker skill that injects a live dev-only sidebar for tweaking design tokens (fonts, colors, spacing, per-component knobs) in the running app with A/B snapshots and CSS export, a ui-adversary skill that spawns an adversarial agent to critique a live web UI with evidence-backed, severity-ranked findings (screenshots, GIFs, a11y tree, console/network, contrast and tap-target probes), and composes with the ui-ux-pro-max rules skill.",
-   "source": "./plugins/ui-ux-studio",
-   "category": "design",
-   "version": "0.4.0",
-   "author": {
-    "name": "migaloco",
-    "email": "migasoulou@gmail.com"
-   }
-  },
-  {
-   "name": "ui-ux-pro-max",
-   "description": "UI/UX design intelligence: styles, color palettes, font pairings, product-type guidance, UX guidelines, and charts across many stacks. Open-source skill by nextlevelbuilder (MIT), vendored into this marketplace at upstream sha b7e3af8 (v2.5.0) — see the plugin's VENDORED.md to take a new upstream release.",
-   "source": "./plugins/ui-ux-pro-max",
-   "category": "design",
-   "version": "2.5.0",
-   "author": {
-    "name": "nextlevelbuilder"
-   }
-  },
-  {
-   "name": "prospector",
-   "description": "Lead-generation system for a web-redesign business: gather companies within a defined scope, store rich dossiers (sector, revenue, employees), capture + taste-audit their websites, score the money×bad-site×site-matters opportunity, deep-capture committed redesigns into a full blueprint (multi-page screenshots + code + issue register + implementation plan), and run an outreach workspace (agent-drafted email + copy-paste text → validate the contact → send). Runs locally as a dashboard over a filesystem store, or hosted in a container with shared-password auth; a headless claude agent-runner drains hunt/deep-dive/outreach/blueprint (cloud API), or a local Claude session can drain it off your subscription via the prospect-worker skill. Import/export the whole store as a bundle.",
-   "source": "./plugins/prospector",
-   "category": "business",
-   "version": "0.7.0",
-   "author": {
-    "name": "migaloco",
-    "email": "migasoulou@gmail.com"
-   }
-  },
-  {
-   "name": "llm-mode",
-   "description": "Working-discipline modes distilled from top Claude models, written down so any session can run them. Ships the fable-mode skill — Fable 5's five-gate task loop (scope, evidence, adversarial reasoning, verification, calibrated reporting) plus standing habits — to make planning, debugging, and review noticeably more rigorous on Opus 4.8 or Sonnet 5.",
-   "source": "./plugins/llm-mode",
-   "category": "llm",
-   "version": "0.1.0",
-   "author": {
-    "name": "migaloco",
-    "email": "migasoulou@gmail.com"
-   }
-  },
-  {
-   "name": "project-genesis",
-   "description": "AI-native project bootstrapping: interview → foundation docs → minimal scaffold + CI. Generates a CLAUDE.md agent contract with a doc map and enforceable maintenance rules, plus lean product/features/architecture/decisions/conventions docs designed for future LLM sessions (current-state only, explicit non-goals and restrictions, a feature ledger with resume pointers, read-before-touching pointers). Stack-agnostic — asks or detects the stack and adapts.",
-   "source": "./plugins/project-genesis",
-   "category": "development",
-   "version": "0.3.0",
-   "author": {
-    "name": "migaloco",
-    "email": "migasoulou@gmail.com"
-   }
-  },
-  {
-   "name": "skill-smith",
-   "description": "Meta-tooling for developing and refining Claude Code skills. Ships skill-author: create new skills or audit/restructure existing ones against a written authoring standard — discoverable descriptions in the user's own trigger words, skimmable numbered structure, human-readable prose, bounded loops, correct plugin/marketplace wiring ('create a skill', 'audit this skill', 'make this skill readable'). And skill-retro: a session retrospective that reviews the skills and plugins used in the current session, grades their perceived performance with session evidence, appends findings to each skill's append-only FEEDBACK.md, and proposes concrete user-approved SKILL.md edits — the feedback loop that makes skills improve from real usage ('skill retro', 'review this session', 'how did the skills perform').",
-   "source": "./plugins/skill-smith",
-   "category": "development",
-   "version": "0.2.0",
-   "author": {
-    "name": "migaloco",
-    "email": "migasoulou@gmail.com"
-   }
-  },
-  {
-   "name": "scroll-world",
-   "description": "Build an immersive scroll-scrubbed 'fly through the world' landing page for any industry or brand using Higgsfield: cohesive isometric diorama scenes and seamless camera flights driven by scroll position (Apple-style scrubbing), with a portable framework-agnostic scrub engine for plain HTML, Next.js, Vue, or a Python-served page. Fork of oso95/scroll-world (MIT) vendored at upstream f941ef9 (v0.2.0) — see the plugin's VENDORED.md; local divergence expected.",
-   "source": "./plugins/scroll-world",
-   "category": "design",
-   "version": "0.2.0",
-   "author": {
-    "name": "cyw"
-   }
-  },
-  {
-   "name": "writing-craft",
-   "description": "Writing skills for making technical work readable. Ships plain-report — turn a technical analysis, run, or dataset into a report a reader with zero context and no technical knowledge can follow: concepts defined before use, internal codes renamed to human labels, every claim backed by one concrete result, honest limits, a glossary that grows with reader questions, and an audit mode that flags readability defects without rewriting.",
-   "source": "./plugins/writing-craft",
-   "category": "writing",
-   "version": "0.1.0",
-   "author": {
-    "name": "migaloco",
-    "email": "migasoulou@gmail.com"
-   }
-  },
-  {
-   "name": "marketing-presentations",
-   "description": "Build HTML presentations, decks, report pages, and story pages that feel like high-end marketing/landing pages — scroll-driven visual storytelling with award-site craft (oversized typography, choreographed motion, section-by-section narrative), written first as a visual script and then implemented as a single-file HTML page. Ships the marketing-presentations skill: build (content → visual script → page, self-scored against 8 dimensions in bounded passes) and extract <url> (grow the knowledge base from a reference site). Principles, 15 style axes with BRUTALIST/EDITORIAL/REPORT poles, and implementation patterns were validated in a design-extraction lab — three award-site extract → blind-clone → evaluate cycles, each passing at 8.3–8.6/10.",
-   "source": "./plugins/marketing-presentations",
-   "category": "design",
-   "version": "1.1.0",
-   "author": {
-    "name": "migaloco",
-    "email": "migasoulou@gmail.com"
-   }
-  },
-  {
-   "name": "model-router",
-   "description": "Quota-aware model routing for Claude Code: keeps the main session on a strong model and pushes mechanical work to cheaper tiers. Ships a standing routing policy (injected at session start), Haiku/Sonnet worker agents (ci-watcher, sweeper, mechanic, reviewer, sysadmin), Sonnet-pinned status-report and ship skills, a one-time per-machine setup that defaults bare subagents to Sonnet, and a bi-weekly per-workstation usage review (flagged at session start when due or when the last analysis is invalid) that measures where the tokens went.",
-   "source": "./plugins/model-router",
-   "category": "llm",
-   "version": "0.2.0",
-   "author": {
-    "name": "migaloco",
-    "email": "migasoulou@gmail.com"
-   }
-  },
-  {
-   "name": "web-design-guides",
-   "description": "A web-designer agent (plan a site or page, audit a URL or code with severity-ranked findings, answer design questions) plus four lazily-loaded knowledge skills distilled from Lovable's public web-design guides: site architecture and navigation, marketing-page conversion, web UI foundations, and brand identity basics. Rules are paraphrased and source-tagged; each skill is a short rule set plus an index of per-guide notes read only when needed.",
-   "source": "./plugins/web-design-guides",
-   "category": "design",
-   "version": "0.1.0",
-   "author": {
-    "name": "migaloco",
-    "email": "migasoulou@gmail.com"
-   }
-  },
-  {
-   "name": "context-checkpoint",
-   "description": "Deliberate context compaction for Claude Code: a UserPromptSubmit hook that reads the live context size from the session transcript and, every N% of the window, after a cold-cache pause, or on a task-boundary prompt, asks the model to decide in one line whether to keep or compact — on relevance and freshness of what is in context, not its size. Ships the hook, a per-machine config, a --status reading, and a skill that explains the criteria and the measurements behind them.",
-   "source": "./plugins/context-checkpoint",
-   "category": "llm",
-   "version": "0.1.0",
-   "author": {
-    "name": "migaloco",
-    "email": "migasoulou@gmail.com"
-   }
-  },
-  {
-   "name": "log-craft",
-   "description": "Readable, good-looking CI job logs. Ships ci-log-design: audit a GitLab CI job log with a scoring script, judge it against a written taste guide, redesign it with a small text-art vocabulary (title rules, folded steps, failure cards, duration bars, tables, a verdict line), and apply it through a shared POSIX-sh and Node logging library with a demo, a canary job and a renderer for before/after proof.",
-   "source": "./plugins/log-craft",
-   "category": "ci",
-   "version": "0.1.0",
-   "author": {
-    "name": "migaloco",
-    "email": "migasoulou@gmail.com"
-   }
-  }
- ]
+  "plugins": [
+    {
+      "name": "git-steward",
+      "description": "Multi-repo git stewardship: branch pruning, commit & history hygiene, secret/large-file removal, repo health, work-item triage, and CI pipeline health — plus a fleet-wide CI watchdog that monitors every pipeline in every repo and autofixes failures (gated by default, autonomous per policy). Analyze (read-only) and apply (mutating) modes stack from a single operation to a single repo to the whole fleet.",
+      "source": "./plugins/git-steward",
+      "category": "git",
+      "version": "0.8.1",
+      "author": {
+        "name": "migaloco",
+        "email": "migasoulou@gmail.com"
+      }
+    },
+    {
+      "name": "ui-ux-studio",
+      "description": "UI/UX design studio: a director skill that orchestrates real-world-inspired UI work — deciding when to design from rules, when to pull concrete references, and when the reference library is too thin and must be grown by discovering + extracting new sites; its variations mode builds the same brief as N style-skill-driven variants (one taste skill per variant, built in isolation) with a compare page. Bundles the ui-ux-references example library, a ui-ux-gallery skill to browse it in the browser, a style-tweaker skill that injects a live dev-only sidebar for tweaking design tokens (fonts, colors, spacing, per-component knobs) in the running app with A/B snapshots and CSS export, a ui-adversary skill that spawns an adversarial agent to critique a live web UI with evidence-backed, severity-ranked findings (screenshots, GIFs, a11y tree, console/network, contrast and tap-target probes), and composes with the ui-ux-pro-max rules skill.",
+      "source": "./plugins/ui-ux-studio",
+      "category": "design",
+      "version": "0.4.0",
+      "author": {
+        "name": "migaloco",
+        "email": "migasoulou@gmail.com"
+      }
+    },
+    {
+      "name": "ui-ux-pro-max",
+      "description": "UI/UX design intelligence: styles, color palettes, font pairings, product-type guidance, UX guidelines, and charts across many stacks. Open-source skill by nextlevelbuilder (MIT), vendored into this marketplace at upstream sha b7e3af8 (v2.5.0) — see the plugin's VENDORED.md to take a new upstream release.",
+      "source": "./plugins/ui-ux-pro-max",
+      "category": "design",
+      "version": "2.5.0",
+      "author": {
+        "name": "nextlevelbuilder"
+      }
+    },
+    {
+      "name": "prospector",
+      "description": "Lead-generation system for a web-redesign business: gather companies within a defined scope, store rich dossiers (sector, revenue, employees), capture + taste-audit their websites, score the money×bad-site×site-matters opportunity, deep-capture committed redesigns into a full blueprint (multi-page screenshots + code + issue register + implementation plan), and run an outreach workspace (agent-drafted email + copy-paste text → validate the contact → send). Runs locally as a dashboard over a filesystem store, or hosted in a container with shared-password auth; a headless claude agent-runner drains hunt/deep-dive/outreach/blueprint (cloud API), or a local Claude session can drain it off your subscription via the prospect-worker skill. Import/export the whole store as a bundle.",
+      "source": "./plugins/prospector",
+      "category": "business",
+      "version": "0.7.0",
+      "author": {
+        "name": "migaloco",
+        "email": "migasoulou@gmail.com"
+      }
+    },
+    {
+      "name": "llm-mode",
+      "description": "Working-discipline modes distilled from top Claude models, written down so any session can run them. Ships the fable-mode skill — Fable 5's five-gate task loop (scope, evidence, adversarial reasoning, verification, calibrated reporting) plus standing habits — to make planning, debugging, and review noticeably more rigorous on Opus 4.8 or Sonnet 5.",
+      "source": "./plugins/llm-mode",
+      "category": "llm",
+      "version": "0.1.0",
+      "author": {
+        "name": "migaloco",
+        "email": "migasoulou@gmail.com"
+      }
+    },
+    {
+      "name": "project-genesis",
+      "description": "AI-native project bootstrapping: interview → foundation docs → minimal scaffold + CI. Generates a CLAUDE.md agent contract with a doc map and enforceable maintenance rules, plus lean product/features/architecture/decisions/conventions docs designed for future LLM sessions (current-state only, explicit non-goals and restrictions, a feature ledger with resume pointers, read-before-touching pointers). Stack-agnostic — asks or detects the stack and adapts.",
+      "source": "./plugins/project-genesis",
+      "category": "development",
+      "version": "0.3.0",
+      "author": {
+        "name": "migaloco",
+        "email": "migasoulou@gmail.com"
+      }
+    },
+    {
+      "name": "skill-smith",
+      "description": "Meta-tooling for developing and refining Claude Code skills. Ships skill-author: create new skills or audit/restructure existing ones against a written authoring standard — discoverable descriptions in the user's own trigger words, skimmable numbered structure, human-readable prose, bounded loops, correct plugin/marketplace wiring ('create a skill', 'audit this skill', 'make this skill readable'). And skill-retro: a session retrospective that reviews the skills and plugins used in the current session, grades their perceived performance with session evidence, appends findings to each skill's append-only FEEDBACK.md, and proposes concrete user-approved SKILL.md edits — the feedback loop that makes skills improve from real usage ('skill retro', 'review this session', 'how did the skills perform').",
+      "source": "./plugins/skill-smith",
+      "category": "development",
+      "version": "0.2.0",
+      "author": {
+        "name": "migaloco",
+        "email": "migasoulou@gmail.com"
+      }
+    },
+    {
+      "name": "scroll-world",
+      "description": "Build an immersive scroll-scrubbed 'fly through the world' landing page for any industry or brand using Higgsfield: cohesive isometric diorama scenes and seamless camera flights driven by scroll position (Apple-style scrubbing), with a portable framework-agnostic scrub engine for plain HTML, Next.js, Vue, or a Python-served page. Fork of oso95/scroll-world (MIT) vendored at upstream f941ef9 (v0.2.0) — see the plugin's VENDORED.md; local divergence expected.",
+      "source": "./plugins/scroll-world",
+      "category": "design",
+      "version": "0.2.0",
+      "author": {
+        "name": "cyw"
+      }
+    },
+    {
+      "name": "writing-craft",
+      "description": "Writing skills for making technical work readable. Ships plain-report — turn a technical analysis, run, or dataset into a report a reader with zero context and no technical knowledge can follow: concepts defined before use, internal codes renamed to human labels, every claim backed by one concrete result, honest limits, a glossary that grows with reader questions, and an audit mode that flags readability defects without rewriting.",
+      "source": "./plugins/writing-craft",
+      "category": "writing",
+      "version": "0.1.0",
+      "author": {
+        "name": "migaloco",
+        "email": "migasoulou@gmail.com"
+      }
+    },
+    {
+      "name": "marketing-presentations",
+      "description": "Build HTML presentations, decks, report pages, and story pages that feel like high-end marketing/landing pages — scroll-driven visual storytelling with award-site craft (oversized typography, choreographed motion, section-by-section narrative), written first as a visual script and then implemented as a single-file HTML page. Ships the marketing-presentations skill: build (content → visual script → page, self-scored against 8 dimensions in bounded passes) and extract <url> (grow the knowledge base from a reference site). Principles, 15 style axes with BRUTALIST/EDITORIAL/REPORT poles, and implementation patterns were validated in a design-extraction lab — three award-site extract → blind-clone → evaluate cycles, each passing at 8.3–8.6/10.",
+      "source": "./plugins/marketing-presentations",
+      "category": "design",
+      "version": "1.1.0",
+      "author": {
+        "name": "migaloco",
+        "email": "migasoulou@gmail.com"
+      }
+    },
+    {
+      "name": "model-router",
+      "description": "Quota-aware model routing for Claude Code: keeps the main session on a strong model and pushes mechanical work to cheaper tiers. Ships a standing routing policy (injected at session start), Haiku/Sonnet worker agents (ci-watcher, sweeper, mechanic, reviewer, sysadmin), Sonnet-pinned status-report and ship skills, a one-time per-machine setup that defaults bare subagents to Sonnet, and a bi-weekly per-workstation usage review (flagged at session start when due or when the last analysis is invalid) that measures where the tokens went.",
+      "source": "./plugins/model-router",
+      "category": "llm",
+      "version": "0.2.0",
+      "author": {
+        "name": "migaloco",
+        "email": "migasoulou@gmail.com"
+      }
+    },
+    {
+      "name": "web-design-guides",
+      "description": "A web-designer agent (plan a site or page, audit a URL or code with severity-ranked findings, answer design questions) plus four lazily-loaded knowledge skills distilled from Lovable's public web-design guides: site architecture and navigation, marketing-page conversion, web UI foundations, and brand identity basics. Rules are paraphrased and source-tagged; each skill is a short rule set plus an index of per-guide notes read only when needed.",
+      "source": "./plugins/web-design-guides",
+      "category": "design",
+      "version": "0.1.0",
+      "author": {
+        "name": "migaloco",
+        "email": "migasoulou@gmail.com"
+      }
+    },
+    {
+      "name": "context-checkpoint",
+      "description": "Deliberate context compaction for Claude Code: a UserPromptSubmit hook that reads the live context size from the session transcript and, every N% of the window, after a cold-cache pause, or on a task-boundary prompt, decides whether to keep or compact — on relevance and freshness of what is in context, not its size. A cheap model digests the transcript into five lines (in flight / closed / stale / poison / next needs) for the console, and TypeSafe's Jev decision model grades that digest with calibrated probabilities; the hook combines the grades by arithmetic, with a loss-risk veto. Falls back to asking the session's own model when no key or no answer. Ships the hook, a per-machine config, --status and --dry-run readings, and a skill explaining the criteria and the measurements.",
+      "source": "./plugins/context-checkpoint",
+      "category": "llm",
+      "version": "0.2.0",
+      "author": {
+        "name": "migaloco",
+        "email": "migasoulou@gmail.com"
+      }
+    },
+    {
+      "name": "code-maps",
+      "description": "Maps of a codebase as navigable HTML pages, built from what the code compiles to and does rather than from reading it. Ships java-diagrams: class and package diagrams for a Java project, read from bytecode, cross-checked against jdeps, every view verified against the extracted graph and bounded so it stays readable. And execution-trace: a run trace that follows one execution from the command line to its last effect, step by step like a debugger, redrawn through layers (process, code, state, data, disk), with excerpts cut from the source at build time, call arrows read from bytecode and classes filtered by a measured class-load log.",
+      "source": "./plugins/code-maps",
+      "category": "development",
+      "version": "0.1.0",
+      "author": {
+        "name": "migaloco",
+        "email": "migasoulou@gmail.com"
+      }
+    },
+    {
+      "name": "log-craft",
+      "description": "Readable, good-looking CI job logs. Ships ci-log-design: audit a GitLab CI job log with a scoring script, judge it against a written taste guide, redesign it with a small text-art vocabulary (title rules, folded steps, failure cards, duration bars, tables, a verdict line), and apply it through a shared POSIX-sh and Node logging library with a demo, a canary job and a renderer for before/after proof.",
+      "source": "./plugins/log-craft",
+      "category": "ci",
+      "version": "0.1.0",
+      "author": {
+        "name": "migaloco",
+        "email": "migasoulou@gmail.com"
+      }
+    }
+  ]
 }

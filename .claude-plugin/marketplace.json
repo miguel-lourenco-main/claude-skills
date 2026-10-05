@@ -156,6 +156,17 @@
         "name": "migaloco",
         "email": "migasoulou@gmail.com"
       }
+    },
+    {
+      "name": "log-craft",
+      "description": "Readable, good-looking CI job logs. Ships ci-log-design: audit a GitLab CI job log with a scoring script, judge it against a written taste guide, redesign it with a small text-art vocabulary (title rules, folded steps, failure cards, duration bars, tables, a verdict line), and apply it through a shared POSIX-sh and Node logging library with a demo, a canary job and a renderer for before/after proof.",
+      "source": "./plugins/log-craft",
+      "category": "ci",
+      "version": "0.1.0",
+      "author": {
+        "name": "migaloco",
+        "email": "migasoulou@gmail.com"
+      }
     }
   ]
 }

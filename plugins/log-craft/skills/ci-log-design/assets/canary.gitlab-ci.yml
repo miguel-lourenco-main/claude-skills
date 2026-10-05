@@ -1,0 +1,43 @@
+# canary.gitlab-ci.yml — one manual job that shows how this GitLab instance and
+# runner render what ci-log.sh relies on. Include it on a throwaway branch, run
+# the job, look at the job page, then record the answers in
+# references/gitlab-viewer.md and delete the include.
+#
+# Expects the library at infra/ci/scripts/lib/ci-log.sh or ci/scripts/lib/ci-log.sh.
+
+ci_log_canary:
+  stage: .pre
+  image: alpine:3.20
+  rules:
+    - when: manual
+      allow_failure: true
+  script:
+    - |
+      # canary: what does the job page render?
+      if [ -f infra/ci/scripts/lib/ci-log.sh ]; then . infra/ci/scripts/lib/ci-log.sh; else . ci/scripts/lib/ci-log.sh; fi
+      ci_finish_on_exit "Canary (armed with a trap: this line proves traps fire)"
+      ci_header "Canary" "each line says what you should see"
+      printf '    bold           \033[1mbold\033[0m\n'
+      printf '    dim            \033[2mdim\033[0m\n'
+      printf '    italic         \033[3mitalic\033[0m\n'
+      printf '    underline      \033[4munderline\033[0m\n'
+      printf '    256 colour     \033[38;5;208morange\033[0m\n'
+      printf '    truecolor      \033[38;2;255;105;180mpink\033[0m\n'
+      echo   '    alignment: every | below must sit in one column'
+      echo   '    ascii      abcdefgh|'
+      echo   '    box        ─━┄│┌└├┤|'
+      echo   '    blocks     █▉▊▋▌▍▎▏|'
+      echo   '    shades     ░▒▓▁▂▃▅▇|'
+      echo   '    glyphs     ✓✖→·●○▸!|'
+      echo   '    braille    ⣀⣤⣶⣿⠁⠃⠇⡇|'
+      echo   '    symbols    ⚠⚙⏳▲◆■□★|   (emoji-capable: expect drift)'
+      echo   '    emoji      🚀📦🧰🧪|       (expect drift)'
+      ci_bar "eighths" 63 100
+      printf 'col\tvalue\nrow one\t1\nrow two\t22\n' | ci_table
+      ci_run canary_ok "A folded step that passes" -- sh -c 'seq 1 30'
+      ci_section_start canary_nested "Outer section" expanded
+      ci_run canary_inner "Inner folded step (nesting)" -- sh -c 'echo inner'
+      ci_section_end canary_nested
+      printf '    carriage return: you should see only "final" -> first\rfinal                       \n'
+      i=0; while [ "$i" -lt 130 ]; do printf x; i=$((i + 1)); done; echo ' <- 130 cells: does it wrap or scroll?'
+      ci_run canary_fail "A folded step that fails" -- sh -c 'seq 1 30; echo "error: this failure is the canary"; exit 3'

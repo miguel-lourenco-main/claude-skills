@@ -22,6 +22,9 @@ unverified ones, then update the tags here.
   `prepare_script`, `get_sources`, `restore_cache`, `step_script`, `after_script`,
   `archive_cache`, `upload_artifacts_on_success`, `cleanup_file_variables`. Only
   `step_script` and `after_script` hold output a repository controls.
+- **[seen]** Nested sections and `-`-free ids pass through a real pipeline intact (canary
+  on gitlab.com, runner 19.3.0, October 2026). How the page draws the nesting was not
+  inspected.
 - **[unverified]** The page opens scrolled to the end of the log.
 
 ## Echoed commands
@@ -33,6 +36,9 @@ unverified ones, then update the tags here.
   `before_script` exist in `script`. **[docs]** `after_script` is a new shell: source the
   library again there. `$CI_JOB_STATUS` (`success`, `failed`, `canceled`) exists only in
   `after_script`.
+- **[seen]** An `EXIT` trap set in `script` fires when the job fails, also on alpine's
+  `sh`, so `ci_finish_on_exit` works. A sourced library in `after_script` finds the same
+  state directory (`/tmp/ci-log-$CI_JOB_ID`) on the docker executor.
 - **[seen]** Lines printed by the runner itself at the top of `step_script` ("Using
   docker image sha256:…") are long and cannot be changed.
 

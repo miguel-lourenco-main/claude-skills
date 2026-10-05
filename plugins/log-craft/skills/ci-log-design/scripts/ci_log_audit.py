@@ -120,6 +120,8 @@ def audit(raw):
                     if VERDICT.match(e["text"])), "unknown")
     failed = verdict.startswith("ERROR")
     zone = [e for e in lines if e["zone"]]
+    first_cmd = next((i for i, e in enumerate(zone) if e["text"].startswith("$ ")), 0)
+    zone = zone[first_cmd:]                # lines above the first echoed command are the runner's
     visible = [e for e in zone if not e["hidden"]]
     n, v = max(len(zone), 1), max(len(visible), 1)
 

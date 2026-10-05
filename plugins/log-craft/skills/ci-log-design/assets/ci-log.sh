@@ -103,9 +103,15 @@ _ci_pipe() {
   if [ "${CI_LOG_STREAM:-stdout}" = "stderr" ]; then cat >&2; else cat; fi
 }
 
-# Character count that is right in any locale (dash and busybox count bytes).
+# Character count that is right in any locale and any awk. Where awk counts
+# bytes, UTF-8 continuation bytes are skipped by lookup: a byte-range regex is
+# rejected by busybox awk on musl (alpine).
+_CI_AWK_W='
+  function winit(   i) { bytes = (length("é") == 2); cont = ""; if (bytes) for (i = 128; i < 192; i++) cont = cont sprintf("%c", i) }
+  function w(s,   n, i) { if (!bytes) return length(s); n = 0; for (i = length(s); i > 0; i--) if (index(cont, substr(s, i, 1)) == 0) n++; return n }
+'
 _ci_len() {
-  _CI_S="$1" awk 'BEGIN { s = ENVIRON["_CI_S"]; if (length("é") == 2) gsub(/[\200-\277]/, "", s); print length(s) }'
+  _CI_S="$1" awk "$_CI_AWK_W"'BEGIN { winit(); print w(ENVIRON["_CI_S"]) }' 2>/dev/null || printf '%s\n' "${#1}"
 }
 
 _ci_rep() {
@@ -191,10 +197,9 @@ ci_bar() {
 # Aligned table from tab-separated stdin. First row is the header; columns that
 # hold only numbers are right-aligned.
 ci_table() {
-  awk -F '\t' '
-    function w(s) { if (bytes) gsub(/[\200-\277]/, "", s); return length(s) }
+  awk -F '\t' "$_CI_AWK_W"'
     function pad(s, n, right,   p, k) { p = ""; for (k = n - w(s); k > 0; k--) p = p " "; return right ? p s : s p }
-    BEGIN { bytes = (length("é") == 2) }
+    BEGIN { winit() }
     { rows = NR
       if (NF > cols) cols = NF
       for (i = 1; i <= NF; i++) {
@@ -283,15 +288,14 @@ ci_finish() {
   [ ! -f "$CI_LOG_STATE/finished" ] || return 0
   : >"$CI_LOG_STATE/finished"
   awk -F '\t' -v title="${1:-${CI_JOB_NAME:-job}}" -v status="${2:-${CI_JOB_STATUS:-}}" \
-      -v now="$(date +%s)" -v W="$CI_LOG_WIDTH" '
-    function w(s) { if (bytes) gsub(/[\200-\277]/, "", s); return length(s) }
+      -v now="$(date +%s)" -v W="$CI_LOG_WIDTH" "$_CI_AWK_W"'
     function rep(c, n,   s) { s = ""; while (n-- > 0) s = s c; return s }
     function dur(s) {
       if (s < 60) return s "s"
       if (s < 3600) return int(s / 60) "m " sprintf("%02d", s % 60) "s"
       return int(s / 3600) "h " sprintf("%02d", int(s % 3600 / 60)) "m"
     }
-    BEGIN { bytes = (length("é") == 2); E8 = ENVIRON["CI_LOG_G_EIGHTHS"] }
+    BEGIN { winit(); E8 = ENVIRON["CI_LOG_G_EIGHTHS"] }
     $1 == "begin" && !t0 { t0 = $2 }
     $1 == "open"  { n++; id[n] = $3; name[n] = $4; st[n] = $2; rc[n] = ""; last[$3] = n }
     $1 == "close" && ($3 in last) { en[last[$3]] = $2; rc[last[$3]] = $4 }

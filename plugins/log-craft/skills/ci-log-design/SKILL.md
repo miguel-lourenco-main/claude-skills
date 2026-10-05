@@ -103,6 +103,15 @@ python3 "$SK/scripts/ci_log_audit.py" "$OUT/demo_fail.raw"
 NO_COLOR=1 CI_LOG_ASCII=1 sh "$SK/scripts/demo.sh"      # still readable with no colour, no Unicode
 ```
 
+Local shells are not the runner's. If Docker is available, run the demo in the images
+the jobs use; alpine's awk rejected a regex that every local shell accepted.
+
+```bash
+for img in alpine:3.20 node:22; do      # the skill dir must be under a path Docker can mount
+  docker run --rm -v "$SK:/sk:ro" "$img" sh /sk/scripts/demo.sh >/dev/null || echo "FAILED in $img"
+done
+```
+
 For a changed script, replay a captured failing output through it (`ci_run x "X" -- sh
 -c 'cat captured.txt; exit 1'`) and check that the failure card quotes the real cause.
 If the first-error line is a symptom, set `CI_LOG_ERROR_RE` for that job.

@@ -1,13 +1,36 @@
 {
-  "description": "Inject the model-routing policy at the start of every session (and after clear/compact, when context is rebuilt).",
+  "description": "Inject the routing policy at session start; let Jev decide the tier of every Agent spawn (PreToolUse) and advise on prompts that are delegate work (UserPromptSubmit). Both Jev hooks fail open.",
   "hooks": {
     "SessionStart": [
       {
-        "matcher": "startup|resume|clear|compact",
+        "matcher": "startup|resume|clear|compact|fork",
         "hooks": [
           {
             "type": "command",
             "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/scripts/session_start.py\"",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Agent",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/scripts/route_spawn.py\"",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/scripts/advise_prompt.py\"",
             "timeout": 10
           }
         ]

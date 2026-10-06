@@ -1,0 +1,29 @@
+{
+  "_comment": "Tier criteria in the words Jev sees. Keep them consistent with ROUTING.md; they are the Choice criteria of every routing question.",
+  "tiers": {
+    "haiku": "Read-only watching and status: waiting on a pipeline, job, merge request, shell or agent; reading a failure reason or log tail; listing branches or worktrees; grepping logs. No editing, no judgement.",
+    "sonnet": "Mechanical or bounded work with a clear spec: commit, push, pull, rebase, merge; status reports and handoff summaries; bounded web sweeps and probes; fetching assets or logos; persona, prose and consistency reviews; UI, slide or CSS micro-edits with exact instructions; fixing tests that drifted after a known change; Linux or hardware troubleshooting; quick how-to questions; distilling docs.",
+    "opus": "Work that needs judgement: implementing a feature or extraction logic; planning; orchestrating a campaign; architecture; content and argument work; synthesis across sources; acting as jury or verifier of others' work; hard design."
+  },
+  "order": ["haiku", "sonnet", "opus"],
+  "never_assign": ["fable"],
+  "routes": {
+    "keep": "Needs the main session itself: a design decision, a judgement call, a question to the assistant, a reply to something it asked, a multi-step task that depends on what is already in this conversation, or an instruction about how to work.",
+    "ship": "Commit and/or push the current work.",
+    "status-report": "Pull the latest changes and report where a repository stands.",
+    "ci-watcher": "Wait for or check a pipeline, job, merge request, background shell or agent, and report its state.",
+    "sysadmin": "A problem with this Linux workstation: displays, docks, Bluetooth, Wi-Fi, audio, fans, freezes, suspend, package installs, Docker Desktop, disks, USB, boot.",
+    "sweeper": "A bounded research or extraction batch: probe a list of sites, importers or catalogues for fields, find official sources or price lists, fetch logos, distill a set of docs.",
+    "mechanic": "Apply an already-decided change with exact instructions: a CSS or slide tweak, a rename, a small refactor, a test fix after a known change.",
+    "reviewer": "Review a document, deck, report or page through a stated lens: a reader persona, clarity, jargon, consistency of terms or numbers."
+  },
+  "route_agents": {
+    "ship": "/model-router:ship",
+    "status-report": "/model-router:status-report",
+    "ci-watcher": "model-router:ci-watcher",
+    "sysadmin": "model-router:sysadmin",
+    "sweeper": "model-router:sweeper",
+    "mechanic": "model-router:mechanic",
+    "reviewer": "model-router:reviewer"
+  }
+}

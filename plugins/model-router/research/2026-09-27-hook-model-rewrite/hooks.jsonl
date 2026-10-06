@@ -1,0 +1,3 @@
+{"permission_mode": "default", "hook_event_name": "PreToolUse", "tool_name": "Agent", "tool_input": {"description": "hook test", "prompt": "Reply with the single word PONG and use no tools.", "subagent_type": "general-purpose", "model": "sonnet", "run_in_background": false}, "tool_use_id": "toolu_01L2tG6Wv9pyUeTw5aJ6Fouv"}
+{"agent_id": "aad6a440b792d2d66", "agent_type": "general-purpose", "hook_event_name": "SubagentStart"}
+{"permission_mode": "default", "agent_id": "aad6a440b792d2d66", "agent_type": "general-purpose", "hook_event_name": "SubagentStop", "stop_hook_active": false, "last_assistant_message": "PONG", "background_tasks": [], "session_crons": []}

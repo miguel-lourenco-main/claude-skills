@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """SessionStart hook: emit policy/ROUTING.md as additionalContext.
 
-Adds two per-workstation notes when they apply: /model-router:setup has not been run here, or the
-bi-weekly usage review is due (see review_state.py for what makes the last analysis invalid).
+Adds per-workstation notes when they apply: /model-router:setup has not been run here, or the
+bi-weekly usage review is due (see review_state.py for what makes the last analysis invalid), or
+no Jev key is configured so the decider hooks fail open.
 """
 import json
 import os
@@ -28,6 +29,16 @@ if not configured:
 
 try:
     sys.path.insert(0, str(root / "scripts"))
+    import jev
+
+    jev.credentials()
+except Exception as e:  # no key, or the module failed: routing is advisory-only on this machine
+    policy += (
+        f"\nNote: the Jev decider is inactive on this machine ({e}). Subagent tiers follow the policy "
+        "text above until a key is set (see /model-router:setup). Mention this to the user once.\n"
+    )
+
+try:
     import review_state
 
     status = review_state.check()

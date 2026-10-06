@@ -1,0 +1,2 @@
+{"permission_mode": "default", "hook_event_name": "UserPromptSubmit", "prompt": "Use the Agent tool once with subagent_type fork, description 'fork test', prompt 'Reply with the single word PONG.' Then reply with the subagent's answer."}
+{"permission_mode": "default", "hook_event_name": "PreToolUse", "tool_name": "Agent", "tool_input": {"description": "fork test", "prompt": "Reply with the single word PONG.", "subagent_type": "fork"}, "tool_use_id": "toolu_015qzirGCjXHUjqZK8kEDu4X"}

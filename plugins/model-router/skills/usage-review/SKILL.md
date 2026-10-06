@@ -1,6 +1,6 @@
 ---
 name: usage-review
-description: The bi-weekly, per-workstation model-usage review for model-router - measures how this machine's Claude Code sessions split across Haiku, Sonnet, Opus and Fable since the last review, records it, and proposes routing-policy changes. Use when the session-start note says a usage review is due, or when the user asks "run the usage review", "how is the routing doing", "am I still overusing Opus", "analyse my model usage".
+description: The bi-weekly, per-workstation model-usage review for model-router - measures how this machine's Claude Code sessions split across Haiku, Sonnet, Opus and Fable since the last review, what the Jev decider did, records it, and proposes routing-policy changes. Use when the session-start note says a usage review is due, or when the user asks "run the usage review", "how is the routing doing", "am I still overusing Opus", "analyse my model usage".
 model: sonnet
 ---
 
@@ -35,7 +35,19 @@ future, or 14+ days old.
    - Use the change since the previous analysis to say whether things are improving.
    - If the window has almost no sessions, say the sample is too small to judge.
 
-4. Report to the user in under 15 lines: the three numbers with their change, what is still
+4. Judge the Jev decider from its line in the output and from
+   `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/jev.py" --explain 30`:
+   - "failed open" close to "spawns seen" means no key or a dead route: point at `/model-router:setup`.
+   - a re-tiered share near zero with many spawns means the orchestrator already routes well, or the
+     threshold is too high; a high "guarded" count means Jev wanted to downgrade judgement-heavy work
+     and was stopped, which is the guard doing its job.
+   - if a re-tiered spawn produced a result the session then had to redo on a higher tier, name it:
+     that is the case for raising `threshold` in `~/.claude/model-router/jev.json`.
+   - read `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/jev.py" --samples` (the last 10 exchanges,
+     verbatim) and say whether the answers look right for what was sent: a tier that disagrees
+     with the prompt's own words, or a confidence that does not match the spread of the
+     probabilities, is a finding about the questions in `policy/tiers.json`, not about the caller.
+5. Report to the user in under 15 lines: the three numbers with their change, what is still
    misrouted, and at most three concrete policy or agent changes.
    - Do not edit the plugin yourself. Policy changes belong in the claude-skills repo
      (`plugins/model-router/policy/ROUTING.md` plus a version bump) so every workstation gets them;

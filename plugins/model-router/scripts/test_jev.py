@@ -90,6 +90,7 @@ class Pins(unittest.TestCase):
 
 class MockJev(BaseHTTPRequestHandler):
     canned = answers("haiku", 0.92)
+    usage = {"input_tokens": 300, "output_tokens": 40, "cost": 0.0000126}
     seen = []
 
     def do_POST(self):
@@ -98,7 +99,7 @@ class MockJev(BaseHTTPRequestHandler):
         if self.headers.get("Authorization") != "Bearer test-key":
             self.send_response(401); self.end_headers(); self.wfile.write(b'{"error":{"code":401}}'); return
         out = {"model": "typesafe/jev-mock", "answers": {k: v for k, v in MockJev.canned.items() if k in body["questions"]},
-               "usage": {"input_tokens": 300, "output_tokens": 40, "cost": 0.0000126}}
+               "usage": MockJev.usage}
         data = json.dumps(out).encode()
         self.send_response(200); self.send_header("Content-Type", "application/json")
         self.send_header("Content-Length", str(len(data))); self.end_headers(); self.wfile.write(data)
@@ -236,6 +237,127 @@ class HooksEndToEnd(unittest.TestCase):
                                                           "transcript_path": str(tr), "prompt": "commit and push the pending work"}))
         self.assertEqual(len(MockJev.seen), n)
         self.assertEqual(jev.main_session_model(str(tr)), "claude-sonnet-5")
+
+
+class SharedClient(unittest.TestCase):
+    """jev_decide.py: the surface other plugins call. Same request as the hooks, wider key lookup,
+    an answer that is never an exception, nothing written to the router's sample log."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.srv = HTTPServer(("127.0.0.1", 0), MockJev)
+        threading.Thread(target=cls.srv.serve_forever, daemon=True).start()
+        cls.base = f"http://127.0.0.1:{cls.srv.server_port}"
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.srv.shutdown()
+
+    def setUp(self):
+        self.home = tempfile.mkdtemp()
+        self.env = {k: v for k, v in os.environ.items() if not k.endswith("_API_KEY") and not k.startswith("JEV_")}
+        self.env.update(HOME=self.home, JEV_BASE_URL=self.base, CLAUDE_PLUGIN_ROOT=str(HERE.parent))
+        MockJev.canned = {"flake": {"type": "noul", "noul": 0.79}}
+        self.request = {"state": {"job": "e2e", "failure_reason": "script_failure"},
+                        "questions": {"flake": {"type": "noul", "instructions": "Is this the environment?"}}}
+
+    def run_client(self, request=None, **env):
+        p = subprocess.run([sys.executable, str(HERE / "jev_decide.py")], input=json.dumps(request or self.request),
+                           capture_output=True, text=True, env=dict(self.env, **env), timeout=20)
+        return p.returncode, json.loads(p.stdout)
+
+    def test_answers_through_the_same_request_as_the_hooks(self):
+        n = len(MockJev.seen)
+        code, out = self.run_client(OPENROUTER_API_KEY="test-key")
+        self.assertEqual((code, out["ok"], out["answers"]["flake"]["noul"]), (0, True, 0.79))
+        self.assertEqual(out["model"], "typesafe/jev-mock")
+        path, auth, body = MockJev.seen[-1]
+        self.assertEqual((len(MockJev.seen), path, auth), (n + 1, "/v1/systemone", "Bearer test-key"))
+        self.assertEqual((body["model"], body["state"]["job"]), ("typesafe/jev-1.13", "e2e"))
+
+    def test_no_key_is_an_answer_not_an_exception(self):
+        n = len(MockJev.seen)
+        code, out = self.run_client()
+        self.assertEqual((code, out["ok"]), (1, False)); self.assertIn("no key", out["reason"])
+        self.assertEqual(len(MockJev.seen), n)
+
+    def test_bad_key_and_bad_request_keep_the_shape(self):
+        code, out = self.run_client(OPENROUTER_API_KEY="wrong")
+        self.assertEqual((code, out["ok"]), (1, False)); self.assertIn("HTTP 401", out["reason"])
+        p = subprocess.run([sys.executable, str(HERE / "jev_decide.py")], input="not json", capture_output=True,
+                           text=True, env=self.env, timeout=20)
+        self.assertEqual((p.returncode, json.loads(p.stdout)["ok"]), (1, False))
+
+    def test_finds_another_plugins_key_where_the_hook_stays_off(self):
+        d = Path(self.home) / ".claude" / "context-checkpoint"; d.mkdir(parents=True)
+        (d / "jev.env").write_text('OPENROUTER_API_KEY="test-key"\n')
+        code, out = self.run_client()
+        self.assertEqual((code, out["ok"]), (0, True))
+        # the spawn hook, same machine: it rewrites models, so it wants the router's own key
+        n = len(MockJev.seen)
+        spawn = {"hook_event_name": "PreToolUse", "tool_name": "Agent", "session_id": "s9", "transcript_path": "/nonexistent",
+                 "tool_input": {"description": "d", "prompt": "p" * 50, "subagent_type": "general-purpose", "model": "opus"}}
+        p = subprocess.run([sys.executable, str(HERE / "route_spawn.py")], input=json.dumps(spawn), capture_output=True,
+                           text=True, env=self.env, timeout=20)
+        self.assertEqual((p.returncode, p.stdout.strip(), len(MockJev.seen)), (0, "", n))
+        log = Path(self.home) / ".claude" / "model-router" / "decisions.jsonl"
+        self.assertIn("jev unavailable", json.loads(log.read_text().splitlines()[-1])["reason"])
+
+    def test_a_typesafe_key_goes_to_typesafe(self):
+        import jev_decide
+        self.assertEqual(jev_decide._route_for("TYPESAFE_API_KEY", "k")[0], "typesafe")
+        self.assertEqual(jev_decide._route_for("JEV_API_KEY", "k")[0], "openrouter")
+
+    def test_request_model_override_and_no_sample_written(self):
+        code, out = self.run_client(dict(self.request, model="jev-latest"), OPENROUTER_API_KEY="test-key")
+        self.assertEqual((code, MockJev.seen[-1][2]["model"]), (0, "jev-latest"))
+        self.assertFalse((Path(self.home) / ".claude" / "model-router" / "jev-samples.jsonl").exists())
+
+    def raw_client(self, stdin, **env):
+        p = subprocess.run([sys.executable, str(HERE / "jev_decide.py")], input=stdin, capture_output=True,
+                           text=True, env=dict(self.env, **env), timeout=20)
+        return p.returncode, json.loads(p.stdout), p.stderr
+
+    def test_a_request_that_is_not_one_is_still_an_answer(self):
+        n = len(MockJev.seen)
+        for stdin in ("[1, 2]", "null", '"text"', json.dumps(dict(self.request, timeout_s="soon"))):
+            code, out, err = self.raw_client(stdin, OPENROUTER_API_KEY="test-key")
+            self.assertEqual((code, out["ok"], err), (1, False, ""), stdin)
+            self.assertIn("bad request", out["reason"])
+        self.assertEqual(len(MockJev.seen), n)
+
+    def test_an_odd_usage_block_is_not_a_failed_decision(self):
+        self.addCleanup(setattr, MockJev, "usage", MockJev.usage)
+        for usage in ({"cost": "n/a"}, [1], None, "free"):
+            MockJev.usage = usage
+            code, out, err = self.raw_client(json.dumps(self.request), OPENROUTER_API_KEY="test-key")
+            self.assertEqual((code, out["ok"], out["cost"], err), (0, True, 0.0, ""), usage)
+            self.assertEqual(out["answers"]["flake"]["noul"], 0.79)
+
+    def test_an_unreadable_timeout_in_the_environment_is_ignored(self):
+        for bad in ("soon", "-3", ""):
+            code, out, err = self.raw_client(json.dumps(self.request), OPENROUTER_API_KEY="test-key", JEV_TIMEOUT_S=bad)
+            self.assertEqual((code, out["ok"], err), (0, True, ""), bad)
+
+    def test_a_key_file_that_is_not_text_does_not_hide_the_next_one(self):
+        d = Path(self.home) / ".claude"; (d / "context-checkpoint").mkdir(parents=True)
+        (d / "a-binary.env").write_bytes(b"\xff\xfe\x00OPENROUTER_API_KEY=\xff")
+        (d / "context-checkpoint" / "jev.env").write_bytes(b"\xff\xfe not text\n")
+        (d / "zz.env").write_text("OPENROUTER_API_KEY=test-key\n")
+        code, out, err = self.raw_client(json.dumps(self.request))
+        self.assertEqual((code, out["ok"], err), (0, True, ""))
+
+    def test_builders_and_readers(self):
+        import jev_decide as jd
+        self.assertEqual(jd.choice("which", {"a": "A", "b": "B"})["criteria"], {"a": "A", "b": "B"})
+        self.assertEqual(jd.score("how", ["none", "some", "all"])["criteria"], ["none", "some", "all"])
+        with self.assertRaises(AssertionError):
+            jd.score("how", ["only one"])
+        self.assertEqual(jd.value({"type": "noul", "noul": 0.8}), 0.8)
+        self.assertEqual(jd.value({"type": "choice", "choice": "b"}), "b")
+        self.assertEqual(jd.band({"type": "score", "score": 1.0}, 3), 0.5)
+        self.assertIsNone(jd.value("not an answer"))
+        self.assertIsNone(jd.band({"type": "choice", "choice": "b"}, 3))
 
 
 if __name__ == "__main__":

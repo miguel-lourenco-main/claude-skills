@@ -20,6 +20,32 @@ and monitor the new pipeline until it passes or the retry budget is exhausted.
 
 ## How to use
 
+### Before fixing: is this failure even about the code?
+
+The expensive mistake in CI repair is authoring a fix for a failure the diff did not cause. It is
+expensive because each attempt costs a whole pipeline — on one project, 4 to 13 minutes of
+Supabase and Playwright bootstrap before the job reached the line that failed — and because the
+"fix" then lands as a commit.
+
+The tells are cheap to read and worth reading first:
+
+- **Every failure is a timeout, at the budget.** Tests dying at 5002ms, 5155ms, 5386ms are a
+  machine under load, not logic. Logic fails at an assertion.
+- **The failing files have nothing to do with the diff.** A change to two Rust files and a
+  markdown page does not break a cover-letter editor test.
+- **Something heavy ran at the same time.** Another job on the same runner, a local build, a model
+  scoring run. Check the timestamps, not just the log.
+- **`failure_reason` is not `script_failure`.** `stuck_pending_no_matching_runners`, a checkout
+  that cannot find a deleted branch, a `corepack`/registry error — none of these are the diff.
+- **The same job is green elsewhere** on the same commit, or passes on a retry with the machine idle.
+
+When the tells conflict or the call is close, ask the decision model rather than guessing —
+`model-router:decision-model`, one `noul` plus a `score`, ~0.4s and ~$0.00004 against a wasted
+cycle. Hand it the failing job names, the `failure_reason`, the excerpt, the changed paths, and
+what else was running; combine its answer with the tells above in your own arithmetic, and keep
+the plain rule as the fallback when it cannot be reached. **A likely flake is retried once on an
+idle machine before anything is authored.**
+
 ### Analyze
 ```bash
 bash ${CLAUDE_PLUGIN_ROOT}/skills/pipeline-health/scripts/analyze.sh --repo <path> [--branch <name>]

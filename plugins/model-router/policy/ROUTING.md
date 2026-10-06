@@ -24,6 +24,14 @@ matters. Your own prompts are read the same way: a `[model-router]` line saying 
 work means rule 7 applies, or one line on why it stays here. Workflow `agent()` stages and `fork`
 do not pass through the hook, so rules 3 and 4 remain yours to apply.
 
+Beside the tiers, not on them — **Jev, a decision model** (`model-router:decision-model`): a
+bounded answer (yes/no, one of a set, a described 2-10 scale) with a calibrated probability, ~0.4s
+and ~$0.00004, no prose at all. It is not a cheaper tier and it cannot do a tier's work. The hook
+above already asks it which tier a spawn runs on, so **do not ask it that yourself**. Use it where
+another decision repeats and being wrong is expensive — is this CI failure a flake, should this
+context be compacted, does this work belong on the open branch. Every caller keeps a fallback for
+the day the key or the endpoint is gone.
+
 Delegation rules:
 1. Never poll or babysit in the main session, and never issue a bare `sleep` (the harness blocks it).
    A command you started here goes in a background Bash or a `Monitor` until-loop, which report back

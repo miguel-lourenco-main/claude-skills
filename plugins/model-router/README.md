@@ -94,7 +94,7 @@ half off.
 cannot change a subagent's model. Measured on 2.1.283 (2026-09-27) it can, up and down; the raw
 payloads are in `research/2026-09-27-hook-model-rewrite/`. Because that is undocumented,
 `scripts/verify_hook.sh` re-proves it in four throwaway sessions after each upgrade, and
-`scripts/test_jev.py` (33 hermetic tests against a mock of `/v1/systemone`) covers the rules.
+`scripts/test_jev.py` (34 hermetic tests against a mock of `/v1/systemone`) covers the rules.
 `scripts/mock_jev.py` lets a whole session run against a canned answer, which is how the hook
 wiring was verified end to end: a spawn requested on Opus ran on Haiku.
 
@@ -113,14 +113,18 @@ echo '{"state": {...}, "questions": {...}}' | python3 scripts/jev_decide.py
 python3 scripts/jev_decide.py --self-test
 ```
 
-It makes the same request as the hooks (`jev.post`) and differs from them in three ways:
+It makes the same request as the hooks (`jev.post`), finds the key the same way (below), and
+differs from them in two ways:
 
 - **It never raises.** No key, a timeout or an outage return `{"ok": false, "reason": ...}`, and
   every caller keeps a fallback.
-- **It looks for a key more widely.** The router's own configuration first, then any plugin's
-  `jev.env` and any `.env` directly under `~/.claude` (`KEY_FILES`). The hooks do not: they rewrite a subagent's model, so they run only where
-  the router itself was given a key.
 - **It writes nothing to the sample log**, which stays about routing.
+
+**Where the key is found**, for the hooks and the shared client alike: the environment
+(`OPENROUTER_API_KEY` or `TYPESAFE_API_KEY`), then `~/.claude/model-router/jev.env`, then any
+other plugin's `jev.env` and any `.env` directly under `~/.claude` (`jev.KEY_FILES`). A key put
+down for one plugin (context-checkpoint, say) therefore switches the decider on for this one
+too; `scripts/jev.py --status` says which file answered.
 
 Do not use it to ask which tier runs a task. The spawn hook already asks Jev that.
 

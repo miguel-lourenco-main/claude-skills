@@ -16,7 +16,8 @@ threshold, and never let a low-confidence answer make anything worse.
 
 Access, cheapest working route first: OPENROUTER_API_KEY (base https://openrouter.ai/api, model
 typesafe/jev-1.13, no waitlist) or TYPESAFE_API_KEY (base https://api.typesafe.ai, model
-jev-latest, early access). Keys come from the environment or from ~/.claude/model-router/jev.env
+jev-latest, early access). Keys come from the environment, from ~/.claude/model-router/jev.env,
+or failing both from any other plugin's jev.env under ~/.claude (KEY_FILES, in that order)
 (KEY=value lines, mode 600) so they never sit in settings.json. Input is $0.042 per million
 tokens and output is free, so a routing decision costs a few millionths of a dollar.
 
@@ -36,6 +37,7 @@ CLI:
 """
 import argparse
 import datetime as dt
+import glob
 import json
 import os
 import re
@@ -48,6 +50,10 @@ from pathlib import Path
 ROOT = Path(os.environ.get("CLAUDE_PLUGIN_ROOT", Path(__file__).resolve().parent.parent))
 STATE_DIR = Path.home() / ".claude" / "model-router"
 ENV_FILE = STATE_DIR / "jev.env"
+# Where else a key may live, searched in this order after the environment and ENV_FILE. Globbed
+# and deliberately wide: a key put down for one plugin serves every decision on the machine, and a
+# key that moved out of a working tree (the right move) must not silently switch the hooks off.
+KEY_FILES = ("~/.claude/*/jev.env", "~/.claude/*.env", "~/.config/jobhunt/jev.env")
 CONFIG_FILE = STATE_DIR / "jev.json"
 DECISIONS = STATE_DIR / "decisions.jsonl"
 SAMPLES = STATE_DIR / "jev-samples.jsonl"
@@ -90,9 +96,28 @@ def _read_env_file(path=ENV_FILE):
                 continue
             k, v = line.split("=", 1)
             values[k.strip()] = v.strip().strip('"').strip("'")
-    except OSError:
+    except (OSError, ValueError):  # unreadable, or not text
         pass
     return values
+
+
+def _key_sources():
+    """(where, values) for every place a key may be, first wins: the environment, the router's own
+    file, then KEY_FILES."""
+    yield "environment", {k: v for k, v in os.environ.items() if k.endswith("_API_KEY") or k.startswith("JEV_")}
+    yield str(ENV_FILE), _read_env_file()
+    for pattern in KEY_FILES:
+        for path in sorted(glob.glob(os.path.expanduser(pattern))):
+            if Path(path) != ENV_FILE:
+                yield path, _read_env_file(Path(path))
+
+
+def key_source():
+    """Where the key credentials() would use comes from ("environment" or a file path), or None."""
+    for where, source in _key_sources():
+        if any(source.get(k) for k in ("OPENROUTER_API_KEY", "TYPESAFE_API_KEY", "JEV_API_KEY")):
+            return where
+    return None
 
 
 def config():
@@ -110,17 +135,21 @@ def config():
 
 
 def credentials():
-    """(route name, base url, model, key) for the first configured route, else JevUnavailable."""
+    """(route name, base url, model, key) for the first configured route, else JevUnavailable.
+    The variable a key sits under names its provider; JEV_API_KEY names none and takes the default
+    route. JEV_BASE_URL and JEV_MODEL override either route, from the environment or ENV_FILE."""
     env = dict(_read_env_file())
-    env.update({k: v for k, v in os.environ.items() if k.endswith("_API_KEY") or k.startswith("JEV_")})
-    for name in ("openrouter", "typesafe"):
-        r = ROUTES[name]
-        key = env.get(r["env"])
-        if key:
-            base = env.get("JEV_BASE_URL") or r["base"]
-            model = env.get("JEV_MODEL") or r["model"]
-            return name, base.rstrip("/"), model, key
-    raise JevUnavailable("no OPENROUTER_API_KEY or TYPESAFE_API_KEY (env or ~/.claude/model-router/jev.env)")
+    env.update({k: v for k, v in os.environ.items() if k.startswith("JEV_")})
+    for _, source in _key_sources():
+        for name in ("openrouter", "typesafe"):
+            r = ROUTES[name]
+            key = source.get(r["env"]) or (source.get("JEV_API_KEY") if name == "openrouter" else None)
+            if key:
+                base = env.get("JEV_BASE_URL") or r["base"]
+                model = env.get("JEV_MODEL") or r["model"]
+                return name, base.rstrip("/"), model, key
+    raise JevUnavailable("no OPENROUTER_API_KEY or TYPESAFE_API_KEY (env, ~/.claude/model-router/jev.env, "
+                         "or another plugin's jev.env under ~/.claude)")
 
 
 # --- the call ------------------------------------------------------------------------------
@@ -350,7 +379,7 @@ def _status():
     except JevUnavailable as e:
         cred = f"none: {e}"
     cfg = config()
-    return {"credentials": cred, "threshold": cfg["threshold"], "timeout_s": cfg["timeout"],
+    return {"credentials": cred, "key_from": key_source(), "threshold": cfg["threshold"], "timeout_s": cfg["timeout"],
             "route_spawns": cfg["route_spawns"], "advise_prompts": cfg["advise_prompts"],
             "decisions_log": str(DECISIONS), "samples": str(SAMPLES), "samples_keep": cfg["samples_keep"],
             "env_file": str(ENV_FILE), "config_file": str(CONFIG_FILE)}

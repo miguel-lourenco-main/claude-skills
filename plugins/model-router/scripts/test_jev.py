@@ -90,6 +90,7 @@ class Pins(unittest.TestCase):
 
 class MockJev(BaseHTTPRequestHandler):
     canned = answers("haiku", 0.92)
+    usage = {"input_tokens": 300, "output_tokens": 40, "cost": 0.0000126}
     seen = []
 
     def do_POST(self):
@@ -98,7 +99,7 @@ class MockJev(BaseHTTPRequestHandler):
         if self.headers.get("Authorization") != "Bearer test-key":
             self.send_response(401); self.end_headers(); self.wfile.write(b'{"error":{"code":401}}'); return
         out = {"model": "typesafe/jev-mock", "answers": {k: v for k, v in MockJev.canned.items() if k in body["questions"]},
-               "usage": {"input_tokens": 300, "output_tokens": 40, "cost": 0.0000126}}
+               "usage": MockJev.usage}
         data = json.dumps(out).encode()
         self.send_response(200); self.send_header("Content-Type", "application/json")
         self.send_header("Content-Length", str(len(data))); self.end_headers(); self.wfile.write(data)
@@ -299,6 +300,8 @@ class SharedClient(unittest.TestCase):
         p = subprocess.run([sys.executable, str(HERE / "route_spawn.py")], input=json.dumps(spawn), capture_output=True,
                            text=True, env=self.env, timeout=20)
         self.assertEqual((p.returncode, p.stdout.strip(), len(MockJev.seen)), (0, "", n))
+        log = Path(self.home) / ".claude" / "model-router" / "decisions.jsonl"
+        self.assertIn("jev unavailable", json.loads(log.read_text().splitlines()[-1])["reason"])
 
     def test_a_typesafe_key_goes_to_typesafe(self):
         import jev_decide
@@ -310,6 +313,40 @@ class SharedClient(unittest.TestCase):
         self.assertEqual((code, MockJev.seen[-1][2]["model"]), (0, "jev-latest"))
         self.assertFalse((Path(self.home) / ".claude" / "model-router" / "jev-samples.jsonl").exists())
 
+    def raw_client(self, stdin, **env):
+        p = subprocess.run([sys.executable, str(HERE / "jev_decide.py")], input=stdin, capture_output=True,
+                           text=True, env=dict(self.env, **env), timeout=20)
+        return p.returncode, json.loads(p.stdout), p.stderr
+
+    def test_a_request_that_is_not_one_is_still_an_answer(self):
+        n = len(MockJev.seen)
+        for stdin in ("[1, 2]", "null", '"text"', json.dumps(dict(self.request, timeout_s="soon"))):
+            code, out, err = self.raw_client(stdin, OPENROUTER_API_KEY="test-key")
+            self.assertEqual((code, out["ok"], err), (1, False, ""), stdin)
+            self.assertIn("bad request", out["reason"])
+        self.assertEqual(len(MockJev.seen), n)
+
+    def test_an_odd_usage_block_is_not_a_failed_decision(self):
+        self.addCleanup(setattr, MockJev, "usage", MockJev.usage)
+        for usage in ({"cost": "n/a"}, [1], None, "free"):
+            MockJev.usage = usage
+            code, out, err = self.raw_client(json.dumps(self.request), OPENROUTER_API_KEY="test-key")
+            self.assertEqual((code, out["ok"], out["cost"], err), (0, True, 0.0, ""), usage)
+            self.assertEqual(out["answers"]["flake"]["noul"], 0.79)
+
+    def test_an_unreadable_timeout_in_the_environment_is_ignored(self):
+        for bad in ("soon", "-3", ""):
+            code, out, err = self.raw_client(json.dumps(self.request), OPENROUTER_API_KEY="test-key", JEV_TIMEOUT_S=bad)
+            self.assertEqual((code, out["ok"], err), (0, True, ""), bad)
+
+    def test_a_key_file_that_is_not_text_does_not_hide_the_next_one(self):
+        d = Path(self.home) / ".claude"; (d / "context-checkpoint").mkdir(parents=True)
+        (d / "a-binary.env").write_bytes(b"\xff\xfe\x00OPENROUTER_API_KEY=\xff")
+        (d / "context-checkpoint" / "jev.env").write_bytes(b"\xff\xfe not text\n")
+        (d / "zz.env").write_text("OPENROUTER_API_KEY=test-key\n")
+        code, out, err = self.raw_client(json.dumps(self.request))
+        self.assertEqual((code, out["ok"], err), (0, True, ""))
+
     def test_builders_and_readers(self):
         import jev_decide as jd
         self.assertEqual(jd.choice("which", {"a": "A", "b": "B"})["criteria"], {"a": "A", "b": "B"})
@@ -320,6 +357,7 @@ class SharedClient(unittest.TestCase):
         self.assertEqual(jd.value({"type": "choice", "choice": "b"}), "b")
         self.assertEqual(jd.band({"type": "score", "score": 1.0}, 3), 0.5)
         self.assertIsNone(jd.value("not an answer"))
+        self.assertIsNone(jd.band({"type": "choice", "choice": "b"}, 3))
 
 
 if __name__ == "__main__":

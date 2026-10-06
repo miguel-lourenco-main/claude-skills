@@ -94,7 +94,7 @@ half off.
 cannot change a subagent's model. Measured on 2.1.283 (2026-09-27) it can, up and down; the raw
 payloads are in `research/2026-09-27-hook-model-rewrite/`. Because that is undocumented,
 `scripts/verify_hook.sh` re-proves it in four throwaway sessions after each upgrade, and
-`scripts/test_jev.py` (29 hermetic tests against a mock of `/v1/systemone`) covers the rules.
+`scripts/test_jev.py` (33 hermetic tests against a mock of `/v1/systemone`) covers the rules.
 `scripts/mock_jev.py` lets a whole session run against a canned answer, which is how the hook
 wiring was verified end to end: a spawn requested on Opus ran on Haiku.
 
@@ -117,8 +117,8 @@ It makes the same request as the hooks (`jev.post`) and differs from them in thr
 
 - **It never raises.** No key, a timeout or an outage return `{"ok": false, "reason": ...}`, and
   every caller keeps a fallback.
-- **It looks for a key more widely.** The router's own configuration first, then any other
-  plugin's `jev.env`. The hooks do not: they rewrite a subagent's model, so they run only where
+- **It looks for a key more widely.** The router's own configuration first, then any plugin's
+  `jev.env` and any `.env` directly under `~/.claude` (`KEY_FILES`). The hooks do not: they rewrite a subagent's model, so they run only where
   the router itself was given a key.
 - **It writes nothing to the sample log**, which stays about routing.
 

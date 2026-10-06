@@ -70,11 +70,14 @@ and `value()` / `band()` to read an answer back without knowing its type.
 
 The request itself is the router's own (`scripts/jev.py`, the client behind the spawn hook), so
 there is one place this plugin talks to Jev. The shared client differs in two ways, both on
-purpose: it looks for a key more widely (the router's `jev.env` first, then any other plugin's),
-and it does not write to the router's sample log, which stays about routing.
+purpose: it looks for a key more widely (the router's configuration first, then the places in
+`KEY_FILES`: any plugin's `jev.env` and any `.env` directly under `~/.claude`), and it does not
+write to the router's sample log, which stays about routing. Its wait is `JEV_TIMEOUT_S` (default
+12 s) or the request's `timeout_s`; the hooks' shorter `JEV_TIMEOUT` does not apply here.
 
 **Every caller must have a fallback.** The client returns `{"ok": false, "reason": …}` for a
-missing key, a timeout or an outage, and never raises. A decision that cannot be reached without
+missing key, a timeout, an outage or a malformed request, and never raises. Branch on `ok`; the
+`reason` is a sentence for a log, not a code to match on. A decision that cannot be reached without
 Jev is a decision that stops working the day the key expires — degrade to the rule, the heuristic
 or the human, and say which one answered.
 
@@ -89,7 +92,9 @@ pattern.
 | `model-router` (spawn hook) | which tier an Agent spawn runs on | policy text the orchestrating model could ignore |
 | `model-router` (prompt hook) | is this prompt plainly delegate work | the same |
 | `context-checkpoint` | keep or compact this context | the session's own model, judging itself from inside |
-| *(candidates)* | flake or real failure, before spending a CI cycle; same branch or a new one; an ambiguous backlog item's tier | a guess, a habit, or a label rule |
+| `git-steward:pipeline-health` | flake or real failure, when the tells conflict, before spending a CI cycle | a guess |
+| `git-steward:branch-scope` | same branch or a new one, when the rules do not settle it | a habit |
+| *(candidate)* | which bucket an ambiguous backlog item goes in | a label rule |
 
 ## Additional resources
 

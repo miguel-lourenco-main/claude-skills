@@ -1,5 +1,5 @@
 {
-  "description": "At every N% of context, after a cold-cache pause, or on a task-boundary prompt, inject a keep-or-compact checkpoint the model answers in one line.",
+  "description": "At every N% of context, after a cold-cache pause, or on a task-boundary prompt: a cheap model digests what is in context, a decision model (Jev) grades it, and the verdict reaches both the console and the session.",
   "hooks": {
     "UserPromptSubmit": [
       {
@@ -7,7 +7,7 @@
           {
             "type": "command",
             "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/scripts/context_checkpoint.py\"",
-            "timeout": 10,
+            "timeout": 15,
             "statusMessage": "context checkpoint"
           }
         ]

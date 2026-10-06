@@ -38,6 +38,11 @@ under `plugins/<name>/` and are installed via this repo's marketplace manifest
   keep or compact — on relevance and freshness of what is in context, not its size. Ships a
   `--status` reading and a skill with the criteria and the measurements behind them. See
   `plugins/context-checkpoint/README.md`.
+- **plugins/code-maps/** — maps of a codebase as navigable HTML pages, built from what the code
+  compiles to and does: `java-diagrams` (class and package diagrams read from bytecode, verified
+  view by view) and `execution-trace` (one run followed step by step like a debugger, through
+  process / code / state / data / disk layers, with measured call graphs). See
+  `plugins/code-maps/README.md`.
 
 Plugins are **not** loaded via the `~/.claude/skills/` clone — they are registered as a marketplace.
 This repo's `.claude-plugin/marketplace.json` lists them. Register the marketplace once (per machine):

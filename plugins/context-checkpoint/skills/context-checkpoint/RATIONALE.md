@@ -72,3 +72,47 @@ And the counter-signals, which are why a blanket "compact at N%" is wrong:
 So the rule is: **the periodic check is a prompt to ask "how much of this does the next task need,
 and is any of it now wrong?" — not a threshold.** The %-cadence only guarantees the question gets
 asked; the answer comes from the relationship between tasks.
+
+## Why a decision model answers it, and not the session's own (0.2.0, 2026-09-28)
+
+Until 0.2.0 the hook asked the session's model to judge its own context. That has two defects
+and one of them is structural. The small one: the question arrives as the first thing in a turn
+whose real job is the user's task, so the answer competes with the work for attention and tends
+to become one hedged line. The structural one: **a model cannot see its own context the way this
+question needs it seen.** It is inside it. What it has is a continuous narrative; what the
+question needs is an inventory — how many tokens went to tool output, which single reads were
+largest, what was already committed — which is exactly what the transcript file knows and the
+model does not.
+
+So the work is split by what each layer is actually good at:
+
+| layer | good at | measured |
+|---|---|---|
+| Python over the JSONL | counting: turns, tool histogram, the biggest dumps *by name*, files touched, errors | free, ~0.1 s on a 400k-token transcript |
+| a cheap chat model | turning that inventory plus the recent exchanges into five honest lines | `google/gemini-2.5-flash-lite`: **1.0 s, $0.00025** |
+| Jev (a decision model) | grading those lines with calibrated probabilities, no prose | **0.4 s, $0.00004** |
+| this file's `verdict()` | combining the grades with a veto | free, and inspectable |
+
+Jev rather than another chat model because the question is shaped like a decision, not like
+prose: yes/no plus two ordered scales. It returns `P(compact)` and a probability distribution per
+scale, and it cannot ramble, hedge or write a paragraph instead of answering — the failure mode
+of asking a language model for a verdict. It also cannot quote or explain, which is why the cheap
+model writes the digest first; the same division the job-matching runtime uses, where Jev grades
+the dimensions and the prose comes from elsewhere.
+
+**The veto is what makes it safe.** On the first real firing (this session, 42% of 1M, mid-edit on
+this very file) Jev answered `P(compact) 0.60` with `relevance 3.8/4` and `loss_risk 2.5/4`. The
+yes/no alone would have said compact — during an unfinished edit whose state existed nowhere but
+the transcript. `loss_risk > 2.5` overrode it to **keep**. A threshold on the yes/no alone is not
+a safe rule; the second question is the one that protects in-flight work, and it is arithmetic
+here rather than a plea in the prompt.
+
+**Cost.** Both calls fire only when the gate opens — a band crossing, a cold cache, or a boundary
+prompt — which on the measured sessions above is a few times per session. At ~$0.0003 a firing
+that is well under a cent a day, against a 126-second stall and a lost in-flight state for every
+auto-compaction it prevents.
+
+**The CLI path is the fallback, not the default.** `claude -p --model haiku` costs no cash and
+uses the subscription, but measured **24 s** against the API path's 1 s, nearly all of it process
+start-up — and the hook is holding the person's prompt while it runs. It stays as the path for a
+machine with no key.

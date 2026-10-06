@@ -137,9 +137,31 @@
     },
     {
       "name": "context-checkpoint",
-      "description": "Deliberate context compaction for Claude Code: a UserPromptSubmit hook that reads the live context size from the session transcript and, every N% of the window, after a cold-cache pause, or on a task-boundary prompt, asks the model to decide in one line whether to keep or compact — on relevance and freshness of what is in context, not its size. Ships the hook, a per-machine config, a --status reading, and a skill that explains the criteria and the measurements behind them.",
+      "description": "Deliberate context compaction for Claude Code: a UserPromptSubmit hook that reads the live context size from the session transcript and, every N% of the window, after a cold-cache pause, or on a task-boundary prompt, decides whether to keep or compact — on relevance and freshness of what is in context, not its size. A cheap model digests the transcript into five lines (in flight / closed / stale / poison / next needs) for the console, and TypeSafe's Jev decision model grades that digest with calibrated probabilities; the hook combines the grades by arithmetic, with a loss-risk veto. Falls back to asking the session's own model when no key or no answer. Ships the hook, a per-machine config, --status and --dry-run readings, and a skill explaining the criteria and the measurements.",
       "source": "./plugins/context-checkpoint",
       "category": "llm",
+      "version": "0.2.0",
+      "author": {
+        "name": "migaloco",
+        "email": "migasoulou@gmail.com"
+      }
+    },
+    {
+      "name": "code-maps",
+      "description": "Maps of a codebase as navigable HTML pages, built from what the code compiles to and does rather than from reading it. Ships java-diagrams: class and package diagrams for a Java project, read from bytecode, cross-checked against jdeps, every view verified against the extracted graph and bounded so it stays readable. And execution-trace: a run trace that follows one execution from the command line to its last effect, step by step like a debugger, redrawn through layers (process, code, state, data, disk), with excerpts cut from the source at build time, call arrows read from bytecode and classes filtered by a measured class-load log.",
+      "source": "./plugins/code-maps",
+      "category": "development",
+      "version": "0.1.0",
+      "author": {
+        "name": "migaloco",
+        "email": "migasoulou@gmail.com"
+      }
+    },
+    {
+      "name": "log-craft",
+      "description": "Readable, good-looking CI job logs. Ships ci-log-design: audit a GitLab CI job log with a scoring script, judge it against a written taste guide, redesign it with a small text-art vocabulary (title rules, folded steps, failure cards, duration bars, tables, a verdict line), and apply it through a shared POSIX-sh and Node logging library with a demo, a canary job and a renderer for before/after proof.",
+      "source": "./plugins/log-craft",
+      "category": "ci",
       "version": "0.1.0",
       "author": {
         "name": "migaloco",

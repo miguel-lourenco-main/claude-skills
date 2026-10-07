@@ -69,11 +69,12 @@ From Python, import the builders instead of hand-rolling JSON: `noul()`, `choice
 and `value()` / `band()` to read an answer back without knowing its type.
 
 The request itself is the router's own (`scripts/jev.py`, the client behind the spawn hook), so
-there is one place this plugin talks to Jev. The shared client differs in two ways, both on
-purpose: it looks for a key more widely (the router's configuration first, then the places in
-`KEY_FILES`: any plugin's `jev.env` and any `.env` directly under `~/.claude`), and it does not
-write to the router's sample log, which stays about routing. Its wait is `JEV_TIMEOUT_S` (default
-12 s) or the request's `timeout_s`; the hooks' shorter `JEV_TIMEOUT` does not apply here.
+there is one place this plugin talks to Jev, and one key lookup: the environment, the router's
+`~/.claude/model-router/jev.env`, then any other plugin's `jev.env` under `~/.claude`
+(`jev.KEY_FILES`), so a key put down for one plugin serves every decision on the machine. The
+shared client differs from the hooks in two ways, both on purpose: it never raises, and it does
+not write to the router's sample log, which stays about routing. Its wait is `JEV_TIMEOUT_S`
+(default 12 s) or the request's `timeout_s`; the hooks' shorter `JEV_TIMEOUT` does not apply here.
 
 **Every caller must have a fallback.** The client returns `{"ok": false, "reason": …}` for a
 missing key, a timeout, an outage or a malformed request, and never raises. Branch on `ok`; the

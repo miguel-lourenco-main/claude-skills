@@ -118,7 +118,7 @@
       "description": "Quota-aware model routing for Claude Code: keeps the main session on a strong model and pushes mechanical work to cheaper tiers. Jev (TypeSafe's decision model) decides the tier of every Agent spawn in a PreToolUse hook and advises on prompts that are delegate work, failing open without a key. Ships the standing routing policy (injected at session start), Haiku/Sonnet worker agents (ci-watcher, sweeper, mechanic, reviewer, sysadmin), Sonnet-pinned status-report and ship skills, a per-machine setup, a shared Jev client any plugin can call for its own bounded, repeated, expensive-to-get-wrong decisions (with the skill that says when not to), and a bi-weekly per-workstation usage review that measures where the tokens went and what the decider did.",
       "source": "./plugins/model-router",
       "category": "llm",
-      "version": "0.5.0",
+      "version": "0.5.1",
       "author": {
         "name": "migaloco",
         "email": "migasoulou@gmail.com"

@@ -12,11 +12,10 @@ plugin's subject, so the client lives here and the others call it.
 
 The request itself is `jev.post`, the same call the router's spawn and prompt hooks make
 (`jev.py`), so this plugin talks to Jev in one place. What this file adds is the surface another
-plugin needs: a CLI, an answer that is never an exception, and a key lookup wider than the
-router's own. The router's hooks rewrite a subagent's model, so they run only where the router
-was set up (`~/.claude/model-router/jev.env` or the environment); a caller here is asking a
-question of its own and takes whichever key the fleet has. Calls made here are not written to
-the router's sample log, which stays about routing.
+plugin needs: a CLI and an answer that is never an exception. The key is found the way the hooks
+find it (`jev.credentials`: the environment, the router's own jev.env, then any other plugin's
+under ~/.claude), so a key put down for one plugin serves every decision on the machine. Calls
+made here are not written to the router's sample log, which stays about routing.
 
 Usage:
   echo '{"state": {...}, "questions": {...}}' | python3 jev_decide.py
@@ -35,7 +34,6 @@ improvement on a decision, never the only way to reach one.
 A call made here waits JEV_TIMEOUT_S seconds (default 12), or the request's `timeout_s`. The
 router's hooks have their own, shorter bound (JEV_TIMEOUT, default 4), because they hold a spawn.
 """
-import glob
 import json
 import os
 import sys
@@ -57,48 +55,15 @@ def _env_seconds(name, default):
 
 
 TIMEOUT = _env_seconds("JEV_TIMEOUT_S", DEFAULT_TIMEOUT)
-KEY_ENVS = ("OPENROUTER_API_KEY", "TYPESAFE_API_KEY", "JEV_API_KEY")
-# Globbed and deliberately wide: a key that moved out of a working tree (the right move) must not
-# silently disable every decision in the fleet.
-KEY_FILES = (
-    "~/.claude/model-router/jev.env",
-    "~/.claude/context-checkpoint/jev.env",
-    "~/.claude/*/jev.env",
-    "~/.claude/*.env",
-    "~/.config/jobhunt/jev.env",
-)
-
-
-def _route_for(name, key):
-    """(route, base, model, key) for a key found under the variable `name`. The variable says
-    which provider the key belongs to; JEV_API_KEY says nothing, so it takes the default route."""
-    route = next((n for n, r in jev.ROUTES.items() if r["env"] == name), "openrouter")
-    base = os.environ.get("JEV_BASE_URL") or jev.ROUTES[route]["base"]
-    model = os.environ.get("JEV_MODEL") or jev.ROUTES[route]["model"]
-    return route, base.rstrip("/"), model, key
 
 
 def find_route():
-    """The router's own configuration first, then any key the fleet has. None when there is none."""
+    """The router's own key lookup (`jev.credentials`): the environment, the router's jev.env, then
+    any other plugin's. None when there is none."""
     try:
         return jev.credentials()
     except jev.JevUnavailable:
-        pass
-    for name in KEY_ENVS:
-        v = os.environ.get(name)
-        if v and v.strip():
-            return _route_for(name, v.strip())
-    for pattern in KEY_FILES:
-        for path in sorted(glob.glob(os.path.expanduser(pattern))):
-            try:
-                with open(path) as fh:
-                    for line in fh:
-                        k, _, v = line.partition("=")
-                        if k.strip() in KEY_ENVS and v.strip():
-                            return _route_for(k.strip(), v.strip().strip('"').strip("'"))
-            except (OSError, ValueError):  # unreadable, or not text: the next file may still have it
-                continue
-    return None
+        return None
 
 
 def decide(state, questions, timeout=TIMEOUT, model=None):
@@ -107,7 +72,7 @@ def decide(state, questions, timeout=TIMEOUT, model=None):
     try:
         found = find_route()
         if not found:
-            return {"ok": False, "reason": "no key (set OPENROUTER_API_KEY or ~/.claude/model-router/jev.env)"}
+            return {"ok": False, "reason": "no key (set OPENROUTER_API_KEY or write ~/.claude/model-router/jev.env)"}
         route, base, route_model, key = found
         d, _ = jev.post(route, base, model or route_model, key, state, questions, float(timeout))
         usage = d.get("usage") if isinstance(d.get("usage"), dict) else {}

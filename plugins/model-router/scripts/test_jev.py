@@ -171,7 +171,7 @@ class HooksEndToEnd(unittest.TestCase):
         self.assertEqual(len(MockJev.seen), n)
 
     def test_5_no_key_fails_open(self):
-        env = dict(self.env); env.pop("OPENROUTER_API_KEY")
+        env = dict(self.env); env.pop("OPENROUTER_API_KEY")  # the temp HOME holds no key file either
         p = subprocess.run([sys.executable, str(HERE / "route_spawn.py")], input=json.dumps(self.spawn(model="opus")),
                            capture_output=True, text=True, env=env, timeout=20)
         self.assertEqual((p.returncode, p.stdout.strip()), (0, ""))
@@ -288,25 +288,42 @@ class SharedClient(unittest.TestCase):
                            text=True, env=self.env, timeout=20)
         self.assertEqual((p.returncode, json.loads(p.stdout)["ok"]), (1, False))
 
-    def test_finds_another_plugins_key_where_the_hook_stays_off(self):
+    def test_another_plugins_key_serves_the_client_and_the_hook(self):
         d = Path(self.home) / ".claude" / "context-checkpoint"; d.mkdir(parents=True)
         (d / "jev.env").write_text('OPENROUTER_API_KEY="test-key"\n')
         code, out = self.run_client()
         self.assertEqual((code, out["ok"]), (0, True))
-        # the spawn hook, same machine: it rewrites models, so it wants the router's own key
+        # the spawn hook, same machine, same key: it decides too
+        MockJev.canned = answers("haiku", 0.92)
         n = len(MockJev.seen)
         spawn = {"hook_event_name": "PreToolUse", "tool_name": "Agent", "session_id": "s9", "transcript_path": "/nonexistent",
                  "tool_input": {"description": "d", "prompt": "p" * 50, "subagent_type": "general-purpose", "model": "opus"}}
         p = subprocess.run([sys.executable, str(HERE / "route_spawn.py")], input=json.dumps(spawn), capture_output=True,
                            text=True, env=self.env, timeout=20)
-        self.assertEqual((p.returncode, p.stdout.strip(), len(MockJev.seen)), (0, "", n))
+        self.assertEqual((p.returncode, len(MockJev.seen)), (0, n + 1), p.stderr)
+        self.assertEqual(json.loads(p.stdout)["hookSpecificOutput"]["updatedInput"]["model"], "haiku")
         log = Path(self.home) / ".claude" / "model-router" / "decisions.jsonl"
-        self.assertIn("jev unavailable", json.loads(log.read_text().splitlines()[-1])["reason"])
+        self.assertEqual(json.loads(log.read_text().splitlines()[-1])["applied"], "haiku")
+        # and --status names the file that answered
+        p = subprocess.run([sys.executable, str(HERE / "jev.py"), "--status"], capture_output=True, text=True, env=self.env, timeout=20)
+        self.assertEqual(json.loads(p.stdout)["key_from"], str(d / "jev.env"))
 
-    def test_a_typesafe_key_goes_to_typesafe(self):
-        import jev_decide
-        self.assertEqual(jev_decide._route_for("TYPESAFE_API_KEY", "k")[0], "typesafe")
-        self.assertEqual(jev_decide._route_for("JEV_API_KEY", "k")[0], "openrouter")
+    def test_the_routers_own_file_outranks_another_plugins(self):
+        mine = Path(self.home) / ".claude" / "model-router"; mine.mkdir(parents=True)
+        other = Path(self.home) / ".claude" / "aaa-plugin"; other.mkdir(parents=True)
+        (other / "jev.env").write_text("OPENROUTER_API_KEY=wrong\n")   # sorts first, must not win
+        (mine / "jev.env").write_text("OPENROUTER_API_KEY=test-key\n")
+        code, out = self.run_client()
+        self.assertEqual((code, out["ok"]), (0, True))
+        self.assertEqual(MockJev.seen[-1][1], "Bearer test-key")
+
+    def test_the_variable_names_the_route(self):
+        d = Path(self.home) / ".claude" / "some-plugin"; d.mkdir(parents=True)
+        for line, route in (("TYPESAFE_API_KEY=k", "typesafe"), ("JEV_API_KEY=k", "openrouter"), ("OPENROUTER_API_KEY=k", "openrouter")):
+            (d / "jev.env").write_text(line + "\n")
+            p = subprocess.run([sys.executable, str(HERE / "jev.py"), "--status"], capture_output=True, text=True,
+                               env=dict(self.env, JEV_BASE_URL=""), timeout=20)
+            self.assertTrue(json.loads(p.stdout)["credentials"].startswith(route), (line, p.stdout))
 
     def test_request_model_override_and_no_sample_written(self):
         code, out = self.run_client(dict(self.request, model="jev-latest"), OPENROUTER_API_KEY="test-key")

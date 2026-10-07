@@ -26,7 +26,9 @@ A plugin cannot set environment variables or hold secrets, so these go into this
    mkdir -p ~/.claude/model-router && umask 077 && printf 'OPENROUTER_API_KEY=%s\n' '<key>' > ~/.claude/model-router/jev.env
    ```
 
-   (`TYPESAFE_API_KEY=` for the direct route.) Then check it with one live call, which also proves
+   (`TYPESAFE_API_KEY=` for the direct route.) A key another plugin already keeps under
+   `~/.claude` (context-checkpoint's `jev.env`, for one) is found too, so this step may already be
+   done: `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/jev.py" --status` says. Then check it with one live call, which also proves
    the model answers sanely (a "poll the pipeline" task must come back `haiku`):
 
    ```sh

@@ -53,6 +53,13 @@ switch to the lighter retrofit path: skip scaffolding, derive ARCHITECTURE/CONVE
 reading the code, and interview only for product intent and restrictions. (A full retrofit skill
 is future work; keep it lightweight.)
 
+**Seeded from a replication spec.** If the user names a `replication/<slug>/SPEC.md` (written by
+`product-teardown`), read it first: its §12 carries Vision, Users, an ordered v1 scope of feature
+IDs, Non-goals and Open questions — seed `docs/PRODUCT.md` and FEATURES' Planned section from it,
+and interview only for what the spec leaves open (stack, hosting, testing appetite, version
+control, which tiers enter v1). Cite the spec's F-IDs in FEATURES entries so the ledger stays
+traceable to the evidence.
+
 ## Phase 1 — Interview
 
 Run the question bank in `$SK/interview.md` via `AskUserQuestion` — up to 4 questions per call,

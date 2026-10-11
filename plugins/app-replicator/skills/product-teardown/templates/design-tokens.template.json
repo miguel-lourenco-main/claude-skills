@@ -1,0 +1,10 @@
+{
+  "_meta": { "viewport": "{{1440x900}}", "date": "{{date}}", "source": "tokens.js probe + screenshots" },
+  "color": { "{{name}}": { "value": "{{#hex}}", "uses": "{{where}}", "ev": "{{M P-NN}}" } },
+  "font": { "{{name}}": { "value": "{{family/size/weight}}", "uses": "{{where}}", "ev": "{{M P-NN}}" } },
+  "size": { "{{name}}": { "value": "{{px}}", "uses": "{{where}}", "ev": "{{M P-NN}}" } },
+  "space": { "{{name}}": { "value": "{{px}}", "uses": "{{where}}", "ev": "{{M P-NN}}" } },
+  "radius": { "{{name}}": { "value": "{{px}}", "uses": "{{where}}", "ev": "{{M P-NN}}" } },
+  "shadow": { "{{name}}": { "value": "{{css}}", "uses": "{{where}}", "ev": "{{M P-NN}}" } },
+  "motion": { "{{name}}": { "value": "{{duration/easing}}", "uses": "{{where}}", "ev": "{{M P-NN}}" } }
+}

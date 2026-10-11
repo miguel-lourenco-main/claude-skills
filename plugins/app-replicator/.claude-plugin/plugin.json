@@ -1,0 +1,6 @@
+{
+  "name": "app-replicator",
+  "description": "Replicate an existing web app from the outside: a product-teardown skill that studies a live app in the user's real Chrome through one extractor agent and writes an evidence-tagged replication spec a blind rebuilder can work from — surface map, feature inventory with tier gating, behaviour specs measured by probes (audio, timers, editors, state, persistence), API map, design tokens and an asset catalogue (copyrighted media catalogued, never downloaded) — shaped to seed project-genesis. Every claim is tagged measured / observed / documented / inferred / unverified and checked by a lint. Planned: replication-verify (blind-clone fidelity check).",
+  "version": "0.1.0",
+  "author": { "name": "migaloco", "email": "migasoulou@gmail.com" }
+}

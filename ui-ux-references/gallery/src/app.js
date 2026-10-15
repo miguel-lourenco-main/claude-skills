@@ -71,7 +71,17 @@ function parseSwatch(s) {
   const m = String(s).match(/(#[0-9a-fA-F]{3,8})\s*(.*)$/);
   return m ? { hex: m[1], label: m[2].trim() } : { hex: null, label: String(s) };
 }
+// Human label for a screenshot file ("above-fold.jpg" -> "Above the fold").
+const SHOT_LABELS = { "above-fold": "Above the fold", full: "Full page" };
+function shotLabel(p) {
+  const base = String(p).split("/").pop().replace(/\.[a-z0-9]+$/i, "");
+  return SHOT_LABELS[base] || base.replace(/[-_]+/g, " ").replace(/^\w/, (c) => c.toUpperCase());
+}
 function buildRecord(r, teardown, resolve) {
+  // `screenshots` (build-index.cjs) lists every capture; older indexes only had
+  // above_fold + full, so fall back to those.
+  const shotPaths = Array.isArray(r.screenshots) ? r.screenshots : [r.above_fold, r.full].filter(Boolean);
+  const gallery = shotPaths.map((p) => ({ src: resolve(p), label: shotLabel(p) })).filter((s) => s.src);
   return {
     slug: r.slug, title: r.title || r.slug, category: r.category || "uncategorized",
     url: r.url || "", quality: Number(r.quality) || 0, captured: r.captured || "",
@@ -79,6 +89,7 @@ function buildRecord(r, teardown, resolve) {
     tags: (r.tags || []).filter((t) => t !== "ui-reference"),
     palette: (r.palette || []).map(parseSwatch),
     shots: { above_fold: r.above_fold ? resolve(r.above_fold) : null, full: r.full ? resolve(r.full) : null },
+    gallery,
     teardown,
   };
 }
@@ -182,7 +193,14 @@ function wire() {
   $("#sort").addEventListener("change", (e) => { state.sort = e.target.value; apply(); });
   $("#close").onclick = closeDetail;
   overlay.addEventListener("click", (e) => { if (e.target === overlay) closeDetail(); });
-  document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !overlay.hidden) closeDetail(); });
+  document.addEventListener("keydown", (e) => {
+    if (!lightbox.hidden) return lightboxKey(e);
+    if (e.key === "Escape" && !overlay.hidden) closeDetail();
+  });
+  $("#lb-close").onclick = closeLightbox;
+  $("#lb-prev").onclick = () => stepLightbox(-1);
+  $("#lb-next").onclick = () => stepLightbox(1);
+  lightbox.addEventListener("click", (e) => { if (e.target === lightbox || e.target.classList.contains("lb-stage")) closeLightbox(); });
 }
 
 function apply() {
@@ -211,6 +229,7 @@ function render(rows) {
       <div class="shot">
         ${r.shots.above_fold ? `<img src="${esc(r.shots.above_fold)}" alt="${esc(r.title)} screenshot" decoding="async" />` : `<span class="no-shot">no screenshot</span>`}
         <span class="q-badge"><b>${r.quality}</b>/100</span>
+        ${r.gallery.length > 1 ? `<span class="n-badge" title="${r.gallery.length} screenshots">${r.gallery.length} shots</span>` : ""}
       </div>
       <div class="card-body">
         <div class="card-head">
@@ -255,9 +274,8 @@ function openDetail(r) {
           ${r.bodyFont ? `<div class="f"><b>Body</b><span>${esc(r.bodyFont)}</span></div>` : ""}
         </div>`
       : "";
-  const shot = r.shots.full || r.shots.above_fold;
   $("#detail").innerHTML = `
-    ${shot ? `<div class="d-hero"><img src="${esc(shot)}" alt="${esc(r.title)} full page" /></div>` : ""}
+    ${shotsHtml(r)}
     <div class="d-pad">
       <h2 id="d-title">${esc(r.title)}</h2>
       <div class="d-meta">
@@ -271,10 +289,81 @@ function openDetail(r) {
       ${fonts}
       <div class="sections">${sections || '<div class="sec"><div class="prose"><p>No teardown yet for this reference.</p></div></div>'}</div>
     </div>`;
+  wireShots(r);
   $(".sheet").scrollTop = 0;
   overlay.hidden = false;
   document.body.style.overflow = "hidden";
   $("#close").focus();
+}
+
+// ---- screenshots: hero + thumbnail strip + lightbox ---------------------------
+function shotsHtml(r) {
+  const g = r.gallery;
+  if (!g.length) return "";
+  const hero = `<button class="d-hero" type="button" data-shot="0" aria-label="Open ${esc(g[0].label)} screenshot full size">
+      <img src="${esc(g[0].src)}" alt="${esc(r.title)} — ${esc(g[0].label)}" />
+      <span class="zoom-hint">click to enlarge</span>
+    </button>`;
+  if (g.length < 2) return hero;
+  const thumbs = g
+    .map((s, i) => `<button class="thumb" type="button" data-shot="${i}" aria-label="Screenshot ${i + 1} of ${g.length}: ${esc(s.label)}">
+        <img src="${esc(s.src)}" alt="" loading="lazy" decoding="async" /><span>${esc(s.label)}</span>
+      </button>`)
+    .join("");
+  return `${hero}<div class="strip" role="group" aria-label="${g.length} screenshots — arrow keys to move, Enter to enlarge">${thumbs}</div>`;
+}
+function wireShots(r) {
+  const btns = [...document.querySelectorAll("#detail [data-shot]")];
+  const thumbs = btns.filter((b) => b.classList.contains("thumb"));
+  for (const b of btns) b.onclick = () => openLightbox(r, Number(b.dataset.shot), b);
+  thumbs.forEach((b, i) => {
+    b.onkeydown = (e) => {
+      const d = e.key === "ArrowRight" ? 1 : e.key === "ArrowLeft" ? -1 : e.key === "Home" ? -i : e.key === "End" ? thumbs.length - 1 - i : 0;
+      if (!d) return;
+      e.preventDefault();
+      thumbs[(i + d + thumbs.length) % thumbs.length].focus();
+    };
+  });
+}
+
+const lightbox = $("#lightbox");
+const lb = { rec: null, i: 0, returnTo: null };
+function openLightbox(r, i, from) {
+  lb.rec = r; lb.returnTo = from || null;
+  lightbox.hidden = false;
+  showLightbox(i);
+  $("#lb-close").focus();
+}
+function showLightbox(i) {
+  const g = lb.rec.gallery;
+  lb.i = (i + g.length) % g.length;
+  const s = g[lb.i];
+  const img = $("#lb-img");
+  img.src = s.src;
+  img.alt = `${lb.rec.title} — ${s.label}`;
+  $("#lb-cap").textContent = `${s.label} · ${lb.i + 1} / ${g.length}`;
+  $("#lb-open").href = s.src;
+  $(".lb-stage").scrollTop = 0;
+  $("#lb-prev").hidden = $("#lb-next").hidden = g.length < 2;
+}
+function stepLightbox(d) { showLightbox(lb.i + d); }
+function closeLightbox() {
+  lightbox.hidden = true;
+  $("#lb-img").removeAttribute("src");
+  lb.returnTo?.focus();
+}
+function lightboxKey(e) {
+  if (e.key === "Escape") { e.preventDefault(); closeLightbox(); }
+  else if (e.key === "ArrowRight") { e.preventDefault(); stepLightbox(1); }
+  else if (e.key === "ArrowLeft") { e.preventDefault(); stepLightbox(-1); }
+  else if (e.key === "Tab") {
+    // keep focus inside the lightbox
+    const f = [...lightbox.querySelectorAll("button:not([hidden]), a[href]")];
+    const at = f.indexOf(document.activeElement);
+    const next = e.shiftKey ? (at <= 0 ? f.length - 1 : at - 1) : (at + 1) % f.length;
+    e.preventDefault();
+    f[next].focus();
+  }
 }
 
 function closeDetail() {

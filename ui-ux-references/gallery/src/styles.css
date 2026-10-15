@@ -209,8 +209,61 @@ code, .mono { font-family: "JetBrains Mono", ui-monospace, monospace; }
 }
 .close:hover { color: var(--fg); border-color: var(--faint); }
 
-.detail .d-hero { position: relative; }
-.detail .d-hero img { width: 100%; display: block; border-bottom: 1px solid var(--border); }
+.detail .d-hero {
+  position: relative; display: block; width: 100%; padding: 0; border: 0; background: var(--surface-2);
+  cursor: zoom-in; max-height: 62vh; overflow: hidden; border-bottom: 1px solid var(--border);
+}
+.detail .d-hero img { width: 100%; display: block; }
+.detail .d-hero:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.zoom-hint {
+  position: absolute; bottom: 12px; right: 12px; font-size: 11px; letter-spacing: 0.04em; color: var(--muted);
+  background: rgba(8, 9, 10, 0.7); border: 1px solid var(--border); border-radius: 999px; padding: 4px 10px;
+  backdrop-filter: blur(8px); opacity: 0; transition: opacity 0.2s var(--ease);
+}
+.d-hero:hover .zoom-hint, .d-hero:focus-visible .zoom-hint { opacity: 1; }
+.n-badge {
+  position: absolute; bottom: 10px; left: 10px;
+  background: rgba(8, 9, 10, 0.7); border: 1px solid var(--border); backdrop-filter: blur(8px);
+  color: var(--muted); font-family: "JetBrains Mono", monospace; font-size: 11px; padding: 3px 8px; border-radius: 999px;
+}
+
+/* thumbnail strip — every screenshot of the reference */
+.strip { display: flex; gap: 10px; overflow-x: auto; padding: 14px 28px 4px; scrollbar-width: thin; }
+.thumb {
+  flex: 0 0 auto; width: 148px; padding: 0; cursor: zoom-in; text-align: left; color: var(--muted);
+  background: var(--surface-2); border: 1px solid var(--border-soft); border-radius: var(--radius-sm); overflow: hidden;
+  font: inherit; font-size: 11.5px; transition: border-color 0.18s var(--ease), color 0.18s var(--ease);
+}
+.thumb img { display: block; width: 100%; aspect-ratio: 16 / 10; object-fit: cover; object-position: top; }
+.thumb span { display: block; padding: 6px 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.thumb:hover { border-color: var(--faint); color: var(--fg); }
+.thumb:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; color: var(--fg); }
+
+/* lightbox */
+.lightbox {
+  position: fixed; inset: 0; z-index: 80; display: grid; grid-template-rows: auto 1fr;
+  background: rgba(2, 3, 4, 0.94); animation: fade 0.18s ease;
+}
+.lightbox[hidden] { display: none; }
+.lb-bar { display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-bottom: 1px solid var(--border-soft); }
+.lb-cap { flex: 1; color: var(--muted); font-size: 13px; font-family: "JetBrains Mono", monospace; }
+.lb-btn {
+  background: var(--surface-2); border: 1px solid var(--border); color: var(--muted); border-radius: var(--radius-sm);
+  padding: 6px 11px; font: inherit; font-size: 12.5px; cursor: pointer; text-decoration: none;
+}
+.lb-btn:hover, .lb-btn:focus-visible { color: var(--fg); border-color: var(--faint); }
+.lb-stage { overflow: auto; padding: 18px 64px 40px; text-align: center; }
+.lb-stage img { max-width: min(1280px, 100%); height: auto; border-radius: 6px; border: 1px solid var(--border-soft); }
+.lb-nav {
+  position: fixed; top: 50%; transform: translateY(-50%); z-index: 81;
+  width: 44px; height: 64px; border-radius: 12px; font-size: 30px; line-height: 1; cursor: pointer;
+  background: rgba(15, 16, 17, 0.8); border: 1px solid var(--border); color: var(--muted);
+}
+.lb-nav.prev { left: 10px; } .lb-nav.next { right: 10px; }
+.lb-nav[hidden] { display: none; }
+.lb-nav:hover, .lb-nav:focus-visible { color: var(--fg); border-color: var(--accent); }
+.lb-btn:focus-visible, .lb-nav:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+@media (max-width: 640px) { .lb-stage { padding: 12px 8px 30px; } .lb-nav { top: auto; bottom: 14px; transform: none; } }
 .detail .d-pad { padding: 24px 28px 32px; }
 .detail h2 { margin: 0; font-size: 1.7rem; letter-spacing: -0.025em; font-weight: 600; }
 .detail .d-meta { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; margin: 12px 0 4px; color: var(--faint); font-size: 13px; }

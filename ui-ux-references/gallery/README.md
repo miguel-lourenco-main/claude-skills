@@ -32,6 +32,16 @@ as long as `/vault/_index.json` is reachable.
 The repo-root `.gitlab-ci.yml` `pages` job copies `gallery/src/` → `public/` on the default branch —
 no vault, no LFS, no Node. Visitors load their own vault. `public/` is git-ignored.
 
+## What a reference shows
+
+- **Every screenshot.** The card shows the viewport capture (with an `N shots` badge when there are
+  more); the detail sheet shows it large plus a thumbnail strip of every capture. Click any of them
+  (or focus a thumbnail, move with ←/→/Home/End, press Enter) to open the lightbox: ←/→ step through
+  the captures, *Open original* opens the file at full resolution, Esc closes the lightbox only.
+  The list comes from the `screenshots` array that `build-index.cjs` writes into `_index.json` (every
+  image file at the top level of the reference's `assets/`, viewport first, then full page, then the
+  rest A–Z). Indexes built before that field existed fall back to `above_fold` + `full`.
+
 ## Files
 
 - `src/index.html` · `src/styles.css` · `src/app.js` — the whole app. `app.js` resolves the vault

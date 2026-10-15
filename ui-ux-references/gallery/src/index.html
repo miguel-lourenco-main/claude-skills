@@ -85,6 +85,18 @@
       </div>
     </div>
 
+    <!-- Screenshot lightbox (all captures of one reference; ←/→ to move, Esc to close) -->
+    <div id="lightbox" class="lightbox" role="dialog" aria-modal="true" aria-label="Screenshot viewer" hidden>
+      <div class="lb-bar">
+        <span id="lb-cap" class="lb-cap" aria-live="polite"></span>
+        <a id="lb-open" class="lb-btn" target="_blank" rel="noreferrer">Open original ↗</a>
+        <button id="lb-close" class="lb-btn" type="button" aria-label="Close viewer">Close · Esc</button>
+      </div>
+      <button id="lb-prev" class="lb-nav prev" type="button" aria-label="Previous screenshot">‹</button>
+      <div class="lb-stage"><img id="lb-img" alt="" /></div>
+      <button id="lb-next" class="lb-nav next" type="button" aria-label="Next screenshot">›</button>
+    </div>
+
     <script src="app.js" type="module"></script>
   </body>
 </html>

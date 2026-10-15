@@ -44,7 +44,7 @@ static fallback tables also work without it).
 |---|---|
 | `node research/discover.cjs <cat>` | find candidate URLs → `research/candidates.<cat>.json` |
 | `node research/extract.cjs <cat> [--url U]` | capture everything → `vault/References/<cat>/<slug>/` + note |
-| `node scripts/build-index.cjs` | regenerate `vault/_index.json` + `vault/Indexes/*` tables |
+| `node scripts/build-index.cjs` | regenerate `vault/_index.json` (incl. a `screenshots` list of every capture, read by the gallery) + `vault/Indexes/*` tables |
 | `python3 scripts/query.py "<q>"` | search the vault (used while designing) |
 | `bash bootstrap.sh` | deps + Chromium + Git LFS + index + wire ui-ux-pro-max |
 

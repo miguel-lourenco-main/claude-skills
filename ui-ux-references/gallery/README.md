@@ -41,6 +41,14 @@ no vault, no LFS, no Node. Visitors load their own vault. `public/` is git-ignor
   The list comes from the `screenshots` array that `build-index.cjs` writes into `_index.json` (every
   image file at the top level of the reference's `assets/`, viewport first, then full page, then the
   rest A–Z). Indexes built before that field existed fall back to `above_fold` + `full`.
+- **The extracted HTML.** A collapsible *Extracted HTML* panel at the bottom of the detail sheet
+  shows the stored `raw.html` (served document) and `rendered.html` (post-JS DOM) as read-only,
+  syntax-highlighted code, with tabs to switch, a wrap toggle, *Open file*, and *Copy* (copies the
+  whole file). Nothing is fetched until the panel is opened; files over 200 KB show the first 200 KB
+  with a *show all* button (the extractor caps each file at 3 MB). The panel only appears for files
+  listed in the `html` array of `_index.json` (`kind`, `path`, `bytes` — written by `build-index.cjs`
+  for files that exist); older indexes fall back to the `raw_html`/`rendered_html` paths and report a
+  load error if a file is missing.
 
 ## Files
 

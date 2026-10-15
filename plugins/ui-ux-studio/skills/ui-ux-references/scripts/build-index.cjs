@@ -54,6 +54,16 @@ function screenshots(assets) {
     .map((f) => rel(path.join(assets, f)));
 }
 
+// The extracted HTML that actually exists on disk (raw served document + post-JS
+// DOM), with byte sizes so the gallery can lazy-load it and say how big it is.
+// raw_html/rendered_html below stay as-is (always-set paths) for query.py.
+function htmlFiles(assets) {
+  return [['raw', 'raw.html'], ['rendered', 'rendered.html']]
+    .map(([kind, f]) => [kind, path.join(assets, f)])
+    .filter(([, p]) => fs.existsSync(p))
+    .map(([kind, p]) => ({ kind, path: rel(p), bytes: fs.statSync(p).size }));
+}
+
 function build() {
   const records = [];
   for (const { cat, slug, note } of walkNotes()) {
@@ -75,6 +85,7 @@ function build() {
       raw_html: rel(path.join(dir, 'assets/raw.html')),
       rendered_html: rel(path.join(dir, 'assets/rendered.html')),
       screenshots: screenshots(assets),
+      html: htmlFiles(assets),
     });
   }
   records.sort((a, b) => (a.category + a.slug).localeCompare(b.category + b.slug));

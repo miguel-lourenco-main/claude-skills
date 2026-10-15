@@ -77,7 +77,20 @@ function shotLabel(p) {
   const base = String(p).split("/").pop().replace(/\.[a-z0-9]+$/i, "");
   return SHOT_LABELS[base] || base.replace(/[-_]+/g, " ").replace(/^\w/, (c) => c.toUpperCase());
 }
-function buildRecord(r, teardown, resolve) {
+// Extracted HTML files of a reference. `html` (build-index.cjs) lists only files
+// that exist, with sizes; older indexes only had the raw_html/rendered_html paths.
+// Nothing is read here — `readText(path)` is called when the panel is opened.
+const HTML_LABELS = { raw: "Raw served HTML", rendered: "Rendered DOM" };
+function htmlEntries(r, readText) {
+  const list = Array.isArray(r.html)
+    ? r.html
+    : [["raw", r.raw_html], ["rendered", r.rendered_html]].filter(([, p]) => p).map(([kind, path]) => ({ kind, path }));
+  return list.map((h) => ({
+    kind: h.kind, label: HTML_LABELS[h.kind] || h.kind, path: h.path,
+    bytes: Number(h.bytes) || 0, text: null, load: () => readText(h.path),
+  }));
+}
+function buildRecord(r, teardown, resolve, readText) {
   // `screenshots` (build-index.cjs) lists every capture; older indexes only had
   // above_fold + full, so fall back to those.
   const shotPaths = Array.isArray(r.screenshots) ? r.screenshots : [r.above_fold, r.full].filter(Boolean);
@@ -90,6 +103,8 @@ function buildRecord(r, teardown, resolve) {
     palette: (r.palette || []).map(parseSwatch),
     shots: { above_fold: r.above_fold ? resolve(r.above_fold) : null, full: r.full ? resolve(r.full) : null },
     gallery,
+    html: htmlEntries(r, readText),
+    resolve,
     teardown,
   };
 }
@@ -108,7 +123,11 @@ async function fromUrl(base) {
     index.map(async (r) => {
       let note = "";
       if (r.note) { try { const n = await fetch(`${base}/${r.note}`); if (n.ok) note = await n.text(); } catch {} }
-      return buildRecord(r, parseTeardown(note), (p) => `${base}/${p}`);
+      return buildRecord(r, parseTeardown(note), (p) => `${base}/${p}`, async (p) => {
+        const res = await fetch(`${base}/${p}`);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return res.text();
+      });
     }),
   );
   return finalize(records);
@@ -128,7 +147,11 @@ async function fromFiles(fileList) {
     index.map(async (r) => {
       const nf = r.note && map.get(r.note);
       const note = nf ? await nf.text() : "";
-      return buildRecord(r, parseTeardown(note), (p) => { const f = map.get(p); return f ? URL.createObjectURL(f) : null; });
+      return buildRecord(
+        r, parseTeardown(note),
+        (p) => { const f = map.get(p); return f ? URL.createObjectURL(f) : null; },
+        async (p) => { const f = map.get(p); if (!f) throw new Error("not in the picked folder"); return f.text(); },
+      );
     }),
   );
   return finalize(records);
@@ -288,12 +311,137 @@ function openDetail(r) {
       ${tags ? `<div class="d-tags">${tags}</div>` : ""}
       ${fonts}
       <div class="sections">${sections || '<div class="sec"><div class="prose"><p>No teardown yet for this reference.</p></div></div>'}</div>
+      ${htmlPanelHtml(r)}
     </div>`;
   wireShots(r);
+  wireHtmlPanel(r);
   $(".sheet").scrollTop = 0;
   overlay.hidden = false;
   document.body.style.overflow = "hidden";
   $("#close").focus();
+}
+
+// ---- extracted HTML: collapsible, lazy-loaded, highlighted, copyable ---------
+const kb = (n) => (n >= 1048576 ? `${(n / 1048576).toFixed(1)} MB` : `${Math.max(1, Math.round(n / 1024))} KB`);
+const PREVIEW_CHARS = 200_000; // highlight this much up front; the rest on request
+
+function htmlPanelHtml(r) {
+  if (!r.html.length) return "";
+  const sizes = r.html.map((h) => `${h.kind}${h.bytes ? ` ${kb(h.bytes)}` : ""}`).join(" · ");
+  const tabs = r.html
+    .map((h, i) => `<button type="button" class="h-tab" role="tab" data-kind="${esc(h.kind)}" aria-selected="${i === 0}">${esc(h.label)}</button>`)
+    .join("");
+  return `<details class="html-panel" id="html-panel">
+      <summary><span class="h-title">Extracted HTML</span><span class="h-sizes">${esc(sizes)}</span></summary>
+      <div class="h-bar">
+        <div class="h-tabs" role="tablist" aria-label="HTML version">${tabs}</div>
+        <span class="h-status" aria-live="polite"></span>
+        <label class="h-wrap"><input type="checkbox" /> wrap</label>
+        <a class="h-btn h-open" target="_blank" rel="noreferrer">Open file ↗</a>
+        <button type="button" class="h-btn h-copy">Copy</button>
+      </div>
+      <pre class="code" tabindex="0" aria-label="Extracted HTML source (read-only)"><code></code></pre>
+      <button type="button" class="h-btn h-more" hidden></button>
+    </details>`;
+}
+
+function wireHtmlPanel(r) {
+  const panel = $("#html-panel");
+  if (!panel) return;
+  const code = $(".code code", panel), pre = $(".code", panel), status = $(".h-status", panel);
+  const more = $(".h-more", panel), open = $(".h-open", panel), copy = $(".h-copy", panel);
+  const tabs = [...panel.querySelectorAll(".h-tab")];
+  let cur = null;
+
+  async function show(h) {
+    cur = h;
+    tabs.forEach((t) => t.setAttribute("aria-selected", String(t.dataset.kind === h.kind)));
+    open.href = r.resolve(h.path) || "#";
+    more.hidden = true;
+    copy.disabled = true;
+    if (h.text == null) {
+      code.textContent = "";
+      status.textContent = "Loading…";
+      try { h.text = await h.load(); }
+      catch (e) { if (cur === h) { status.textContent = `Could not load ${h.path.split("/").pop()} (${e.message || e})`; } return; }
+      if (cur !== h) return; // user switched tabs meanwhile
+    }
+    const t = h.text;
+    status.textContent = `${t.split("\n").length.toLocaleString()} lines · ${kb(h.bytes || t.length)}`;
+    code.innerHTML = highlightHtml(t.length > PREVIEW_CHARS ? t.slice(0, PREVIEW_CHARS) : t);
+    pre.scrollTop = 0;
+    copy.disabled = false;
+    if (t.length > PREVIEW_CHARS) {
+      more.hidden = false;
+      more.textContent = `Showing the first ${kb(PREVIEW_CHARS)} — show all ${kb(t.length)}`;
+    }
+  }
+
+  panel.addEventListener("toggle", () => { if (panel.open && !cur) show(r.html[0]); });
+  tabs.forEach((t, i) => {
+    t.onclick = () => show(r.html[i]);
+    t.onkeydown = (e) => {
+      const d = e.key === "ArrowRight" ? 1 : e.key === "ArrowLeft" ? -1 : 0;
+      if (!d) return;
+      e.preventDefault();
+      const n = tabs[(i + d + tabs.length) % tabs.length];
+      n.focus(); n.click();
+    };
+  });
+  more.onclick = () => { code.innerHTML = highlightHtml(cur.text); more.hidden = true; };
+  $(".h-wrap input", panel).onchange = (e) => pre.classList.toggle("wrap", e.target.checked);
+  copy.onclick = async () => {
+    if (!cur?.text) return;
+    try { await navigator.clipboard.writeText(cur.text); }
+    catch {
+      const ta = el("textarea"); ta.value = cur.text; document.body.append(ta); ta.select();
+      document.execCommand("copy"); ta.remove();
+    }
+    copy.textContent = "Copied ✓";
+    setTimeout(() => (copy.textContent = "Copy"), 1400);
+  };
+}
+
+// Small single-pass HTML highlighter: comments, doctype, tags, attributes, values.
+// <script>/<style> bodies are left as plain text. Everything is escaped first.
+function highlightHtml(src) {
+  const tagRe = /<!--[\s\S]*?(?:-->|$)|<![^>]*>?|<\/?[A-Za-z][^\s/>]*(?:"[^"]*"|'[^']*'|[^'">])*>?/g;
+  const attrRe = /([^\s=/>"']+)(?:(\s*=\s*)("[^"]*"|'[^']*'|[^\s>]+))?/g;
+  const span = (c, t) => `<span class="${c}">${esc(t)}</span>`;
+  let out = "", last = 0, m;
+  while ((m = tagRe.exec(src))) {
+    out += esc(src.slice(last, m.index));
+    const t = m[0];
+    if (t.startsWith("<!--")) out += span("t-com", t);
+    else if (t.startsWith("<!")) out += span("t-doc", t);
+    else {
+      const name = /^<\/?([^\s/>]+)/.exec(t);
+      const head = name[0], tail = t.slice(head.length);
+      const close = /\/?>$/.exec(tail);
+      const attrs = close ? tail.slice(0, close.index) : tail;
+      let l = 0, am;
+      out += span("t-tag", head);
+      attrRe.lastIndex = 0;
+      while ((am = attrRe.exec(attrs))) {
+        out += esc(attrs.slice(l, am.index)) + span("t-attr", am[1]);
+        if (am[2]) out += esc(am[2]) + span("t-val", am[3]);
+        l = am.index + am[0].length;
+      }
+      out += esc(attrs.slice(l)) + (close ? span("t-tag", close[0]) : "");
+      // raw-text elements: jump to the matching close tag
+      const tn = name[1].toLowerCase();
+      if (!head.startsWith("</") && (tn === "script" || tn === "style")) {
+        const endRe = new RegExp(`</${tn}\\s*>`, "ig");
+        endRe.lastIndex = tagRe.lastIndex;
+        const em = endRe.exec(src);
+        const stop = em ? em.index : src.length;
+        out += esc(src.slice(tagRe.lastIndex, stop));
+        tagRe.lastIndex = stop;
+      }
+    }
+    last = tagRe.lastIndex;
+  }
+  return out + esc(src.slice(last));
 }
 
 // ---- screenshots: hero + thumbnail strip + lightbox ---------------------------

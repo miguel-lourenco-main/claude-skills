@@ -40,11 +40,36 @@ function section(body, name) {
 const num = (v) => { const n = parseFloat(v); return Number.isFinite(n) ? n : 0; };
 const rel = (p) => path.relative(VAULT, p).split(path.sep).join('/');
 
+// Every screenshot the extractor left at the top level of assets/ (downloaded page
+// images live in assets/images/ and are NOT screenshots). Viewport first, then the
+// full page, then any extra captures alphabetically — the gallery shows all of them.
+const SHOT_RE = /\.(jpe?g|png|webp|avif)$/i;
+const SHOT_ORDER = ['above-fold', 'full'];
+function screenshots(assets) {
+  if (!fs.existsSync(assets)) return [];
+  const rank = (f) => { const i = SHOT_ORDER.indexOf(f.replace(SHOT_RE, '')); return i < 0 ? SHOT_ORDER.length : i; };
+  return fs.readdirSync(assets)
+    .filter((f) => SHOT_RE.test(f) && fs.statSync(path.join(assets, f)).isFile())
+    .sort((a, b) => rank(a) - rank(b) || a.localeCompare(b))
+    .map((f) => rel(path.join(assets, f)));
+}
+
+// The extracted HTML that actually exists on disk (raw served document + post-JS
+// DOM), with byte sizes so the gallery can lazy-load it and say how big it is.
+// raw_html/rendered_html below stay as-is (always-set paths) for query.py.
+function htmlFiles(assets) {
+  return [['raw', 'raw.html'], ['rendered', 'rendered.html']]
+    .map(([kind, f]) => [kind, path.join(assets, f)])
+    .filter(([, p]) => fs.existsSync(p))
+    .map(([kind, p]) => ({ kind, path: rel(p), bytes: fs.statSync(p).size }));
+}
+
 function build() {
   const records = [];
   for (const { cat, slug, note } of walkNotes()) {
     const { data, body } = fm.parse(fs.readFileSync(note, 'utf8'));
     const dir = path.dirname(note);
+    const assets = path.join(dir, 'assets');
     records.push({
       slug, category: data.category || cat, title: data.title || slug, url: data.url || '',
       source: data.source || '', captured: data.captured || '', quality: num(data.quality),
@@ -59,6 +84,8 @@ function build() {
       full: rel(path.join(dir, 'assets/full.jpg')),
       raw_html: rel(path.join(dir, 'assets/raw.html')),
       rendered_html: rel(path.join(dir, 'assets/rendered.html')),
+      screenshots: screenshots(assets),
+      html: htmlFiles(assets),
     });
   }
   records.sort((a, b) => (a.category + a.slug).localeCompare(b.category + b.slug));

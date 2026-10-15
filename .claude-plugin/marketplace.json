@@ -21,7 +21,7 @@
       "description": "UI/UX design studio: a director skill that orchestrates real-world-inspired UI work — deciding when to design from rules, when to pull concrete references, and when the reference library is too thin and must be grown by discovering + extracting new sites; its variations mode builds the same brief as N style-skill-driven variants (one taste skill per variant, built in isolation) with a compare page. Bundles the ui-ux-references example library, a ui-ux-gallery skill to browse it in the browser, a style-tweaker skill that injects a live dev-only sidebar for tweaking design tokens (fonts, colors, spacing, per-component knobs) in the running app with A/B snapshots and CSS export, a ui-adversary skill that spawns an adversarial agent to critique a live web UI with evidence-backed, severity-ranked findings (screenshots, GIFs, a11y tree, console/network, contrast and tap-target probes), and composes with the ui-ux-pro-max rules skill.",
       "source": "./plugins/ui-ux-studio",
       "category": "design",
-      "version": "0.4.0",
+      "version": "0.4.1",
       "author": {
         "name": "migaloco",
         "email": "migasoulou@gmail.com"

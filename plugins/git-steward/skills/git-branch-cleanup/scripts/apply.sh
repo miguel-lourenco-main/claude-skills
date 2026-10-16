@@ -7,12 +7,16 @@
 #            [--confirm]         # Tier 1: delete the selected LOCAL branches
 #            [--prune]           # also `git remote prune` (drop stale local tracking refs)
 #            [--delete-remote]   # Tier 2: also delete the matching branches on the remote
+#   apply.sh --repo <path> --branches a,b [--allow-unmerged] [--confirm]
+#            --allow-unmerged    # also delete a NAMED branch the analyzer marked needs_decision
+#                                # (upstream gone, commits not in the default branch). Only with
+#                                # --branches; category selection never includes such a branch.
 #
 # With no --confirm, prints the plan and exits without changing anything.
 set -u
 
 repo="."; categories="merged,gone"; stale_days=90; only_branches=""
-confirm=false; prune=false; delete_remote=false
+confirm=false; prune=false; delete_remote=false; allow_unmerged=false
 while [ $# -gt 0 ]; do
   case "$1" in
     --repo) repo="$2"; shift 2 ;;
@@ -22,6 +26,7 @@ while [ $# -gt 0 ]; do
     --confirm) confirm=true; shift ;;
     --prune) prune=true; shift ;;
     --delete-remote) delete_remote=true; shift ;;
+    --allow-unmerged) allow_unmerged=true; shift ;;
     --mode) shift 2 ;;
     *) shift ;;
   esac
@@ -37,25 +42,28 @@ remote="$(jq -r '.remote' <<<"$analysis")"
 default="$(jq -r '.default_branch' <<<"$analysis")"
 
 # selection: an explicit --branches allow-list wins; otherwise by category.
-# Either way, never select a branch the analyzer marked "keep" (default/current/active).
+# Either way, never select a branch the analyzer marked "keep" (default/current/active), and never
+# a needs_decision branch (upstream gone, unique commits) unless it is named AND --allow-unmerged.
 skipped=""
 if [ -n "$only_branches" ]; then
   br_filter="$(printf '%s' "$only_branches" | jq -R 'split(",")|map(select(length>0))')"
-  selected="$(jq -c --argjson br "$br_filter" '[.candidates[]|select((.branch as $b|$br|index($b)) and .category!="keep")]' <<<"$analysis")"
+  selected="$(jq -c --argjson br "$br_filter" --argjson au "$allow_unmerged" '[.candidates[]|select((.branch as $b|$br|index($b)) and .category!="keep" and ($au or (.needs_decision != true)))]' <<<"$analysis")"
   sel_desc="branches: $only_branches"
   # Explain any requested branch that will NOT be deleted, so a "selected: 0"
   # result is never a black box (already-deleted vs. kept-because-active/protected).
-  skipped="$(jq -r --argjson br "$br_filter" '
+  skipped="$(jq -r --argjson br "$br_filter" --argjson au "$allow_unmerged" '
     [ $br[] as $b
       | ([.candidates[]|select(.branch==$b)][0]) as $c
       | if $c == null then "  ~ \($b): not found locally (already deleted or never existed)"
         elif $c.category=="keep" then "  ~ \($b): kept — \($c.reason)"
+        elif ($c.needs_decision == true) and ($au | not) then "  ~ \($b): kept — \($c.reason) (pass --allow-unmerged to delete it anyway)"
         else empty end ]
     | .[]' <<<"$analysis")"
 else
   cat_filter="$(printf '%s' "$categories" | jq -R 'split(",")')"
-  selected="$(jq -c --argjson cats "$cat_filter" '[.candidates[]|select(.category as $c|$cats|index($c))]' <<<"$analysis")"
+  selected="$(jq -c --argjson cats "$cat_filter" '[.candidates[]|select((.category as $c|$cats|index($c)) and .needs_decision != true)]' <<<"$analysis")"
   sel_desc="categories: $categories"
+  skipped="$(jq -r --argjson cats "$cat_filter" '.candidates[]|select((.category as $c|$cats|index($c)) and .needs_decision == true)|"  ~ \(.branch): kept — \(.reason)"' <<<"$analysis")"
 fi
 count="$(jq 'length' <<<"$selected")"
 
@@ -64,6 +72,8 @@ echo "repo: $repo   default: $default   remote: ${remote:-none}"
 echo "$sel_desc   selected: $count branch(es)"
 jq -r '.[] | "  - \(.branch)  [\(.category)]  \(.reason)"' <<<"$selected"
 [ -n "$skipped" ] && { echo "requested but not deletable:"; echo "$skipped"; }
+# needs_decision rows only get here by name with --allow-unmerged: say so before the gate.
+jq -r '.[]|select(.needs_decision==true)|"  ! \(.branch): holds \(.ahead) commit(s) not in the default branch — deleting it anyway (--allow-unmerged)"' <<<"$selected"
 $prune && echo "  + prune stale remote-tracking refs (git remote prune $remote)"
 $delete_remote && echo "  + DELETE matching branches on remote '$remote' (Tier 2, irreversible on server)"
 

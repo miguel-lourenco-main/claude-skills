@@ -72,3 +72,12 @@ same scripts, so behaviour is consistent and testable.
 `git-trim`, `gitleaks`/`trufflehog` (secret detection), `git-filter-repo`/BFG (**required** for history
 rewriting — never hand-rolled), `git-quick-stats`. The plugin works without them; history rewrite is the
 one apply path that refuses and prints install instructions when the tool is absent.
+
+## Tests
+
+Fixture tests build throwaway repos in a temp dir (no network, nothing outside it is touched):
+
+```bash
+bash tests/branch-cleanup.test.sh   # which branches get a delete checkbox, and what apply.sh deletes
+bash tests/history-plan.test.sh     # history-rewrite plan: one item per path, untrack-first, batched strip
+```

@@ -83,11 +83,16 @@ done
 if [ "$n2" -gt 0 ]; then
   echo
   echo "== Tier-2 actions (NOT run automatically — irreversible/outward; run each deliberately) =="
-  jq -r '.tier2[] |
-    if .op=="history-remove-path" then "🔴 history-remove-path \(.repo) — `\(.path)`:\n    bash $CLAUDE_PLUGIN_ROOT/skills/git-history-surgery/scripts/apply.sh --repo \(.repo) --remove-path \(.path) --confirm --i-understand <repo-name>"
-    elif .op=="branch-delete-remote" then "🔴 branch-delete-remote \(.repo) — \(.branch):\n    bash $CLAUDE_PLUGIN_ROOT/skills/git-branch-cleanup/scripts/apply.sh --repo \(.repo) --branches \(.branch) --delete-remote --confirm"
+  # history-remove-path: ONE command per repo. apply.sh takes repeated --remove-path and strips them
+  # all in a single filter-repo pass — one backup, one rewrite — so printing one command per path
+  # would have the user rewrite the whole history N times (or merge the commands by hand).
+  jq -r '[.tier2[] | select(.op=="history-remove-path")] | group_by(.repo)[]
+    | (map(.path) | unique) as $p
+    | "🔴 history-remove-path \(.[0].repo) — \($p|length) path(s): \($p | map("`\(.)`") | join(", ")):\n    bash $CLAUDE_PLUGIN_ROOT/skills/git-history-surgery/scripts/apply.sh --repo \(.[0].repo | @sh) \($p | map("--remove-path " + @sh) | join(" ")) --confirm --i-understand <repo-name>"' <<<"$plan_json"
+  jq -r '.tier2[] | select(.op!="history-remove-path") |
+    if .op=="branch-delete-remote" then "🔴 branch-delete-remote \(.repo) — \(.branch):\n    bash $CLAUDE_PLUGIN_ROOT/skills/git-branch-cleanup/scripts/apply.sh --repo \(.repo) --branches \(.branch) --delete-remote --confirm"
     elif .op=="work-item-start" then "🔵 work-item-start \(.repo) — #\(.number):\n    bash $CLAUDE_PLUGIN_ROOT/skills/work-items/scripts/apply.sh --repo \(.repo) --start \(.number) --type <type> --slug <kebab> --confirm"
-    elif .op=="work-item-implement" then "🟣 work-item-implement \(.repo) — #\(.numbers // .number) (slug: \(.slug // "?")): agent task — implement on a branch, commit, push, open the MR (Tier-2; confirm this repo before pushing). Not auto-run."
+    elif .op=="work-item-implement" then "🟣 work-item-implement \(.repo) — #\(.numbers // .number) (slug: \(.slug // "?")): agent task — first compare the plan with the item text (work-items SKILL.md, \"Before implementing\") and have the user review it when they differ or the change is risky; then implement on a branch, commit, push, open the MR (Tier-2; confirm this repo before pushing). Not auto-run."
     elif .op=="branch-merge" then "🟢 branch-merge \(.repo) — `\(.branch)` → default: agent task — open a merge request for the branch into the default branch (Tier-2; review before merge, never a direct push to default). Not auto-run."
     elif .op=="pipeline-fix" then "🟠 pipeline-fix \(.repo) — \(.branch): author a fix, then\n    bash $CLAUDE_PLUGIN_ROOT/skills/pipeline-health/scripts/apply.sh --repo \(.repo) --push-and-monitor --confirm"
     elif .op=="release-tag" then "🟡 release-tag \(.repo):\n    bash $CLAUDE_PLUGIN_ROOT/skills/release-changelog/scripts/apply.sh --repo \(.repo) --tag --confirm"

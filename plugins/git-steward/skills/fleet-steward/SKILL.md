@@ -137,8 +137,9 @@ bash ${CLAUDE_PLUGIN_ROOT}/shared/run-plan.sh --report <fleet_report>   # add --
 ```
 Tier-1 mechanical git ops auto-run (their checkbox is the confirmation). Tier-2 items are printed, not
 auto-run. For each surfaced **`work-item-implement`** directive, **perform it yourself** behind the
-Tier-2 gate: confirm that repo, create the `slug` branch, implement the change, commit, push, and open
-the merge request via `glab` (this account is GitLab). Do one repo at a time; stop and surface anything
+Tier-2 gate: confirm that repo, then run the plan check in `${CLAUDE_PLUGIN_ROOT}/skills/work-items/SKILL.md`
+(*Before implementing*) and stop for the user's review when it says to; only then create the `slug`
+branch, implement the change, commit, push, and open the merge request via `glab` (this account is GitLab). Do one repo at a time; stop and surface anything
 that refuses or looks wrong before moving on.
 
 ### Mutating (apply) — one sub-agent per repo

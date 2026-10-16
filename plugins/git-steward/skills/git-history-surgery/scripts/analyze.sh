@@ -162,13 +162,16 @@ sensitive_files="$(git ls-files 2>/dev/null | grep -iE '(^|/)(\.env(\..*)?$|.*\.
 
 # --- oversized blobs across all history --- (reuses gs_blob_enum, defined above)
 min_bytes=$(( min_mb * 1048576 ))
+# Regenerable build/cache artifacts: a tracked one is first a .gitignore problem (Tier 1 untrack +
+# ignore via gitignore-guard), and only then, optionally, a history strip to reclaim the space.
+regenerable_path_re='(^|/)(node_modules|dist|build|out|\.next|\.nuxt|\.svelte-kit|\.turbo|\.parcel-cache|\.cache|\.vite|coverage|target|__pycache__)/|\.tsbuildinfo$|\.pyc$|\.map$'
 # `git rev-list --objects` lists each blob OID ONCE, under a SINGLE path — so a blob
 # reachable under sibling paths is reported (and would be stripped) under only one of them and
 # SURVIVES the rewrite under the others. Take the top-N oversized OIDs, then resolve EVERY path
 # each one ever lived at (git log --find-object) and emit one item per (oid,path) pair, so an
 # apply that strips each reported path removes the blob completely.
 big_oids="$(gs_blob_enum \
-  | awk -v m="$min_bytes" '$2=="blob" && $3+0>=m && $4!="" {print $3"\t"$1"\t"$4}' \
+  | awk -v m="$min_bytes" '$2=="blob" && $3+0>=m && $4!="" { p=$0; sub(/^([^ ]+ ){3}/,"",p); print $3"\t"$1"\t"p }' \
   | sort -rn | awk -F'\t' '!seen[$2]++' | head -"$top")"
 big_blobs="$(
   printf '%s\n' "$big_oids" | while IFS=$'\t' read -r bytes oid epath; do
@@ -177,16 +180,35 @@ big_blobs="$(
     # Exact paths only: match the blob OID on either side of each raw diff (incl. both sides of
     # a rename/copy). Merge commits aren't diffed by `git log --raw` by default, so no `::`
     # combined-format lines reach the filter. Fall back to the single enum path if none resolve.
-    paths="$(git log --branches --tags --find-object="$oid" --raw --no-abbrev --pretty=format: 2>/dev/null \
-      | awk -v o="$oid" '/^:/ && ($3==o || $4==o) { print $NF; if ($5 ~ /^[RC]/ && NF>=7) print $(NF-1) }' \
+    # Split on the TAB that separates the metadata from the path(s), so a path with spaces stays
+    # whole; core.quotePath=false keeps non-ASCII paths unquoted (as filter-repo expects them).
+    paths="$(git -c core.quotePath=false log --branches --tags --find-object="$oid" --raw --no-abbrev --pretty=format: 2>/dev/null \
+      | awk -F'\t' -v o="$oid" '/^:/ { split($1, m, " "); if (m[3]==o || m[4]==o) { if (m[5] ~ /^[RC]/ && NF>=3) { print $3; print $2 } else print $2 } }' \
       | sort -u)"
     [ -n "$paths" ] || paths="$epath"
     printf '%s\n' "$paths" | while IFS= read -r p; do
       [ -n "$p" ] || continue
-      jq -n --arg p "$p" --argjson mb "$mb" --argjson bytes "$bytes" --arg oid "$oid" \
-        '{path:$p, mb:$mb, bytes:$bytes, oid:$oid}'
+      # tracked: the path is a current file (HEAD's index), so the real fix is to untrack +
+      # .gitignore it (Tier 1); stripping history alone would let the next commit re-add it.
+      tracked=false
+      git --literal-pathspecs ls-files --error-unmatch -- "$p" >/dev/null 2>&1 && tracked=true
+      regen=false
+      printf '%s' "$p" | grep -qiE "$regenerable_path_re" && regen=true
+      jq -nc --arg p "$p" --argjson mb "$mb" --argjson bytes "$bytes" --arg oid "$oid" \
+        --argjson tracked "$tracked" --argjson regen "$regen" \
+        '{path:$p, mb:$mb, bytes:$bytes, oid:$oid, tracked:$tracked, regenerable:$regen}'
     done
-  done | jq -s 'sort_by(-.bytes)' 2>/dev/null || echo '[]')"
+  done | jq -s '
+    # ONE item per path. A regenerated file (tsconfig.tsbuildinfo, a bundle) has a distinct
+    # oversized blob per version, all at the same path; one strip of that path removes every one
+    # of them, so N items would be N checkboxes for one action. Keep the largest blob as the
+    # representative and record how many versions there were and their total size.
+    group_by(.path)
+    | map(max_by(.bytes) as $big
+        | $big + {versions:length, total_bytes:(map(.bytes)|add),
+                  total_mb:((map(.bytes)|add) / 1048576 * 100 | round / 100),
+                  first_step:(if $big.tracked and $big.regenerable then "untrack-and-ignore" else null end)})
+    | sort_by(-.bytes)' 2>/dev/null || echo '[]')"
 
 # --- rewrite preconditions surfaced as blockers[] (visible at analyze/plan time, not only when
 # apply.sh refuses). Only computed when there is actually something to strip (a secret, a tracked

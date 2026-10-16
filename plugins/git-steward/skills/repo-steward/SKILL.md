@@ -86,7 +86,8 @@ components, steps):
 (end a 2+-item Tasks list with that select-all line; per-repo layer only; no cross-repo themes for a single repo). Such a task
 is an **agent task**, not a script action: `run-plan.sh` surfaces it under Tier-2 and you implement it
 yourself — create the `slug` branch, write the change, commit, push, and open the MR via `glab` — behind
-the Tier-2 gate. (`op=work-item-start` remains the lightweight "just open a branch + draft" alternative.)
+the Tier-2 gate. First run the plan check in `skills/work-items/SKILL.md` (*Before implementing*): when
+the plan drifts from the item, rests on guesses, or touches something risky, show it and wait. (`op=work-item-start` remains the lightweight "just open a branch + draft" alternative.)
 
 This per-item path is preferred when the user wants control. The whole-pass apply below is the
 "just clean it all up" alternative.
@@ -98,7 +99,8 @@ order**, honoring each one's gate (`${CLAUDE_PLUGIN_ROOT}/shared/SAFETY.md`). St
 that refuses.
 
 1. `git-repo-health` — read-only; use its flags to decide what to do.
-2. `git-branch-cleanup` — prune merged/gone (offer stale); local first, remote = 2nd gate.
+2. `git-branch-cleanup` — prune merged (offer stale); local first, remote = 2nd gate. A `gone`
+   branch with `needs_decision: true` holds unmerged work: show it, never delete it unasked.
 3. `commit-hygiene` — reword un-pushed commits only.
 4. `work-items` — optionally start the top item (branch + draft MR/PR), or **implement** a selected
    item/task end-to-end (branch → change → commit → push → open MR) on explicit request.

@@ -4,9 +4,11 @@
 //   node run.mjs --classes target/classes --out diagrams/project.html [--title Name]
 //                [--classes other/target/classes ...] [--classes target/test-classes=test --sets main,test]
 //                [--notes notes.json] [--dot-dir diagrams/dot] [--skip-render-check]
+//   node run.mjs --classes target/classes --graph-only --graph <dir>/graph.json
 //
 // Writes <out>, <out minus .html>.graph.json and .verify.json. Exits non-zero, and writes no page,
-// if any step finds a problem.
+// if any step finds a problem. With --graph-only it stops after the jdeps cross-check and writes only
+// the graph (the input of code-maps:architecture-map); no Graphviz is needed for that.
 import { spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, readdirSync, statSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
@@ -18,9 +20,11 @@ const args = process.argv.slice(2);
 const all = name => args.flatMap((a, i) => a === name ? [args[i + 1]] : []);
 const one = name => all(name)[0];
 const classes = all('--classes');
+const graphOnly = args.includes('--graph-only');
 const out = one('--out');
-if (!classes.length || !out) {
+if (!classes.length || (graphOnly ? !one('--graph') : !out)) {
   console.error('usage: node run.mjs --classes <dir|jar>[=label] [--classes ...] --out <file.html> [--title T] [--notes notes.json] [--dot-dir dir] [--sets main,test] [--skip-render-check]');
+  console.error('       node run.mjs --classes <dir|jar>[=label] [--classes ...] --graph-only --graph <file.json>');
   process.exit(2);
 }
 const step = (n, text) => console.log(`\n[${n}] ${text}`);
@@ -32,7 +36,7 @@ const jv = spawnSync('java', ['-version'], { encoding: 'utf8' });
 const major = Number((jv.stderr || '').match(/version "(\d+)/)?.[1]);
 if (!major) die('no `java` on PATH. A JDK 24 or newer is needed to read class files.');
 if (major < 24) die(`java ${major} found; the extractor needs JDK 24 or newer (it uses java.lang.classfile). The project itself may target any older Java version — only the JDK that runs this tool matters.`);
-if (!installed()) {
+if (!graphOnly && !installed()) {
   step(0, `installing Graphviz (one time) into ${depsDir()}`);
   if (!install()) die('npm install failed');
 }
@@ -54,9 +58,9 @@ for (const c of classes) {
   }
 }
 
-const base = out.replace(/\.html?$/, '');
-const graph = base + '.graph.json';
-mkdirSync(dirname(resolve(out)), { recursive: true });
+const base = graphOnly ? null : out.replace(/\.html?$/, '');
+const graph = graphOnly ? one('--graph') : base + '.graph.json';
+mkdirSync(dirname(resolve(graphOnly ? graph : out)), { recursive: true });
 
 step(1, 'reading class files');
 if (run('java', [join(here, 'Extract.java'), ...classes.flatMap(c => ['--classes', c]), '--out', graph]).status !== 0) die('extraction failed');
@@ -65,6 +69,7 @@ step(2, 'cross-checking against jdeps');
 const cc = run('node', [join(here, 'crosscheck.mjs'), graph]);
 if (cc.status === 1) die('jdeps reports dependencies the extractor did not find (listed above). Do not draw from this graph.');
 if (cc.status !== 0) console.log('    jdeps could not run; continuing without the independent check — say so when reporting.');
+if (graphOnly) { console.log(`\nDone: ${graph}${cc.status === 0 ? ' (jdeps agrees)' : ' (jdeps did not run)'}`); process.exit(0); }
 
 step(3, 'building and verifying every view');
 const build = ['build.mjs', graph, '--out', out, '--report', base + '.verify.json'];

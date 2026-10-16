@@ -1,0 +1,8 @@
+{
+  "name": "architecture-map-deps",
+  "private": true,
+  "description": "The layout engine the architecture-map page inlines. Installed by deps.mjs into ~/.cache/claude-code-maps/architecture-map, never beside the skill.",
+  "dependencies": {
+    "elkjs": "0.12.0"
+  }
+}

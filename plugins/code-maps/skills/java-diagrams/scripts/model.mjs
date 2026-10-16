@@ -20,8 +20,8 @@ export const CAPS = {
   labelChars: 46,
 };
 
-const INHERIT = ['extends', 'implements'];
-const KIND_ORDER = ['extends', 'implements', 'field', 'creates', 'param', 'return', 'throws', 'calls', 'reads', 'annotated', 'uses'];
+export const INHERIT = ['extends', 'implements'];
+export const KIND_ORDER = ['extends', 'implements', 'field', 'creates', 'param', 'return', 'throws', 'calls', 'reads', 'annotated', 'uses'];
 
 // ───────────────────────── model ─────────────────────────
 
@@ -121,11 +121,11 @@ export function buildModel(graph, { sets = ['main'] } = {}) {
 }
 
 const simple = fqn => fqn.slice(fqn.lastIndexOf('.') + 1).replace(/\$/g, '.');
-const under = (pkg, anc) => pkg === anc || anc === '' || pkg.startsWith(anc + '.');
+export const under = (pkg, anc) => pkg === anc || anc === '' || pkg.startsWith(anc + '.');
 const childOf = (pkg, anc) => { const rest = anc === '' ? pkg : pkg.slice(anc.length + 1); const seg = rest.split('.')[0]; return anc === '' ? seg : anc + '.' + seg; };
 
 /** Where a unit that is not drawn individually lands, seen from package `pkgFull`. */
-function groupFor(model, unit, pkgFull) {
+export function groupFor(model, unit, pkgFull) {
   const q = unit.pkg;
   if (q === pkgFull) return { id: 'own:' + pkgFull, type: 'own', pkg: pkgFull, inside: true };
   if (under(q, pkgFull)) { const c = childOf(q, pkgFull); return { id: 'p:' + c, type: 'pkg', pkg: c, inside: true }; }
@@ -146,7 +146,7 @@ function groupFor(model, unit, pkgFull) {
  * nodes with identical connections are stacked, and the lightest remaining ones are folded into
  * a single "N more" node. Edges are re-aggregated after each step, so nothing is lost.
  */
-function assemble(model, { id, title, kind, pkg, focus, place, inScope, stackable, cap, edgeCap = Infinity, order, boundary }) {
+export function assemble(model, { id, title, kind, pkg, focus, place, inScope, stackable, cap, edgeCap = Infinity, order, boundary }) {
   const nodes = new Map();
   const nodeOfUnit = new Map();
   for (const u of model.units.values()) {

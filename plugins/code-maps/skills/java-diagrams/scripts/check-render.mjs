@@ -6,43 +6,21 @@
 //   node check-render.mjs diagrams.html [--chrome /path/to/chrome]
 //
 // Exit 0: clean. Exit 1: overflow or errors (listed). Exit 2: no Chrome found.
-import { spawn, spawnSync } from 'node:child_process';
-import { resolve } from 'node:path';
+import { openPage } from './chrome.mjs';
 
 const args = process.argv.slice(2);
 const file = args[0];
 if (!file) { console.error('usage: node check-render.mjs diagrams.html [--chrome path]'); process.exit(2); }
 const flag = args.indexOf('--chrome');
-const candidates = flag >= 0 ? [args[flag + 1]] : ['google-chrome', 'chromium', 'chromium-browser', 'google-chrome-stable',
-  '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'];
-const chromeBin = candidates.find(c => spawnSync(c, ['--version'], { stdio: 'ignore' }).status === 0);
-if (!chromeBin) { console.error('No Chrome or Chromium found; pass --chrome <path>. The page is still verified for completeness by build.mjs.'); process.exit(2); }
-
-const port = 9300 + Math.floor(Math.random() * 400);
-const chrome = spawn(chromeBin, ['--headless=new', '--no-sandbox', `--remote-debugging-port=${port}`, '--window-size=1500,950', 'about:blank'], { stdio: 'ignore' });
-const stop = code => { chrome.kill(); process.exit(code); };
+let page;
 try {
-  let tabs;
-  for (let i = 0; i < 40 && !tabs; i++) {
-    await new Promise(r => setTimeout(r, 250));
-    try { tabs = await (await fetch(`http://127.0.0.1:${port}/json`)).json(); } catch { /* not up yet */ }
-  }
-  if (!tabs) { console.error('Chrome did not start'); stop(2); }
-  const ws = new WebSocket(tabs.find(t => t.type === 'page').webSocketDebuggerUrl);
-  await new Promise(r => { ws.onopen = r; });
-  let id = 0;
-  const pending = new Map(), errors = [];
-  ws.onmessage = m => {
-    const d = JSON.parse(m.data);
-    if (d.id && pending.has(d.id)) { pending.get(d.id)(d.result); pending.delete(d.id); }
-    if (d.method === 'Runtime.exceptionThrown') errors.push(d.params.exceptionDetails.exception?.description || d.params.exceptionDetails.text);
-  };
-  const send = (method, params = {}) => new Promise(r => { pending.set(++id, r); ws.send(JSON.stringify({ id, method, params })); });
-  await send('Runtime.enable');
-  await send('Page.enable');
-  await send('Page.navigate', { url: 'file://' + resolve(file) });
-  await new Promise(r => setTimeout(r, 1500));
-
+  page = await openPage(file, { chrome: flag >= 0 ? args[flag + 1] : undefined });
+} catch (e) {
+  console.error(e.code === 2 ? 'No Chrome or Chromium found; pass --chrome <path>. The page is still verified for completeness by build.mjs.' : String(e));
+  process.exit(2);
+}
+const { send, errors, stop, chromeBin } = page;
+try {
   const probe = `(async () => {
     const out = { views: 0, boxes: 0, overflow: [] };
     for (const vid of Object.keys(D.views)) {

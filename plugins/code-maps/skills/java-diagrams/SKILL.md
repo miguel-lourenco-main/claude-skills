@@ -3,14 +3,16 @@ name: java-diagrams
 description: >
   Build correct class diagrams and package (module) diagrams for a Java codebase, as one
   navigable HTML page plus optional Graphviz DOT files. Use whenever asked for a "class diagram",
-  "UML", "package diagram", "module diagram", "dependency diagram", "architecture diagram of the
-  code", "how do these classes relate", or "map of the codebase" for a Java, Spring Boot, Maven
+  "UML", "package diagram", "module diagram", "dependency diagram", "how do these classes relate", or "map of the codebase" for a Java, Spring Boot, Maven
   or Gradle project. Relationships are read from compiled bytecode and cross-checked against
   jdeps, every drawing is verified against the extracted graph before it is written, and large
   codebases are split into bounded views instead of one unreadable picture. Do NOT hand-draw
   Mermaid or PlantUML class diagrams of real Java code from reading the source — use this.
-  NOT for what happens when the program runs (which step calls what, in which order, with which
-  data) — that is code-maps:execution-trace. Not for non-Java code or database schemas.
+  NOT for a layered architecture picture with components, external systems and the team's own
+  words, nor for an editable class map — that is code-maps:architecture-map, which builds on this
+  skill's graph. NOT for what happens when the program runs (which step calls what, in which
+  order, with which data) — that is code-maps:execution-trace. Not for non-Java code or database
+  schemas.
 ---
 
 # Java diagrams

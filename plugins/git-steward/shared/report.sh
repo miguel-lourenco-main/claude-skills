@@ -30,6 +30,11 @@ ts="$(date '+%Y-%m-%d %H:%M:%S %Z')"
 RJSON=""
 g(){ jq -r "$1 // empty" <<<"$RJSON" 2>/dev/null; }   # scalar getter
 lines(){ jq -r "$1" <<<"$RJSON" 2>/dev/null; }         # multi-line getter
+# ND: jq predicate on a branch-cleanup candidate — "holds unmerged work, never queue a delete".
+# Analyses from before 0.9.2 have no needs_decision field; for those, a gone branch that is ahead
+# of the default branch is treated the same way (the old analyzer only reached `gone` with ahead>0
+# after the content checks had failed).
+ND='(if has("needs_decision") then .needs_decision == true else (.category=="gone" and ((.ahead // 0) > 0)) end)'
 # selall: emit a "select all" checkbox for a list when it has >=2 selectable items.
 # When the user checks it, parse-actions selects every item in the group EXCEPT the
 # ones individually checked (a checked item then means "exclude me").
@@ -59,7 +64,7 @@ cat <<'GLOSS'
 
 **How this file is organized.** Top: fleet totals, a severity-sorted repo table, and cross-repo themes. Then one section per repo — *Analysis & tasks* (agent summary + this repo's work-item tasks), *Repository health*, *Branches*, *Commit hygiene*, *Secrets & history*, *CI / pipeline health*, and *Actions*. This glossary is last.
 
-- **Prunable branch** — a local branch that is merged into the default branch, whose upstream is gone, or that has been stale past the threshold; safe to delete.
+- **Prunable branch** — a local branch that is merged into the default branch (by ancestry, or by content after a squash/rebase merge) or that has been stale past the threshold. A branch whose upstream is gone but which still holds commits the default branch lacks is **not** prunable: it is listed as needing your decision and never gets a delete checkbox.
 - **Non-conventional commit** — a commit whose subject does not follow Conventional Commits (`type(scope): summary`, e.g. `feat:`, `fix:`, `chore:`). Can be reworded while still un-pushed.
 - **Secret finding (working-tree scan)** — a regex match for something secret-shaped in the **current** files. The built-in `git-native` scanner does **not** read history, so each finding's `commit` is *unknown* and a match can be a false positive (e.g. a value loaded from an env file). Full-history detection needs `gitleaks`/`trufflehog`. The per-repo *Analysis* traces provenance where possible.
 - **Big blob / large tracked blob** — a large file object in the repository. `in worktree` = still a current file (untrack/`.gitignore` it to stop tracking going forward); `history-only` = exists only in past commits (removable only by a history rewrite). Flagged when over the size guideline (default 5 MB).
@@ -173,8 +178,12 @@ render_repo_body() {
   if [ "$(g "$bc.schema")" = "branch-cleanup/v1" ]; then
     echo "Merged: $(g "$bc.summary.merged") · gone: $(g "$bc.summary.gone") · stale: $(g "$bc.summary.stale") · keep: $(g "$bc.summary.keep")"
     local cand active
-    cand="$(lines "$bc"'.candidates[]? | select(.category!="keep") | "- `\(.branch)` — **\(.category)** — \(.reason)"')"
+    cand="$(lines "$bc"'.candidates[]? | select(.category!="keep" and ('"$ND"'|not)) | "- `\(.branch)` — **\(.category)** — \(.reason)"')"
     if [ -n "$cand" ]; then echo; echo "Prunable candidates:"; echo; echo "$cand"; else echo; echo "_No prunable branches._"; fi
+    # Upstream gone but unique commits remain (not found by ancestry, patch-id or tree): not
+    # prunable — shown so the user decides (merge it, push it back, or delete it on purpose).
+    undecided="$(lines "$bc"'.candidates[]? | select('"$ND"') | "- `\(.branch)` — \(.ahead) commit(s) ahead of the default branch, changes not all in it; upstream deleted on remote"')"
+    [ -n "$undecided" ] && { echo; echo "Upstream gone, unique work remains (needs your decision — not queued):"; echo; echo "$undecided"; }
     active="$(lines "$bc"'.candidates[]? | select(.category=="keep" and .reason=="active, unmerged" and (.ahead//0)>0) | "- `\(.branch)` — \(.ahead) ahead / \(.behind) behind default — assess for merge vs variant (see Analysis & tasks)"')"
     [ -n "$active" ] && { echo; echo "Active / unmerged branches (merge candidates):"; echo; echo "$active"; }
   else echo "_branch data unavailable_"; fi
@@ -253,9 +262,15 @@ render_repo_body() {
 
   # Branches (Tier 1)
   local br
-  br="$(lines "$bc"'.candidates[]? | select(.category!="keep") |
+  br="$(lines "$bc"'.candidates[]? | select(.category!="keep" and ('"$ND"'|not)) |
     "- [ ] **Delete branch `\(.branch)`** <!--gs op=branch-delete-local repo=REPO branch=\(.branch)-->\n  - *Why:* \(.category) — \(.reason); redundant locally.\n  - *Risk:* Tier 1 · reversible (restore via `git reflog`).\n  - *Source:* git-branch-cleanup classified it `\(.category)`."')"
   if [ -n "$br" ]; then any=true; echo; echo "${hb}### Branches — delete (Tier 1, local)"; printf '%s\n' "${br//REPO/$repo}"; selall "${br//REPO/$repo}"; fi
+  # Never a checkbox: a gone branch whose commits are NOT in the default branch. Deleting it would
+  # drop work that exists nowhere else once the reflog expires, so the decision stays with the user.
+  local br_decide
+  br_decide="$(lines "$bc"'.candidates[]? | select('"$ND"') |
+    "- `\(.branch)` — upstream deleted on remote, but it is \(.ahead) commit(s) ahead and their changes are not all in the default branch (checked by ancestry, patch-id and tree). Review with `git log <default>..\(.branch)`; merge it, push it back, or delete it yourself with `git branch -D \(.branch)`."')"
+  if [ -n "$br_decide" ]; then any=true; echo; echo "> _Branches that need your decision (not queued — they hold unmerged work):_"; echo; printf '%s\n' "$br_decide"; fi
 
   # Commit rewords (Tier 1)
   local cm
@@ -289,7 +304,12 @@ render_repo_body() {
   # and the AGENT judges cleanability and drafts any `history-remove-path` / `history-redact` task
   # (with the `worktree-remove` pre-steps + backup + rotate-the-credential note) in Analysis & tasks.
   local blob_facts wt_block
-  blob_facts="$(lines "$hs"'.large_blobs.items[]? | "- `\(.path)` — \(.mb) MB (removable only by a history rewrite; still needed?)"')"
+  blob_facts="$(lines "$hs"'.large_blobs.items[]? |
+    "- `\(.path)` — \(.mb) MB" + (if (.versions // 1) > 1 then " (largest of \(.versions) versions, \(.total_mb) MB in all)" else "" end)
+    + (if .first_step == "untrack-and-ignore" then
+         " — **still tracked, regenerable build artifact: untrack + `.gitignore` it first** (Tier 1, `op=gitignore-untrack`, see gitignore-guard); a history strip is only the optional follow-up to reclaim the space already in history."
+       elif .tracked == true then " — still tracked (a current file): a history strip alone would let the next commit re-add it; still needed?"
+       else " (history-only; removable only by a history rewrite; still needed?)" end)')"
   wt_block="$(lines "$hs"'.blockers[]? | select(.id=="history-worktrees") | ([.facts_needed[]?|select(.fact=="worktree")]) as $w |
     "- ⚠️ A history rewrite would orphan \($w|length) other linked worktree(s): \([$w[]|select(.removable==true)]|length) clean (safe to remove first), \([$w[]|select(.removable!=true)]|length) holding uncommitted work (a genuine decision)."')"
   if [ -n "$blob_facts" ] || [ -n "$wt_block" ]; then
@@ -309,7 +329,7 @@ render_repo_body() {
   # A branch already queued for deletion above must NOT also get a CI-fix action — pushing
   # commits to a branch you are about to delete is contradictory (this surfaced as a real
   # conflicting pair in fleet runs). Capture the delete-set and exclude those branches.
-  local del_set='( [ '"$bc"'.candidates[]? | select(.category!="keep") | .branch ] )'
+  local del_set='( [ '"$bc"'.candidates[]? | select(.category!="keep" and ('"$ND"'|not)) | .branch ] )'
   local not_deleting='((.branch) as $b | ($del | any(.==$b)) | not)'
   # The runtime (pipeline-health apply.sh) REFUSES to push the default branch, so a pipeline-fix
   # queued there is guaranteed to fail and wastes a review slot. Never queue it; surface it as a

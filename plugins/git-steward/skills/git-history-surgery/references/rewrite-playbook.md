@@ -53,7 +53,11 @@ Restore from backup: `git clone .git-steward-backups/<repo>-<ts>.git restored.gi
   "secret_scan": { "method": "gitleaks|git-native",
     "findings": [ { "rule": "aws-access-key", "file": "config.txt", "commit": null, "line": 1 } ],
     "sensitive_tracked_files": [".env"], "note": "…" },
-  "large_blobs": { "min_mb": 5, "items": [ { "path": "big.bin", "mb": 5.72, "bytes": 6000000 } ] },
+  "large_blobs": { "min_mb": 5, "items": [
+    { "path": "big.bin", "mb": 5.72, "bytes": 6000000, "oid": "…", "tracked": false, "regenerable": false,
+      "versions": 1, "total_bytes": 6000000, "total_mb": 5.72, "first_step": null },
+    { "path": "tsconfig.tsbuildinfo", "mb": 9.1, "bytes": 9542000, "oid": "…", "tracked": true, "regenerable": true,
+      "versions": 4, "total_bytes": 35000000, "total_mb": 33.38, "first_step": "untrack-and-ignore" } ] },
   "tools": { "gitleaks": false, "trufflehog": false, "git_filter_repo": false, "bfg": false,
              "rewrite_ready": false },
   "summary": { "secret_findings": 2, "sensitive_files": 0, "big_blobs": 1 }

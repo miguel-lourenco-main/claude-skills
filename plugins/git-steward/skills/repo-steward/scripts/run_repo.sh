@@ -141,7 +141,9 @@ aggregate="$(jq -n --arg repo "$repo" --arg name "$name" --argjson opt "$optimiz
   {schema:"repo-steward/v1", repo:$repo, name:$name, optimize:$opt, skills:$r,
    attention:{
      health_flags: ($r["git-repo-health"].flags // []),
-     prunable_branches: ((($r["git-branch-cleanup"].summary.merged // 0) + ($r["git-branch-cleanup"].summary.gone // 0) + ($r["git-branch-cleanup"].summary.stale // 0))),
+     # summary.prunable excludes gone branches that still hold unique work (needs_decision).
+     prunable_branches: ($r["git-branch-cleanup"].summary.prunable // (($r["git-branch-cleanup"].summary.merged // 0) + ($r["git-branch-cleanup"].summary.gone // 0) + ($r["git-branch-cleanup"].summary.stale // 0))),
+     branches_needing_decision: ($r["git-branch-cleanup"].summary.needs_decision // 0),
      non_conventional_commits: ($r["commit-hygiene"].lint.non_conventional // 0),
      secret_findings: ($r["git-history-surgery"].summary.secret_findings // 0),
      big_blobs: ($r["git-history-surgery"].summary.big_blobs // 0),

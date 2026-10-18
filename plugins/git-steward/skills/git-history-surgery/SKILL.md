@@ -31,6 +31,15 @@ Emits `history-surgery/v1` JSON: `secret_scan` (findings with file/commit/line; 
 present, else a working-tree pattern scan — note the limitation), `large_blobs` over `--min-mb`, and a
 `tools` block with `rewrite_ready`. Report findings and, crucially, whether a rewrite tool is available.
 
+`large_blobs.items` has **one entry per path**: the largest blob that path ever held, plus `versions`
+and `total_mb` across all of them, since one strip of the path removes every version. `tracked` says
+the path is still a current file. `first_step: "untrack-and-ignore"` marks a tracked, regenerable
+build artifact (`*.tsbuildinfo`, `dist/`, `.next/`, `coverage/` …): the fix is to untrack it and add it
+to `.gitignore` (Tier 1, gitignore-guard). A strip of its history only reclaims space already spent, so
+offer it as an optional follow-up, never as the first action. Several selected strips in one repo run
+as **one** `apply.sh` call with repeated `--remove-path` (one backup, one rewrite), which is what
+`run-plan.sh` prints.
+
 **Detection ≠ removal.** The git-native scan only covers the working tree; for thorough full-history
 secret detection, recommend installing `gitleaks` or `trufflehog`. Removal always needs a rewrite tool.
 

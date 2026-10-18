@@ -49,16 +49,35 @@ gs_ahead_behind() {
 
 # branch_content_in_default <def> <br> -> exit 0 iff every change on <br> is already present in
 # <def>, even when the work landed via a SQUASH or REBASE merge — which `git branch --merged`
-# cannot see because it only follows ancestry. Two write-free, patch-id-based tests; either match
-# means deleting <br> would lose nothing:
+# cannot see because it only follows ancestry. Write-free tests, cheapest first; any match means
+# deleting <br> would lose nothing. When none match (or a test cannot run) the answer is NO, so a
+# failure here can only keep a branch, never queue one for deletion.
 #   (a) `git cherry` finds an equivalent patch in <def> for EVERY commit on <br> (rebase-merge,
 #       cherry-pick, plain merge) — correct even when <def> has advanced past the branch.
 #   (b) <br>'s tree is byte-identical to <def>'s — a squash-merge <def> hasn't built on yet.
+#   (c) merging <br> into <def> is a no-op: `git merge-tree --write-tree` (git >= 2.38, writes only
+#       loose objects, never a ref or the worktree) produces exactly <def>'s tree. Catches a squash
+#       of SEVERAL commits after <def> moved on with unrelated work, which (a) and (b) both miss.
+#   (d) the branch's cumulative patch (merge-base..<br>) has the same patch-id as one commit on
+#       <def> since the merge-base — a squash-merge whose lines <def> later edited again, so (c)
+#       conflicts. Bounded to the last 1000 commits of <def> past the merge-base.
 # Caller should guard with ahead>0 (an ahead==0 branch is already an ancestor — a "merged" hit).
 branch_content_in_default() {
-  local def="$1" br="$2"
+  local def="$1" br="$2" mb t_def t_merge pid
   [ -z "$(git cherry "$def" "$br" 2>/dev/null | grep '^+')" ] && return 0
-  git diff --quiet "$def" "$br" 2>/dev/null
+  git diff --quiet "$def" "$br" 2>/dev/null && return 0
+  mb="$(git merge-base "$def" "$br" 2>/dev/null)" || return 1
+  [ -n "$mb" ] || return 1
+  t_def="$(git rev-parse --verify --quiet "$def^{tree}" 2>/dev/null)"
+  # merge-tree exits non-zero on a conflict (or on git < 2.38): fall through to (d).
+  if t_merge="$(git merge-tree --write-tree "$def" "$br" 2>/dev/null)" \
+     && [ -n "$t_def" ] && [ "${t_merge%%$'\n'*}" = "$t_def" ]; then
+    return 0
+  fi
+  pid="$(git diff "$mb" "$br" 2>/dev/null | git patch-id --stable 2>/dev/null | awk '{print $1}')"
+  [ -n "$pid" ] || return 1
+  git log -p --no-merges --max-count=1000 "$mb..$def" 2>/dev/null | git patch-id --stable 2>/dev/null \
+    | awk -v p="$pid" '$1==p {found=1} END {exit found ? 0 : 1}'
 }
 
 # gs_diffstat <base> <ref> -> prints "<files> <insertions> <deletions>" for base...ref. Binary
@@ -74,12 +93,13 @@ gs_diffstat() {
 # verdict object on stdout. Read-only. For NEW consumers (worktree-manager v2, inspect.sh); encodes
 # the same content ladder git-branch-cleanup uses, content-only (no age/protection policy):
 #   {verdict, ahead, behind, merge_type, removable, reason, diffstat}
-# verdict ∈ merged-ancestor | squash-rebase-redundant | gone | diverged | unique-work
+# verdict ∈ merged-ancestor | squash-rebase-redundant | gone | diverged | unique-work | unknown
 #   merged-ancestor          ahead==0 (tip reachable from cmp_base) — git branch -d safe; removable
 #   squash-rebase-redundant  ahead>0 but content already in cmp_base — needs -D; removable
 #   gone                     upstream [gone] with unique commits — not removable without a decision
 #   diverged                 ahead>0 AND behind>0 — not removable
 #   unique-work              ahead>0, not behind — not removable
+#   unknown                  the comparison itself failed (bad ref) — not removable
 gs_classify_branch_vs_default() {
   local cmp_base="$1" br="$2"; shift 2
   local track="" want_diffstat=false
@@ -96,7 +116,12 @@ gs_classify_branch_vs_default() {
   behind="${behind:-0}"; ahead="${ahead:-0}"
 
   local verdict merge_type="" removable=false reason=""
-  if [ "$ahead" -eq 0 ] 2>/dev/null; then
+  # gs_ahead_behind degrades to "0 0" on a bad ref, so ahead==0 alone is not proof of a merge:
+  # confirm ancestry before calling anything removable.
+  if [ "$ahead" -eq 0 ] 2>/dev/null && ! git merge-base --is-ancestor "$br" "$cmp_base" 2>/dev/null; then
+    verdict="unknown"; removable=false
+    reason="could not compare with the default branch"
+  elif [ "$ahead" -eq 0 ] 2>/dev/null; then
     verdict="merged-ancestor"; merge_type="ancestor"; removable=true
     reason="fully merged into the default branch"
   elif branch_content_in_default "$cmp_base" "$br"; then

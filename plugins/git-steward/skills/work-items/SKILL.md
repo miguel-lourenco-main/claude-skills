@@ -55,6 +55,35 @@ Create a branch only when `branch-scope` says the work is separately reviewable 
 When it is, name it for what it will carry in total rather than for the one item that started it,
 and list every item it closes in the MR description.
 
+### Before implementing: check the plan against the item
+
+A task is the agent's reading of a work item, and that reading can drift: several items folded into
+one, a vague issue filled in with guesses, a "How" written before the code was read. The Tier-2 gate
+confirms the *repo*; it does not confirm that the plan is what the item asked for. So before writing
+code for a `work-item-implement` task (or any item picked up in apply mode), write the plan down and
+compare it with the item text:
+
+- **Item says** — the requirement in the item's own words, with its acceptance criteria if it has any.
+- **I will change** — files and behaviour, concretely.
+- **Not doing / assuming** — the parts of the item left out, and every gap filled with a guess.
+
+**Stop and show that plan to the user, and wait for a yes,** when any of these is true:
+
+1. The plan does not map one-to-one onto the item: scope added, part of the item dropped, or a
+   different approach from the one the item names.
+2. The item is vague, has no acceptance criteria, or reads as a proposal or discussion ("let's
+   consider…", 🤔 needs-refinement), so the plan rests on assumptions.
+3. The task groups several items, or the code you read contradicts the item's premise (already
+   done, different cause, the file it names is gone).
+4. The change touches something hard to take back or easy to get wrong unseen: security, auth or
+   secrets; data, migrations or schemas; a public API or file format; CI configuration; deleting
+   files or behaviour; anything in the never-touch list of `${CLAUDE_PLUGIN_ROOT}/shared/SAFETY.md`.
+5. It is large: more than a handful of files, or not revertable as one commit.
+
+Otherwise (small, well specified, the plan matches the item's wording, one revert undoes it), go
+ahead, and put the same three-part plan in the MR description so the reviewer can check the mapping.
+When in doubt, ask: one question costs less than a review of the wrong change.
+
 ### Apply (gated)
 ```bash
 bash ${CLAUDE_PLUGIN_ROOT}/skills/work-items/scripts/apply.sh \

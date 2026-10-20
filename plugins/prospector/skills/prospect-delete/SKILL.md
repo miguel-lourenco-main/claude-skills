@@ -12,7 +12,7 @@ there is no undo, so be sure of the ids (the dashboard gates this behind a confi
 ## Run
 
 ```bash
-PLUGIN="${CLAUDE_PLUGIN_ROOT:-$HOME/Desktop/personal/projects/claude-skills/plugins/prospector}"
+PLUGIN="${CLAUDE_PLUGIN_ROOT:-$HOME/Desktop/workspace/personal/projects/claude-skills/plugins/prospector}"
 export PROSPECTOR_ROOT="${PROSPECTOR_ROOT:-$PWD/.prospector}"
 node "$PLUGIN/scripts/delete.mjs" '{"action":"delete","companyIds":["loc-some-id","web-other-id"]}'
 ```

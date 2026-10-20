@@ -20,7 +20,7 @@ site-matters, opportunity). Constraints the scope can express:
 ## Run
 
 ```bash
-PLUGIN="${CLAUDE_PLUGIN_ROOT:-$HOME/Desktop/personal/projects/claude-skills/plugins/prospector}"
+PLUGIN="${CLAUDE_PLUGIN_ROOT:-$HOME/Desktop/workspace/personal/projects/claude-skills/plugins/prospector}"
 export PROSPECTOR_ROOT="${PROSPECTOR_ROOT:-$PWD/.prospector}"
 # patch is shallow-merged (revenue/employees/weights merged one level deeper)
 node "$PLUGIN/scripts/scope.mjs" '{"action":"scope","payload":{"scope":{"verticals":["hospitality"],"revenue":{"min":1000000}}}}'

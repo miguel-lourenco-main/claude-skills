@@ -11,7 +11,7 @@
 #     --deep-max N : per-repo cap on failing pipelines to pull logs for (default 10).
 set -u
 
-root="${GS_ROOT:-$HOME/Desktop/personal/projects}"; deep_max=10; quiet=false
+root="${GS_ROOT:-$HOME/Desktop/workspace/personal/projects}"; deep_max=10; quiet=false
 while [ $# -gt 0 ]; do
   case "$1" in
     --root) root="$2"; shift 2 ;;

@@ -12,7 +12,7 @@ context but do NOT change the ranking. Regenerates `leads.md`.
 ## Run
 
 ```bash
-PLUGIN="${CLAUDE_PLUGIN_ROOT:-$HOME/Desktop/personal/projects/claude-skills/plugins/prospector}"
+PLUGIN="${CLAUDE_PLUGIN_ROOT:-$HOME/Desktop/workspace/personal/projects/claude-skills/plugins/prospector}"
 export PROSPECTOR_ROOT="${PROSPECTOR_ROOT:-$PWD/.prospector}"
 node "$PLUGIN/scripts/rank.mjs" '{"action":"rank"}'
 ```

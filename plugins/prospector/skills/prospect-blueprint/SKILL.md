@@ -18,7 +18,7 @@ what exactly is wrong, what do we build instead, and in what order?"*. It has th
 ## 0 · Setup
 
 ```bash
-PLUGIN="${CLAUDE_PLUGIN_ROOT:-$HOME/Desktop/personal/projects/claude-skills/plugins/prospector}"
+PLUGIN="${CLAUDE_PLUGIN_ROOT:-$HOME/Desktop/workspace/personal/projects/claude-skills/plugins/prospector}"
 export PROSPECTOR_ROOT="${PROSPECTOR_ROOT:-$PWD/.prospector}"
 PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 npm install --prefix "$PLUGIN" >/dev/null 2>&1 || true
 ```

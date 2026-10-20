@@ -28,7 +28,7 @@ ls "$REF"/{design-principles,visual-script,implementation,extraction-method,vali
 # extract mode merges into the user's skills CHECKOUT, never the plugin cache:
 REPO="${SKILLS_REPO:-}"
 [ -n "$REPO" ] || for d in "$HOME/Workspace/personal/projects/claude-skills" \
-                           "$HOME/Desktop/personal/projects/claude-skills" \
+                           "$HOME/Desktop/workspace/personal/projects/claude-skills" \
                            "$HOME/projects/claude-skills" "$HOME/claude-skills"; do
   [ -d "$d/.claude-plugin" ] && REPO="$d" && break
 done

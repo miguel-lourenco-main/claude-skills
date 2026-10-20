@@ -12,7 +12,7 @@ stream into the dashboard as they finish and a cancel/crash never loses complete
 ## 0 · Setup
 
 ```bash
-PLUGIN="${CLAUDE_PLUGIN_ROOT:-$HOME/Desktop/personal/projects/claude-skills/plugins/prospector}"
+PLUGIN="${CLAUDE_PLUGIN_ROOT:-$HOME/Desktop/workspace/personal/projects/claude-skills/plugins/prospector}"
 export PROSPECTOR_ROOT="${PROSPECTOR_ROOT:-$PWD/.prospector}"
 PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 npm install --prefix "$PLUGIN" >/dev/null 2>&1 || true   # capture needs playwright
 ```

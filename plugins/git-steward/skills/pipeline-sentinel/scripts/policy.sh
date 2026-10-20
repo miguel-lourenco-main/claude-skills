@@ -12,7 +12,7 @@
 #   policy.sh --root <dir> --set <cause>=<mode>   # promote/demote one cause (auto|gated|report|escalate)
 set -u
 
-root="${GS_ROOT:-$HOME/Desktop/personal/projects}"; init=false; set_kv=""
+root="${GS_ROOT:-$HOME/Desktop/workspace/personal/projects}"; init=false; set_kv=""
 while [ $# -gt 0 ]; do
   case "$1" in
     --root) root="$2"; shift 2 ;;

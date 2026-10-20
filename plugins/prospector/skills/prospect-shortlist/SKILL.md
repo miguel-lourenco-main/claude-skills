@@ -11,7 +11,7 @@ Flags companies as **potential clients** to come back to — orthogonal to their
 ## Run
 
 ```bash
-PLUGIN="${CLAUDE_PLUGIN_ROOT:-$HOME/Desktop/personal/projects/claude-skills/plugins/prospector}"
+PLUGIN="${CLAUDE_PLUGIN_ROOT:-$HOME/Desktop/workspace/personal/projects/claude-skills/plugins/prospector}"
 export PROSPECTOR_ROOT="${PROSPECTOR_ROOT:-$PWD/.prospector}"
 # add to shortlist:
 node "$PLUGIN/scripts/shortlist.mjs" '{"action":"shortlist","companyIds":["web-regional-pt"],"payload":{"value":true}}'

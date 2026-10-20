@@ -22,7 +22,7 @@ app is **standalone** and needs no separate Claude session. The page re-reads th
 ## 0 · Locate the plugin + store root
 
 ```bash
-PLUGIN="${CLAUDE_PLUGIN_ROOT:-$HOME/Desktop/personal/projects/claude-skills/plugins/prospector}"
+PLUGIN="${CLAUDE_PLUGIN_ROOT:-$HOME/Desktop/workspace/personal/projects/claude-skills/plugins/prospector}"
 PROSPECTOR_ROOT="${PROSPECTOR_ROOT:-$PWD/.prospector}"
 export PROSPECTOR_ROOT
 echo "plugin: $PLUGIN"

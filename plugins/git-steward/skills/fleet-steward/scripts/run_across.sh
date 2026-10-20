@@ -7,7 +7,7 @@
 # Usage: run_across.sh [--root <dir>] [--optimize]   # uses saved fleet, else workspace
 set -u
 
-root="${GS_ROOT:-$HOME/Desktop/personal/projects}"; optimize=false; only=""; repos_arg=""; sync=true
+root="${GS_ROOT:-$HOME/Desktop/workspace/personal/projects}"; optimize=false; only=""; repos_arg=""; sync=true
 while [ $# -gt 0 ]; do
   case "$1" in
     --root) root="$2"; shift 2 ;;

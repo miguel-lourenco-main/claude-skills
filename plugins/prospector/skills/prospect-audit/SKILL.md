@@ -14,7 +14,7 @@ the screenshots). Nothing is ever fabricated: a site that has no URL or won't lo
 Capture needs Playwright (uses the system Google Chrome — no Chromium download):
 
 ```bash
-PLUGIN="${CLAUDE_PLUGIN_ROOT:-$HOME/Desktop/personal/projects/claude-skills/plugins/prospector}"
+PLUGIN="${CLAUDE_PLUGIN_ROOT:-$HOME/Desktop/workspace/personal/projects/claude-skills/plugins/prospector}"
 PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 npm install --prefix "$PLUGIN"
 ```
 

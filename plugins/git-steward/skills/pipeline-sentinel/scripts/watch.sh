@@ -7,7 +7,7 @@
 # Usage: watch.sh [--root <dir>] [--interval-min 15]
 set -u
 
-root="${GS_ROOT:-$HOME/Desktop/personal/projects}"; interval_min=15
+root="${GS_ROOT:-$HOME/Desktop/workspace/personal/projects}"; interval_min=15
 while [ $# -gt 0 ]; do
   case "$1" in
     --root) root="$2"; shift 2 ;;

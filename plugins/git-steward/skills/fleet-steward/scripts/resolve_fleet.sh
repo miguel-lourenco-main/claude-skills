@@ -8,7 +8,7 @@
 #   resolve_fleet.sh --load [--root <dir>]      # re-emit the saved fleet, if any
 set -u
 
-root="${GS_ROOT:-$HOME/Desktop/personal/projects}"; source="workspace"; exclude=""; save=false; load=false
+root="${GS_ROOT:-$HOME/Desktop/workspace/personal/projects}"; source="workspace"; exclude=""; save=false; load=false
 while [ $# -gt 0 ]; do
   case "$1" in
     --source) source="$2"; shift 2 ;;

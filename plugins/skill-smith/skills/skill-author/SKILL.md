@@ -16,7 +16,7 @@ SA="${CLAUDE_PLUGIN_ROOT:+$CLAUDE_PLUGIN_ROOT/skills/skill-author}"
 STANDARDS="$SA/STANDARDS.md"; ls "$STANDARDS" || echo "STANDARDS.md NOT FOUND"
 # The user's skills checkout (plugin skills are edited HERE, never in the plugin cache):
 REPO="${SKILLS_REPO:-}"
-[ -n "$REPO" ] || for d in "$HOME/Desktop/personal/projects/claude-skills" \
+[ -n "$REPO" ] || for d in "$HOME/Desktop/workspace/personal/projects/claude-skills" \
                            "$HOME/projects/claude-skills" "$HOME/claude-skills"; do
   [ -d "$d/.claude-plugin" ] && REPO="$d" && break
 done

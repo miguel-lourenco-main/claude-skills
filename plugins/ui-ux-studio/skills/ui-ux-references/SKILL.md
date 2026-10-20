@@ -112,7 +112,7 @@ The skill code (this plugin) and the vault both live in the `claude-skills` mono
 git + Git LFS (images & JS binaries). Commit from your **monorepo checkout** (NOT the volatile
 plugin cache). After growing the library:
 ```bash
-cd <your claude-skills checkout>   # e.g. ~/Desktop/personal/projects/claude-skills
+cd <your claude-skills checkout>   # e.g. ~/Desktop/workspace/personal/projects/claude-skills
 git add -A && git commit -m "refs: add <category> examples" && git push
 ```
 On another machine: `git pull && git lfs pull`, then point `$UIUX_VAULT` at (or symlink

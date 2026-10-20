@@ -26,7 +26,7 @@ Confirm the mode back to the user in one line before you start.
 ## 0 · Setup (once)
 
 ```bash
-PLUGIN="${CLAUDE_PLUGIN_ROOT:-$HOME/Desktop/personal/projects/claude-skills/plugins/prospector}"
+PLUGIN="${CLAUDE_PLUGIN_ROOT:-$HOME/Desktop/workspace/personal/projects/claude-skills/plugins/prospector}"
 export PROSPECTOR_BRIDGE_URL="https://prospector-leadgen.fly.dev"   # the hosted app
 export PROSPECTOR_WORKER_TOKEN="…"                                  # matches the server's PROSPECTOR_WORKER_TOKEN
 ```

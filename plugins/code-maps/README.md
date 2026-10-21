@@ -13,9 +13,14 @@ writes a page.
 - **execution-trace** — a run trace: one execution followed from the command line to its
   last effect, step by step like a debugger, redrawn through layers (process, code, state,
   data, disk); one phrase per box, an in-depth explanation behind each.
+- **flow-diagram** — a data-and-execution-flow diagram of one process on every path: threads,
+  loops as nested frames with their back edges and exits, decisions in the code's own
+  expressions, and beside them what each step reads, writes and talks to; rendered from a
+  JSON spec by a builder that refuses a misleading one.
 
 Use `java-diagrams` for *what exists and how it is connected*, `execution-trace` for *what
-happens, in which order, with which data*.
+happened in one run, with its figures*, and `flow-diagram` for *how the process runs on every
+path: its loops, its exits, and the data each step touches*.
 
 ## What is in each
 
@@ -32,10 +37,15 @@ happens, in which order, with which data*.
 | `skills/execution-trace/scripts/check-page.mjs` | opens every step in every layer in headless Chrome |
 | `skills/execution-trace/assets/page.html` | the page: draws any valid trace data |
 | `skills/execution-trace/references/` | the data format, and the content rules with the two-agent reading |
+| `skills/flow-diagram/SKILL.md` | the workflow: fix the process, read its control flow and its data, write the spec, build, look once |
+| `skills/flow-diagram/scripts/flowdiagram.py` | spec → validated layout → one self-contained HTML page |
+| `skills/flow-diagram/examples/extract-catalogue.json` | the reference diagram the skill was made from |
+| `skills/flow-diagram/references/` | what defines this kind of diagram against its neighbours, and the spec format |
 
 ## Requirements
 
 - `java-diagrams`: JDK 24+ to run the extractor (the project may target any version), Node 18+.
+- `flow-diagram`: Python 3.8+ (standard library); Chrome optional, for the one look.
 - `execution-trace`: Python 3.9+; for the Code layer a JDK (`javap`) and compiled classes;
   Node 22+ and Chrome for the page check. The built page loads dagre from cdnjs.
 

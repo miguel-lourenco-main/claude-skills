@@ -1,0 +1,110 @@
+{
+  "title": "Fluxo de execução nível 0",
+  "heading": "Fluxo de execução, nível 0",
+  "eyebrow": "Serviço de extração · processo extract-catalogue · commit em refactor/console-thin",
+  "intro": "Um run como o código o executa, do pedido ao fecho. À esquerda está o caminho: as duas threads, os dois laços encaixados (os items no maestro, os passos na chain) e as saídas de cada um. À direita está o que cada passo lê e escreve no contexto do item.",
+  "aria": "Fluxo de execução do serviço: o pedido é validado na thread HTTP e posto no pool; no worker, o Maestro percorre os items num laço e, para cada um, a Chain percorre os 13 passos do grão ITEM num laço interior que verifica o cancelamento, chama apply, grava o passo e decide pelo resultado e pelo onError; depois corre os 3 passos do grão PROCESS e fecha o run.",
+  "flow_header": "FLUXO DE EXECUÇÃO",
+  "data_header": "O QUE CADA PASSO LÊ E ESCREVE NO ChainLinkContext DO ITEM",
+  "flow": [
+    {"node": "Cliente", "sub": "API · CLI · consola", "style": "ext", "id": "cliente"},
+    {"node": "GatherController.run", "sub": ["request(): só userId, params, fast"], "in": "POST /process/{name}/run + JWT",
+     "refuse": {"to": "cliente", "label": "400 com a razão"}},
+    {"node": "GatherService.start", "sub": ["Maestro.chainOf(nome): definição de ai.process, chain ligada",
+                                            "Maestro.items(pedido) → CatalogTargets: ids, requireKnown"],
+     "refuse": {"to": "cliente", "label": "400 com a razão"}},
+    {"node": "recorder.runQueued · workers.submit(…)", "sub": ["ai.process_run «em fila»; o run vai para o pool"],
+     "returns": {"to": "cliente", "label": "202 {processId}"}},
+    {"thread": {"above": "thread do pedido HTTP", "below": "thread do worker"}, "in": "submit"},
+    {"node": "Maestro.run(pedido, cancellation)", "style": "key",
+     "sub": ["process(nome) · sourceOf(def) · Chain.build", "ids = items.items(params) · runStarted «a correr»"]},
+    {"decision": "fast e execution.fast?", "sub": "sim: runInLanes · não: runInSeries", "either": true},
+    {"in": "faixas = items.lane(id): um laço destes por faixa, até N em paralelo",
+     "loop": {"title": "LAÇO DO MAESTRO · runInSeries / runInLanes",
+              "sub": "para cada id que a fonte de items devolveu, por ordem",
+              "back_label": "próximo item",
+              "body": [
+        {"decision": "cancelado ou abortado?", "branch": {"to": "next", "label": "sim: SKIPPED"}},
+        {"node": "ItemLocks.of(fonte:item).lockInterruptibly()", "sub": ["espera se outro run tem o mesmo item"], "in": "não"},
+        {"node": "ChainLinkContext.forItem(…)", "sub": ["runId, item, posição, params + Cancellation + RunScope"]},
+        {"loop": {"title": "LAÇO DA CHAIN · Chain.run(ITEM, ctx)",
+                  "sub": "os passos do grão ITEM, pela ordem de ai.process_chain",
+                  "exit_label": "o resto: SKIPPED",
+                  "body": [
+          {"decision": "cancelamento pedido?", "branch": {"to": "exit", "label": "sim: CANCELED"}},
+          {"node": "result = passo.apply(ctx, cfg)", "sub": ["uma exceção vira FAIL"], "style": "key", "in": "não",
+           "data": "item", "data_label": "o passo i"},
+          {"node": "recorder.stepDone", "sub": ["→ ai.chain_run (item, posição, resultado)"]},
+          {"decision": "result.status", "sub": "e o onError do passo",
+           "back": ["CONTINUE, ou FAIL", "com onError continue"],
+           "branch": {"to": "exit", "label": ["STOP, ou FAIL", "skip-target | abort"]}}
+        ]}},
+        {"node": "unlock · ItemRun(status, notas, ctx)", "sub": ["OK · STOPPED · FAILED · CANCELED; abort pára os seguintes"]}
+      ]}},
+    {"node": "ProcessRun(itens, notas, aborted, canceled)", "sub": ["se cancelado: Thread.interrupted() antes do grão PROCESS"]},
+    {"node": "ChainLinkContext.forProcess(runId)", "sub": ["+ ProcessRun"]},
+    {"loop": {"title": "LAÇO DA CHAIN · grão PROCESS", "sub": "uma vez por run, depois de todos os itens",
+              "back_label": "próximo passo",
+              "body": [
+        {"node": "Chain.run(PROCESS, ctx)", "style": "key", "data": "process",
+         "sub": ["persist-process-run → export → report", "sem flag de cancelamento: corre sempre até ao fim"]}
+      ]}},
+    {"node": "recorder.runFinished", "sub": ["ai.process_run fechado: finished · aborted · canceled"]}
+  ],
+  "tables": {
+    "item": {
+      "title": "Os passos do grão ITEM (ai.process_chain, revisão 3)",
+      "sub": "não passam dados entre si: cada um lê e escreve slots no contexto do item (CatalogSlots)",
+      "columns": ["passo · onError", "lê (require / find)", "escreve (put) · E/S"],
+      "rows": [
+        {"name": "1 fetch", "tag": "skip-target", "reads": ["item, RunScope"], "writes": ["ROUTE, MARKET, PULL_RESULT,", "FETCHER, LANDING, FETCH_STATS,", "SOURCES"], "io": ["⇄ sites dos fabricantes"]},
+        {"name": "2 admission", "tag": "skip-target", "reads": ["PULL_RESULT, LANDING, MARKET"], "writes": ["PULL_RESULT, FINDINGS, REFUSED"]},
+        {"name": "3 snapshot", "tag": "skip-target", "reads": ["PULL_RESULT, FETCH_STATS,", "MARKET"], "writes": ["SNAPSHOT, CHANGESET"], "io": ["→ gather.snapshot"]},
+        {"name": "4 rulers", "tag": "skip-target", "reads": ["SNAPSHOT, FINDINGS,", "FETCHER, SOURCES"], "writes": ["RULES, OUTCOME,", "ANNOTATIONS, FINDINGS"], "io": ["← ledger, conjuntos, CALC, NMB"]},
+        {"name": "5 observe", "tag": "skip-target", "reads": ["SNAPSHOT, OUTCOME,", "ANNOTATIONS, FINDINGS"], "writes": ["FINDINGS"]},
+        {"name": "6 suppress", "tag": "skip-target", "reads": ["FINDINGS, RULES, SNAPSHOT"], "writes": ["SPLIT"]},
+        {"name": "7 decide", "tag": "skip-target", "reads": ["SNAPSHOT, OUTCOME"], "writes": ["DECISION"], "io": ["← o snapshot anterior"]},
+        {"name": "8 record", "tag": "skip-target", "reads": ["SNAPSHOT, CHANGESET,", "OUTCOME, ANNOTATIONS,", "REFUSED, SPLIT, DECISION"], "writes": ["RECORD"]},
+        {"name": "9 reconcile", "tag": "continue", "reads": ["RECORD, MARKET"], "writes": ["RECONCILIATION, RECORD"], "io": ["← vehicle_all · moto"]},
+        {"name": "10 persist-run-record", "tag": "skip-target", "reads": ["RECORD"], "writes": ["RECORD"], "io": ["→ gather.run_record"]},
+        {"name": "11 alert", "tag": "continue", "reads": ["RECORD"], "writes": ["ALERTS"], "io": ["→ ai.alert e eventos"]},
+        {"name": "12 rule-effects", "tag": "continue", "reads": ["RECORD, SPLIT"], "writes": ["—"], "io": ["→ gather.rule_effect"]},
+        {"name": "13 ai-propose", "tag": "continue", "reads": ["RECORD"], "writes": ["PROPOSALS"], "io": ["⇄ Anthropic (Spring AI)", "→ gather.ledger_entry"]}
+      ]
+    },
+    "process": {
+      "title": "Os passos do grão PROCESS",
+      "sub": "leem o ProcessRun no contexto do processo, e por ele o de cada item",
+      "columns": ["passo · onError", "lê (require / find)", "escreve (put) · E/S"],
+      "rows": [
+        {"name": "14 persist-process-run", "tag": "continue", "reads": ["ProcessRun"], "writes": ["—"], "io": ["→ gather.process_report"]},
+        {"name": "15 export", "tag": "continue", "reads": ["ProcessRun (RECORD", "de cada item)"], "writes": ["—"], "io": ["→ target/exports/<runId>/"]},
+        {"name": "16 report", "tag": "continue", "reads": ["ProcessRun, ALERTS e", "PROPOSALS de cada item"], "writes": ["—"], "io": ["→ gather.run_report"]}
+      ]
+    }
+  },
+  "caption": [
+    "Na thread HTTP, o pedido é validado: as chaves do corpo, o processo e a sua chain, os ids dos targets. Qualquer recusa volta logo como 400 com a razão. Um pedido válido fica em ai.process_run e vai para o pool, e o cliente recebe 202 com o processId.",
+    "Na thread do worker, o Maestro percorre os items: um laço só, ou um por faixa em modo rápido. Para cada item, espera a vez do item, monta o contexto e entrega-o à Chain. A Chain percorre os passos do grão ITEM. Em cada volta verifica o cancelamento, chama apply, grava o passo em ai.chain_run e decide pelo resultado:",
+    {"list": ["CONTINUE, ou FAIL num passo com onError continue: segue para o passo seguinte;",
+              "STOP, FAIL com skip-target, ou cancelamento: sai, e os passos que faltam ficam SKIPPED;",
+              "FAIL com abort: sai também, e faz o Maestro saltar os items seguintes."]},
+    "Depois de todos os items, o mesmo laço corre os três passos do grão PROCESS, e o run fecha."
+  ],
+  "uses": [
+    ["FetchChainLink", "CatalogTargets, Fetcher → PinningFetcher, o Extractor da rota, SecondSources"],
+    ["AdmissionChainLink", "TrapContract (aterragem incluída), Admission"],
+    ["SnapshotChainLink", "SnapshotStore (gather.snapshot)"],
+    ["RulersChainLink", "RuleLedger e RuleSets (base), RuleEngine, ReferenceData (CALC), NewnessOracle (NMB)"],
+    ["ObserveChainLink", "provenance, policy, scope, review, pending (SourcePolicy)"],
+    ["DecideChainLink", "RunSignatures, ConformanceRouter, SnapshotStore (o snapshot anterior), ReferenceData"],
+    ["ReconcileChainLink", "CurrentTables (none em produção, docker localmente)"],
+    ["PersistRunRecordChainLink", "RunRecordRepository"],
+    ["AlertChainLink", "AlertRepository"],
+    ["RuleEffectsChainLink", "RuleEffects"],
+    ["ProposeChainLink", "ProposalRound → AiClient (Spring AI, só com o perfil ai)"],
+    ["PersistProcessRunChainLink", "ProcessRunRepository"],
+    ["ReportChainLink", "RunReports"]
+  ],
+  "evidence": "O laço e as saídas foram lidos de Maestro.run, runInSeries, runInLanes, runItem e Chain.run. O que cada passo lê e escreve foi lido dos slots do contexto do item: require ou find para ler, put para escrever. O que cada classe usa foi lido das suas dependências no construtor. A ordem dos passos é a de ai.process_chain."
+}

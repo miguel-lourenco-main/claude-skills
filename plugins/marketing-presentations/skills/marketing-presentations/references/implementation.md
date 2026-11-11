@@ -704,12 +704,14 @@ value noise (3 octaves) → gain ×2 about the midline → marching squares at 6
 
 ### 8f. Verification tools (Playwright, no extension needed)
 
-Five scripts, run from anywhere, resolving `@playwright/test` from the app checkout: a
-two-settle **walk** (prints `{total, frames, pending, errors}`), **seq** (frames at ms marks
-after load), **motion** (flipbook between two offsets), **checks** (phone overflow,
-reduced-motion armed count + frame, no-JS text) and **hover**. Reference copies live in the
-design-extraction lab at `worlds/expedition/r2/tools/`; the shape of each is the §7 walk
-script with a `ROOT` expression that finds the scroll container:
+Five scripts ship with the skill in `tools/`: a two-settle **walk** (prints
+`{total, frames, pending, errors}`), **seq** (frames at ms marks after load), **motion**
+(flipbook between two offsets), **checks** (phone overflow, reduced-motion armed count + frame,
+and whether an optional `mustText` renders with reduced motion and without JS) and **hover**.
+Each resolves `@playwright/test` from the current directory, or from `PW_FROM` when set, so run
+them from the app checkout (`node <skill>/tools/walk.mjs <url> <outdir>`). The arguments are
+documented on each script's comment line. The shape of each is the §7 walk script with a `ROOT`
+expression that finds the scroll container:
 
 ```js
 const ROOT = `(document.querySelector("[data-scroll-root]") || document.scrollingElement)`;
